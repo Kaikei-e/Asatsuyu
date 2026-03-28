@@ -280,9 +280,9 @@ Feedback on the language design, compiler architecture, or implementation
 approach is genuinely appreciated.
 
 For design discussions, open a
-[Discussion](https://github.com/kaikei/asatsuyu/discussions).
+[Discussion](https://github.com/Kaikei-e/asatsuyu/discussions).
 For bugs or concrete improvements, open an
-[Issue](https://github.com/kaikei/asatsuyu/issues).
+[Issue](https://github.com/Kaikei-e/asatsuyu/issues).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
