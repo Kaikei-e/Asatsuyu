@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Python 3.12+ code generation from typed HIR for the Asatsuyu language"
 
+[lints]
+workspace = true
+
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-ty = { workspace = true }

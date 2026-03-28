@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Recursive descent parser for the Asatsuyu language"
 
+[lints]
+workspace = true
+
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-lexer = { workspace = true }

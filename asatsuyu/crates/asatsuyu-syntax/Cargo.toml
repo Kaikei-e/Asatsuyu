@@ -6,4 +6,7 @@ license.workspace = true
 repository.workspace = true
 description = "Shared type definitions for the Asatsuyu compiler: Span, Diagnostic, TokenKind, NodeKind"
 
+[lints]
+workspace = true
+
 [dependencies]

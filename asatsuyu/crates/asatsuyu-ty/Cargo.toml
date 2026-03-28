@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Hindley-Milner type inference and checking for the Asatsuyu language"
 
+[lints]
+workspace = true
+
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-hir = { workspace = true }

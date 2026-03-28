@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "Command-line interface for the Asatsuyu compiler"
 
+[lints]
+workspace = true
+
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-lexer = { workspace = true }

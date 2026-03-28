@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "High-level IR with name resolution and desugaring for the Asatsuyu language"
 
+[lints]
+workspace = true
+
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-ast = { workspace = true }

@@ -6,6 +6,9 @@ license.workspace = true
 repository.workspace = true
 description = "CST to untyped AST conversion for the Asatsuyu language"
 
+[lints]
+workspace = true
+
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-parser = { workspace = true }
