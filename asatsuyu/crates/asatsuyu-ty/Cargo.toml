@@ -1,0 +1,11 @@
+[package]
+name = "asatsuyu-ty"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hindley-Milner type inference and checking for the Asatsuyu language"
+
+[dependencies]
+asatsuyu-syntax = { workspace = true }
+asatsuyu-hir = { workspace = true }

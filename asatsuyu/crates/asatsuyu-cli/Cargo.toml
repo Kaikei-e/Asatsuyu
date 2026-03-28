@@ -1,0 +1,16 @@
+[package]
+name = "asatsuyu-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for the Asatsuyu compiler"
+
+[dependencies]
+asatsuyu-syntax = { workspace = true }
+asatsuyu-lexer = { workspace = true }
+asatsuyu-parser = { workspace = true }
+asatsuyu-ast = { workspace = true }
+asatsuyu-hir = { workspace = true }
+asatsuyu-ty = { workspace = true }
+asatsuyu-backend-python = { workspace = true }

@@ -1,0 +1,11 @@
+[package]
+name = "asatsuyu-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Recursive descent parser for the Asatsuyu language"
+
+[dependencies]
+asatsuyu-syntax = { workspace = true }
+asatsuyu-lexer = { workspace = true }

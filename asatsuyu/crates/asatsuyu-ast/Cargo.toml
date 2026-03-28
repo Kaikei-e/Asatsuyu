@@ -1,0 +1,11 @@
+[package]
+name = "asatsuyu-ast"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CST to untyped AST conversion for the Asatsuyu language"
+
+[dependencies]
+asatsuyu-syntax = { workspace = true }
+asatsuyu-parser = { workspace = true }

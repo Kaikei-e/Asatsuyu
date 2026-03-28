@@ -1,0 +1,11 @@
+[package]
+name = "asatsuyu-hir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-level IR with name resolution and desugaring for the Asatsuyu language"
+
+[dependencies]
+asatsuyu-syntax = { workspace = true }
+asatsuyu-ast = { workspace = true }

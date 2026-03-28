@@ -1,0 +1,11 @@
+[package]
+name = "asatsuyu-backend-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python 3.12+ code generation from typed HIR for the Asatsuyu language"
+
+[dependencies]
+asatsuyu-syntax = { workspace = true }
+asatsuyu-ty = { workspace = true }

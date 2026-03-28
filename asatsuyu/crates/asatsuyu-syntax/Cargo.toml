@@ -1,0 +1,9 @@
+[package]
+name = "asatsuyu-syntax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shared type definitions for the Asatsuyu compiler: Span, Diagnostic, TokenKind, NodeKind"
+
+[dependencies]
