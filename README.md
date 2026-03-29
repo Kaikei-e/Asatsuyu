@@ -18,12 +18,12 @@
 
 ---
 
-
-**Asatsuyu lets developers write safer application logic for Python without abandoning Python’s libraries.**
-
 Asatsuyu is an experiment in bringing sound static typing to the Python
-ecosystem. It compiles to readable Python 3.12+ source code, aiming to let you
-use algebraic data types, exhaustive pattern matching, and type inference while
+ecosystem. Its syntax and semantics are heavily inspired by
+[Gleam](https://gleam.run) — algebraic data types, exhaustive pattern matching,
+the pipeline operator, `Result`/`Option`, and the principle that a language
+should be small and have one obvious way to do things. Asatsuyu applies these
+ideas to a Python compilation target, aiming to let you write safer code while
 still calling Python libraries directly.
 
 The name comes from the Japanese word **朝露** (morning dew) — something that
@@ -148,8 +148,9 @@ idiomatic Python 3.12+ code.
 4. **Fast feedback.** The compiler is written in Rust. `asatsuyu check` is
    designed to be the fastest path — type-check without code generation.
 
-5. **One way to do it.** The formatter enforces a single canonical style. The
-   language is deliberately small.
+5. **One way to do it.** Following Gleam's formatter philosophy, there is a
+   single canonical style with zero configuration. Following Go's language
+   design philosophy, the language is deliberately small.
 
 6. **Helpful errors.** Inspired by Elm and Gleam, error messages should explain
    *what went wrong* and *how to fix it*.
@@ -298,10 +299,43 @@ Licensed under either of
 
 at your option.
 
-## Acknowledgments
+## Influences
 
-Asatsuyu's design is influenced by
-[Gleam](https://gleam.run),
-[Elm](https://elm-lang.org),
-[Ruff](https://github.com/astral-sh/ruff), and
-[rust-analyzer](https://rust-analyzer.github.io).
+Asatsuyu does not exist in a vacuum. Its design borrows explicitly from several
+languages and tools, and this section documents those debts honestly.
+
+**[Gleam](https://gleam.run)** is the single strongest influence on Asatsuyu's
+design. The surface syntax (`pub fn`, `type ... { }`, `match`, `|>`, `<>`),
+the ADT-centric data model, `Result`/`Option` as first-class error handling,
+the opinionated zero-config formatter, and the philosophy of "one way to do it"
+are all drawn directly from Gleam. Where Gleam compiles to Erlang and
+JavaScript, Asatsuyu targets Python — but the language-level ideas are Gleam's.
+
+**[Elm](https://elm-lang.org)** shaped the approach to error messages (explaining
+*what went wrong* and *how to fix it*) and reinforced the commitment to
+immutability and sound types without escape hatches.
+
+**[Go](https://go.dev)** influenced the tooling philosophy: a single binary
+with `build`, `run`, `fmt`, and `test` built in, a deliberately small language
+surface, and the conviction that a language's value comes partly from what it
+leaves out.
+
+**[F#](https://fsharp.org)** informed the pipeline-oriented programming style
+and the idea that a functional language can coexist productively with a large
+existing runtime ecosystem (as F# does with .NET). The `|>` operator itself
+originates in the ML family; F# popularized it in a mainstream context.
+
+**[Ruff](https://github.com/astral-sh/ruff)** and
+**[rust-analyzer](https://rust-analyzer.github.io)** are the primary
+references for compiler engineering decisions — hand-written recursive descent
+parsing, lossless CST with `rowan`, `logos` for lexing, `miette` for
+diagnostics, and the general approach to incremental analysis in Rust.
+
+**[TypeScript](https://www.typescriptlang.org)** established the precedent
+that a new statically typed language can succeed by compiling to an existing
+dynamic language's source code and embracing its ecosystem wholesale. Asatsuyu
+follows this strategy for Python.
+
+The Python ecosystem — and the communities that maintain
+[typeshed](https://github.com/python/typeshed), CPython, and thousands of
+libraries — makes this project possible.
