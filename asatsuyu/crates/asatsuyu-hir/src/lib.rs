@@ -1,8 +1,8 @@
 //! High-level intermediate representation (HIR) for the Asatsuyu language.
 //!
 //! Performs name resolution: variable references are resolved to [`DefId`]s
-//! via a [`SymbolTable`]. Desugaring of pipeline and string concatenation
-//! operators will be added in Issue 21.
+//! via a [`SymbolTable`] and a lexical scope stack. Desugaring of pipeline
+//! and string concatenation operators will be added in Issue 21.
 //!
 //! # Usage
 //!
@@ -23,7 +23,8 @@ mod lower;
 mod types;
 
 pub use types::{
-    DefData, DefId, DefKind, HirExpr, HirFnDef, HirLiteral, HirModule, HirParam, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirLiteral, HirMatchArm, HirModule,
+    HirParam, HirPattern, SymbolTable,
 };
 
 use asatsuyu_ast::Module;
@@ -49,8 +50,9 @@ impl HirLowerResult {
 /// Lower an AST module into HIR with name resolution.
 ///
 /// Registers all definitions in a [`SymbolTable`] and resolves variable
-/// references to [`DefId`]s. Unresolved names produce diagnostics but
-/// lowering continues with dummy definitions.
+/// references to [`DefId`]s using lexical scoping. Unresolved names and
+/// duplicate top-level definitions produce diagnostics but lowering
+/// continues.
 #[must_use]
 pub fn lower_to_hir(ast: &Module) -> HirLowerResult {
     let mut ctx = lower::HirLowerCtx::new();
@@ -322,5 +324,315 @@ mod tests {
         let f_fn = result.module.functions[0].def_id;
         let g_fn = result.module.functions[1].def_id;
         assert_ne!(f_fn, g_fn);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Issue 20: New tests for scoping, patterns, and expression lowering
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── 15. Parameter shadows function name ─────────────────────────
+
+    #[test]
+    fn scope_parameter_shadows_function() {
+        // Parameter `f` should shadow the function `f` in the body.
+        let result = hir_from_source("fn f(f: Int) -> Int { f }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        let param_def_id = func.params[0].def_id;
+
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    assert_eq!(
+                        *def_id, param_def_id,
+                        "body `f` should resolve to parameter, not function"
+                    );
+                }
+                other => panic!("expected Var, got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 16. Call expression lowering ────────────────────────────────
+
+    #[test]
+    fn lower_call_expr() {
+        let result = hir_from_source("fn f(x: Int) -> Int { f(1) }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Call { func: callee, args, .. } => {
+                    assert!(matches!(callee.as_ref(), HirExpr::Var(..)));
+                    assert_eq!(args.len(), 1);
+                }
+                other => panic!("expected Call, got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 17. Binary operation lowering ───────────────────────────────
+
+    #[test]
+    fn lower_binary_op() {
+        let result = hir_from_source("fn f() -> Int { 1 + 2 }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => {
+                assert!(matches!(&exprs[0], HirExpr::BinaryOp { .. }));
+            }
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 18. Unary operation lowering ────────────────────────────────
+
+    #[test]
+    fn lower_unary_op() {
+        let result = hir_from_source("fn f(x: Int) -> Int { -x }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => {
+                assert!(matches!(&exprs[0], HirExpr::UnaryOp { .. }));
+            }
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 19. If expression lowering ──────────────────────────────────
+
+    #[test]
+    fn lower_if_expr() {
+        let result = hir_from_source("fn f(x: Int) -> Int { if x { 1 } else { 2 } }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::If { else_body, .. } => {
+                    assert!(else_body.is_some(), "else branch should exist");
+                }
+                other => panic!("expected If, got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 20. Pipeline lowering ───────────────────────────────────────
+
+    #[test]
+    fn lower_pipeline() {
+        let result = hir_from_source("fn f(x: Int) -> Int { x |> g }");
+        // `g` is unresolved but pipeline structure should still be produced.
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => {
+                assert!(matches!(&exprs[0], HirExpr::Pipeline { .. }));
+            }
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 21. Match with pattern binding ──────────────────────────────
+
+    #[test]
+    fn match_pattern_binding() {
+        let source = "type Option(a) {\n  Some(a)\n  None\n}\n\
+                       fn f(x: Int) -> Int {\n  match x {\n    0 -> 0\n    y -> y\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Match { arms, .. } => {
+                    assert_eq!(arms.len(), 2);
+                    // Second arm binds `y` and uses it
+                    match &arms[1].pattern {
+                        HirPattern::Variable(def_id, _) => {
+                            let data = result.module.symbol_table.get(*def_id);
+                            assert_eq!(data.name.as_str(), "y");
+                            assert_eq!(data.kind, DefKind::LocalBinding);
+                        }
+                        other => panic!("expected Variable pattern, got {other:?}"),
+                    }
+                    // Body should reference the same DefId
+                    match &arms[1].body {
+                        HirExpr::Var(body_def_id, _) => {
+                            if let HirPattern::Variable(pat_def_id, _) = &arms[1].pattern {
+                                assert_eq!(body_def_id, pat_def_id);
+                            }
+                        }
+                        other => panic!("expected Var, got {other:?}"),
+                    }
+                }
+                other => panic!("expected Match, got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    // ── 22. Match arm scope isolation ────────────────────────────────
+
+    #[test]
+    fn match_arm_scope_isolation() {
+        // Each arm's binding should have a distinct DefId even if same name.
+        let source = "fn f(x: Int) -> Int {\n  match x {\n    y -> y\n    y -> y\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body
+            && let HirExpr::Match { arms, .. } = &exprs[0]
+            && let (HirPattern::Variable(id1, _), HirPattern::Variable(id2, _)) =
+                (&arms[0].pattern, &arms[1].pattern)
+        {
+            assert_ne!(id1, id2, "arm bindings should have distinct DefIds");
+        }
+    }
+
+    // ── 23. Wildcard pattern ────────────────────────────────────────
+
+    #[test]
+    fn match_wildcard_pattern() {
+        let source = "fn f(x: Int) -> Int {\n  match x {\n    _ -> 0\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body
+            && let HirExpr::Match { arms, .. } = &exprs[0]
+        {
+            assert!(matches!(&arms[0].pattern, HirPattern::Wildcard(_)));
+        }
+    }
+
+    // ── 24. Literal pattern ─────────────────────────────────────────
+
+    #[test]
+    fn match_literal_pattern() {
+        let source = "fn f(x: Int) -> Int {\n  match x {\n    42 -> 1\n    _ -> 0\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body
+            && let HirExpr::Match { arms, .. } = &exprs[0]
+        {
+            assert!(matches!(&arms[0].pattern, HirPattern::Literal(_)));
+        }
+    }
+
+    // ── 25. Constructor pattern ─────────────────────────────────────
+
+    #[test]
+    fn match_constructor_pattern() {
+        let source = "type Option(a) {\n  Some(a)\n  None\n}\n\
+                       fn f(opt: Option) -> Int {\n  match opt {\n    Some(x) -> x\n    None -> 0\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body
+            && let HirExpr::Match { arms, .. } = &exprs[0]
+        {
+            match &arms[0].pattern {
+                HirPattern::Constructor { name, fields, .. } => {
+                    assert_eq!(name.as_str(), "Some");
+                    assert_eq!(fields.len(), 1);
+                    assert!(matches!(&fields[0], HirPattern::Variable(..)));
+                }
+                other => panic!("expected Constructor, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 26. List pattern with rest ──────────────────────────────────
+
+    #[test]
+    fn match_list_pattern() {
+        let source =
+            "fn f(items: List) -> Int {\n  match items {\n    [h, ..t] -> h\n    [] -> 0\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body
+            && let HirExpr::Match { arms, .. } = &exprs[0]
+        {
+            match &arms[0].pattern {
+                HirPattern::List { elements, rest, .. } => {
+                    assert_eq!(elements.len(), 1);
+                    assert!(rest.is_some(), "rest binding should exist");
+                    // h should be resolvable in body
+                    match &arms[0].body {
+                        HirExpr::Var(def_id, _) => {
+                            let data = result.module.symbol_table.get(*def_id);
+                            assert_eq!(data.name.as_str(), "h");
+                        }
+                        other => panic!("expected Var, got {other:?}"),
+                    }
+                }
+                other => panic!("expected List, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 27. Duplicate function diagnostic ───────────────────────────
+
+    #[test]
+    fn duplicate_function_diagnostic() {
+        let result = hir_from_source("fn f() { 1 }\nfn f() { 2 }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate definition `f`")),
+            "expected duplicate diagnostic: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 28. Constructor resolves in expression ──────────────────────
+
+    #[test]
+    fn constructor_resolves_in_expression() {
+        let source = "type Option(a) {\n  Some(a)\n  None\n}\n\
+                       fn f() -> Int { None }";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        // `None` should resolve to the constructor DefId
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body {
+            match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "None");
+                    assert_eq!(data.kind, DefKind::Constructor);
+                }
+                other => panic!("expected Var, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 29. match_basic.asty full e2e ───────────────────────────────
+
+    #[test]
+    fn lower_match_basic_asty() {
+        let source = include_str!("../../../examples/match_basic.asty");
+        let cst = parse(FID, source);
+        let ast = asatsuyu_ast::lower(&cst, FID);
+        let result = lower_to_hir(&ast.module);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        // match_basic.asty has 1 type + 3 functions
+        assert_eq!(result.module.custom_types.len(), 1);
+        assert_eq!(result.module.functions.len(), 3);
     }
 }

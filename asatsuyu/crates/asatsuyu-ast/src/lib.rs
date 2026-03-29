@@ -74,7 +74,9 @@ mod tests {
     fn get_fn(module: &Module, index: usize) -> &FnDef {
         match &module.definitions[index] {
             Definition::Function(f) => f,
-            Definition::CustomType(ct) => panic!("expected Function, got CustomType({:?})", ct.name),
+            Definition::CustomType(ct) => {
+                panic!("expected Function, got CustomType({:?})", ct.name)
+            }
         }
     }
 

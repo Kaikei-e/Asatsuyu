@@ -50,11 +50,7 @@ pub enum Visibility {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeExpr {
     /// A named type with optional type arguments.
-    Named {
-        name: Ident,
-        args: Vec<TypeExpr>,
-        span: Span,
-    },
+    Named { name: Ident, args: Vec<TypeExpr>, span: Span },
 }
 
 impl TypeExpr {
@@ -179,11 +175,7 @@ pub enum Pattern {
     /// `42`, `"hello"`, `True`
     Literal(Literal),
     /// `Some(x)`, `Ok(value)`
-    Constructor {
-        name: Ident,
-        fields: Vec<Pattern>,
-        span: Span,
-    },
+    Constructor { name: Ident, fields: Vec<Pattern>, span: Span },
     /// `[head, ..rest]`, `[]`
     List {
         elements: Vec<Pattern>,
@@ -200,9 +192,9 @@ impl Pattern {
         match self {
             Self::Variable(ident) => ident.span,
             Self::Literal(lit) => lit.span,
-            Self::Wildcard(span)
-            | Self::Constructor { span, .. }
-            | Self::List { span, .. } => *span,
+            Self::Wildcard(span) | Self::Constructor { span, .. } | Self::List { span, .. } => {
+                *span
+            }
         }
     }
 }
@@ -255,48 +247,19 @@ pub enum Expr {
     /// A variable reference: `foo`.
     Variable(Ident),
     /// A block expression: `{ expr1; expr2 }`.
-    Block {
-        exprs: Vec<Expr>,
-        span: Span,
-    },
+    Block { exprs: Vec<Expr>, span: Span },
     /// A function call: `f(a, b)`.
-    Call {
-        func: Box<Expr>,
-        args: Vec<Expr>,
-        span: Span,
-    },
+    Call { func: Box<Expr>, args: Vec<Expr>, span: Span },
     /// A binary operation: `a + b`, `x == y`.
-    BinaryOp {
-        op: BinOp,
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
-        span: Span,
-    },
+    BinaryOp { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr>, span: Span },
     /// A unary operation: `-x`, `!flag`.
-    UnaryOp {
-        op: UnOp,
-        expr: Box<Expr>,
-        span: Span,
-    },
+    UnaryOp { op: UnOp, expr: Box<Expr>, span: Span },
     /// An if expression: `if cond { a } else { b }`.
-    If {
-        condition: Box<Expr>,
-        then_body: Box<Expr>,
-        else_body: Option<Box<Expr>>,
-        span: Span,
-    },
+    If { condition: Box<Expr>, then_body: Box<Expr>, else_body: Option<Box<Expr>>, span: Span },
     /// A match expression: `match subject { pattern -> expr ... }`.
-    Match {
-        subject: Box<Expr>,
-        arms: Vec<MatchArm>,
-        span: Span,
-    },
+    Match { subject: Box<Expr>, arms: Vec<MatchArm>, span: Span },
     /// A pipeline expression: `x |> f`.
-    Pipeline {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        span: Span,
-    },
+    Pipeline { left: Box<Expr>, right: Box<Expr>, span: Span },
 }
 
 impl Expr {

@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 use asatsuyu_ast::LiteralKind;
 use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirModule, SymbolTable};
 use asatsuyu_syntax::{Diagnostic, Span};
+use smol_str::SmolStr;
 
 use crate::types::{PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirModule, ThirParam, Ty};
 
@@ -182,6 +183,19 @@ impl TyCheckCtx {
                 let ty = checked.last().map_or(Ty::Primitive(PrimTy::None), |e| e.ty().clone());
                 ThirExpr::Block { exprs: checked, ty, span: *span }
             }
+
+            // Type checking for these expression kinds is Issue 23+.
+            HirExpr::Call { span, .. }
+            | HirExpr::BinaryOp { span, .. }
+            | HirExpr::UnaryOp { span, .. }
+            | HirExpr::If { span, .. }
+            | HirExpr::Match { span, .. }
+            | HirExpr::Pipeline { span, .. } => ThirExpr::Literal(ThirLiteral {
+                kind: LiteralKind::Int,
+                value: SmolStr::from("0"),
+                ty: Ty::Error,
+                span: *span,
+            }),
         }
     }
 }

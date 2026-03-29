@@ -143,10 +143,7 @@ impl LowerCtx {
 
         let module: Vec<Ident> = path_idents
             .iter()
-            .map(|t| Ident {
-                name: SmolStr::from(t.text()),
-                span: span_of_token(t, self.file_id),
-            })
+            .map(|t| Ident { name: SmolStr::from(t.text()), span: span_of_token(t, self.file_id) })
             .collect();
 
         Some(Import { module, alias, span: span_of(node, self.file_id) })
@@ -227,18 +224,11 @@ impl LowerCtx {
             TypeBody::Record(record_fields)
         } else {
             // Variant style (or empty)
-            let vs: Vec<Variant> =
-                variants.iter().filter_map(|v| self.lower_variant(v)).collect();
+            let vs: Vec<Variant> = variants.iter().filter_map(|v| self.lower_variant(v)).collect();
             TypeBody::Variants(vs)
         };
 
-        Some(CustomType {
-            name,
-            visibility,
-            type_params,
-            body,
-            span: span_of(node, self.file_id),
-        })
+        Some(CustomType { name, visibility, type_params, body, span: span_of(node, self.file_id) })
     }
 
     /// Extract type parameters from `TypeParam` children.
@@ -405,15 +395,9 @@ impl LowerCtx {
         }
 
         let token = first_token_of_kind(node, SyntaxKind::Ident)?;
-        let name = Ident {
-            name: SmolStr::from(token.text()),
-            span: span_of_token(&token, self.file_id),
-        };
-        Some(TypeExpr::Named {
-            name,
-            args: Vec::new(),
-            span: span_of_token(&token, self.file_id),
-        })
+        let name =
+            Ident { name: SmolStr::from(token.text()), span: span_of_token(&token, self.file_id) };
+        Some(TypeExpr::Named { name, args: Vec::new(), span: span_of_token(&token, self.file_id) })
     }
 
     // ── BlockExpr ───────────────────────────────────────────────────
@@ -454,19 +438,16 @@ impl LowerCtx {
     fn lower_literal_expr(&mut self, node: &SyntaxNode) -> Option<Expr> {
         debug_assert_eq!(node.kind(), SyntaxKind::LiteralExpr);
 
-        let token = node
-            .children_with_tokens()
-            .filter_map(|el| el.into_token())
-            .find(|t| {
-                matches!(
-                    t.kind(),
-                    SyntaxKind::IntLit
-                        | SyntaxKind::FloatLit
-                        | SyntaxKind::StringLit
-                        | SyntaxKind::TrueKw
-                        | SyntaxKind::FalseKw
-                )
-            })?;
+        let token = node.children_with_tokens().filter_map(|el| el.into_token()).find(|t| {
+            matches!(
+                t.kind(),
+                SyntaxKind::IntLit
+                    | SyntaxKind::FloatLit
+                    | SyntaxKind::StringLit
+                    | SyntaxKind::TrueKw
+                    | SyntaxKind::FalseKw
+            )
+        })?;
 
         let kind = match token.kind() {
             SyntaxKind::IntLit => LiteralKind::Int,
@@ -534,27 +515,24 @@ impl LowerCtx {
         let rhs = self.lower_expr(&children[1])?;
 
         // Find the operator token between children
-        let op_token = node
-            .children_with_tokens()
-            .filter_map(|el| el.into_token())
-            .find(|t| {
-                matches!(
-                    t.kind(),
-                    SyntaxKind::Plus
-                        | SyntaxKind::Minus
-                        | SyntaxKind::Star
-                        | SyntaxKind::Slash
-                        | SyntaxKind::Percent
-                        | SyntaxKind::EqEq
-                        | SyntaxKind::BangEq
-                        | SyntaxKind::Lt
-                        | SyntaxKind::LtEq
-                        | SyntaxKind::Gt
-                        | SyntaxKind::GtEq
-                        | SyntaxKind::AmpAmp
-                        | SyntaxKind::PipePipe
-                )
-            })?;
+        let op_token = node.children_with_tokens().filter_map(|el| el.into_token()).find(|t| {
+            matches!(
+                t.kind(),
+                SyntaxKind::Plus
+                    | SyntaxKind::Minus
+                    | SyntaxKind::Star
+                    | SyntaxKind::Slash
+                    | SyntaxKind::Percent
+                    | SyntaxKind::EqEq
+                    | SyntaxKind::BangEq
+                    | SyntaxKind::Lt
+                    | SyntaxKind::LtEq
+                    | SyntaxKind::Gt
+                    | SyntaxKind::GtEq
+                    | SyntaxKind::AmpAmp
+                    | SyntaxKind::PipePipe
+            )
+        })?;
 
         let op = match op_token.kind() {
             SyntaxKind::Plus => BinOp::Add,
@@ -599,11 +577,7 @@ impl LowerCtx {
 
         let operand = node.children().find_map(|c| self.lower_expr(&c))?;
 
-        Some(Expr::UnaryOp {
-            op,
-            expr: Box::new(operand),
-            span: span_of(node, self.file_id),
-        })
+        Some(Expr::UnaryOp { op, expr: Box::new(operand), span: span_of(node, self.file_id) })
     }
 
     // ── PipelineExpr ────────────────────────────────────────────────
@@ -675,11 +649,7 @@ impl LowerCtx {
             .filter_map(|arm| self.lower_match_arm(arm))
             .collect();
 
-        Some(Expr::Match {
-            subject: Box::new(subject),
-            arms,
-            span: span_of(node, self.file_id),
-        })
+        Some(Expr::Match { subject: Box::new(subject), arms, span: span_of(node, self.file_id) })
     }
 
     fn lower_match_arm(&mut self, node: &SyntaxNode) -> Option<MatchArm> {
@@ -719,10 +689,8 @@ impl LowerCtx {
                 }))
             }
             SyntaxKind::LiteralPat => {
-                let token = node
-                    .children_with_tokens()
-                    .filter_map(|el| el.into_token())
-                    .find(|t| {
+                let token =
+                    node.children_with_tokens().filter_map(|el| el.into_token()).find(|t| {
                         matches!(
                             t.kind(),
                             SyntaxKind::IntLit
@@ -766,26 +734,23 @@ impl LowerCtx {
                     .collect();
 
                 // Rest binding: `..rest` — look for DotDot + optional Ident after it
-                let has_dot_dot =
-                    first_token_of_kind(node, SyntaxKind::DotDot).is_some();
+                let has_dot_dot = first_token_of_kind(node, SyntaxKind::DotDot).is_some();
                 let rest = if has_dot_dot {
                     // Find Ident after DotDot
                     let mut found_dots = false;
-                    node.children_with_tokens()
-                        .filter_map(|el| el.into_token())
-                        .find_map(|t| {
-                            if t.kind() == SyntaxKind::DotDot {
-                                found_dots = true;
-                                None
-                            } else if found_dots && t.kind() == SyntaxKind::Ident {
-                                Some(Ident {
-                                    name: SmolStr::from(t.text()),
-                                    span: span_of_token(&t, self.file_id),
-                                })
-                            } else {
-                                None
-                            }
-                        })
+                    node.children_with_tokens().filter_map(|el| el.into_token()).find_map(|t| {
+                        if t.kind() == SyntaxKind::DotDot {
+                            found_dots = true;
+                            None
+                        } else if found_dots && t.kind() == SyntaxKind::Ident {
+                            Some(Ident {
+                                name: SmolStr::from(t.text()),
+                                span: span_of_token(&t, self.file_id),
+                            })
+                        } else {
+                            None
+                        }
+                    })
                 } else {
                     None
                 };

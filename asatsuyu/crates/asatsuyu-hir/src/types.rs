@@ -4,7 +4,7 @@
 //! where variable references are resolved to [`DefId`]s via a [`SymbolTable`].
 //! Every node carries a [`Span`] for error reporting.
 
-use asatsuyu_ast::{LiteralKind, Visibility};
+use asatsuyu_ast::{BinOp, LiteralKind, UnOp, Visibility};
 use asatsuyu_syntax::Span;
 use la_arena::{Arena, Idx};
 use smol_str::SmolStr;
@@ -27,16 +27,19 @@ pub struct DefData {
 pub enum DefKind {
     Function,
     Parameter,
+    /// A binding introduced by a pattern (match arm, let binding).
+    LocalBinding,
+    /// An ADT constructor (e.g., `Some`, `None`, `Ok`, `Err`).
+    Constructor,
 }
 
 // ── Symbol Table ────────────────────────────────────────────────────
 
-/// Provisional symbol table: an arena of definitions.
+/// Symbol table: an arena of definitions.
 ///
-/// Stores all definitions (functions, parameters) for a module. Name lookup
-/// is handled by the lowering context's scope maps, not by this struct.
-///
-/// Issue 20 will add lexical scopes, nested resolution, and shadowing.
+/// Stores all definitions (functions, parameters, constructors, local
+/// bindings) for a module. Name lookup is handled by the lowering
+/// context's [`ScopeStack`](super::lower::ScopeStack).
 #[derive(Debug)]
 pub struct SymbolTable {
     defs: Arena<DefData>,
@@ -90,7 +93,18 @@ impl Default for SymbolTable {
 #[derive(Debug)]
 pub struct HirModule {
     pub functions: Vec<HirFnDef>,
+    pub custom_types: Vec<HirCustomType>,
     pub symbol_table: SymbolTable,
+    pub span: Span,
+}
+
+// ── HIR Custom Type ─────────────────────────────────────────────────
+
+/// A custom type definition in HIR, with a resolved [`DefId`].
+#[derive(Debug)]
+pub struct HirCustomType {
+    pub def_id: DefId,
+    pub visibility: Visibility,
     pub span: Span,
 }
 
@@ -129,6 +143,48 @@ pub struct HirLiteral {
     pub span: Span,
 }
 
+// ── HIR Pattern ─────────────────────────────────────────────────────
+
+/// A pattern in HIR, with bindings resolved to [`DefId`]s.
+#[derive(Debug)]
+pub enum HirPattern {
+    /// `_`
+    Wildcard(Span),
+    /// A variable binding resolved to a [`DefId`].
+    Variable(DefId, Span),
+    /// `42`, `"hello"`, `True`
+    Literal(HirLiteral),
+    /// `Some(x)`, `Ok(value)`
+    Constructor { name: SmolStr, fields: Vec<HirPattern>, span: Span },
+    /// `[head, ..rest]`, `[]`
+    List { elements: Vec<HirPattern>, rest: Option<DefId>, span: Span },
+}
+
+impl HirPattern {
+    /// Returns the span of this pattern.
+    #[must_use]
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Literal(lit) => lit.span,
+            Self::Variable(_, span)
+            | Self::Wildcard(span)
+            | Self::Constructor { span, .. }
+            | Self::List { span, .. } => *span,
+        }
+    }
+}
+
+// ── HIR Match Arm ───────────────────────────────────────────────────
+
+/// A single arm in a match expression in HIR.
+#[derive(Debug)]
+pub struct HirMatchArm {
+    pub pattern: HirPattern,
+    pub guard: Option<Box<HirExpr>>,
+    pub body: HirExpr,
+    pub span: Span,
+}
+
 // ── HIR Expression ──────────────────────────────────────────────────
 
 /// An expression node in HIR.
@@ -142,6 +198,23 @@ pub enum HirExpr {
     Var(DefId, Span),
     /// A block expression: `{ expr1; expr2 }`.
     Block { exprs: Vec<HirExpr>, span: Span },
+    /// A function call: `f(a, b)`.
+    Call { func: Box<HirExpr>, args: Vec<HirExpr>, span: Span },
+    /// A binary operation: `a + b`.
+    BinaryOp { op: BinOp, lhs: Box<HirExpr>, rhs: Box<HirExpr>, span: Span },
+    /// A unary operation: `-x`, `!flag`.
+    UnaryOp { op: UnOp, expr: Box<HirExpr>, span: Span },
+    /// An if expression: `if cond { a } else { b }`.
+    If {
+        condition: Box<HirExpr>,
+        then_body: Box<HirExpr>,
+        else_body: Option<Box<HirExpr>>,
+        span: Span,
+    },
+    /// A match expression: `match subject { pattern -> expr ... }`.
+    Match { subject: Box<HirExpr>, arms: Vec<HirMatchArm>, span: Span },
+    /// A pipeline expression: `x |> f` (desugared in Issue 21).
+    Pipeline { left: Box<HirExpr>, right: Box<HirExpr>, span: Span },
 }
 
 impl HirExpr {
@@ -150,7 +223,14 @@ impl HirExpr {
     pub fn span(&self) -> Span {
         match self {
             Self::Literal(lit) => lit.span,
-            Self::Var(_, span) | Self::Block { span, .. } => *span,
+            Self::Var(_, span)
+            | Self::Block { span, .. }
+            | Self::Call { span, .. }
+            | Self::BinaryOp { span, .. }
+            | Self::UnaryOp { span, .. }
+            | Self::If { span, .. }
+            | Self::Match { span, .. }
+            | Self::Pipeline { span, .. } => *span,
         }
     }
 }
