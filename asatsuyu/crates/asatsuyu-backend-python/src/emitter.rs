@@ -4,6 +4,7 @@
 
 use std::fmt::Write;
 
+use asatsuyu_ast::{BinOp, UnOp};
 use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirModule, Ty};
 
 /// 4-space indentation per PEP 8.
@@ -136,11 +137,86 @@ impl<'a> Emitter<'a> {
                     self.emit_expr(last);
                 }
             }
+            ThirExpr::Call { func, args, .. } => {
+                self.emit_expr(func);
+                self.output.push('(');
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.emit_expr(arg);
+                }
+                self.output.push(')');
+            }
+            ThirExpr::BinaryOp { op, lhs, rhs, .. } => {
+                self.output.push('(');
+                self.emit_expr(lhs);
+                self.output.push_str(binop_to_python(*op));
+                self.emit_expr(rhs);
+                self.output.push(')');
+            }
+            ThirExpr::UnaryOp { op, expr, .. } => {
+                self.output.push('(');
+                self.output.push_str(unop_to_python(*op));
+                self.emit_expr(expr);
+                self.output.push(')');
+            }
+            ThirExpr::If { condition, then_body, else_body, .. } => {
+                // Python ternary: (then if cond else else_)
+                self.output.push('(');
+                self.emit_expr(then_body);
+                self.output.push_str(" if ");
+                self.emit_expr(condition);
+                self.output.push_str(" else ");
+                if let Some(else_expr) = else_body {
+                    self.emit_expr(else_expr);
+                } else {
+                    self.output.push_str("None");
+                }
+                self.output.push(')');
+            }
+            ThirExpr::Match { subject, arms, .. } => {
+                // Placeholder: pattern typing is Issue 26+.
+                // Emit a basic match/case structure.
+                // In statement position this would be multi-line; in expression
+                // position we fall back to emitting the first arm body.
+                if let Some(first) = arms.first() {
+                    self.emit_expr(&first.body);
+                }
+                let _ = (subject, arms);
+            }
         }
     }
 }
 
 // ── Type mapping ───────────────────────────────────────────────────
+
+/// Map a binary operator to its Python syntax (with surrounding spaces).
+fn binop_to_python(op: BinOp) -> &'static str {
+    match op {
+        BinOp::Add | BinOp::StringConcat => " + ",
+        BinOp::Sub => " - ",
+        BinOp::Mul => " * ",
+        BinOp::Div => " / ",
+        BinOp::Mod => " % ",
+        BinOp::Eq => " == ",
+        BinOp::NotEq => " != ",
+        BinOp::Lt => " < ",
+        BinOp::LtEq => " <= ",
+        BinOp::Gt => " > ",
+        BinOp::GtEq => " >= ",
+        BinOp::And => " and ",
+        BinOp::Or => " or ",
+    }
+}
+
+/// Map a unary operator to its Python syntax.
+fn unop_to_python(op: UnOp) -> &'static str {
+    match op {
+        UnOp::Neg => "-",
+        UnOp::Not => "not ",
+    }
+}
 
 /// Map an Asatsuyu [`Ty`] to its Python type annotation string.
 fn ty_to_python(ty: &Ty) -> &'static str {

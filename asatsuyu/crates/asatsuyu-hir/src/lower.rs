@@ -147,11 +147,8 @@ impl HirLowerCtx {
         ast.imports
             .iter()
             .filter_map(|imp| {
-                let bound_name = if let Some(alias) = &imp.alias {
-                    alias
-                } else {
-                    imp.module.last()?
-                };
+                let bound_name =
+                    if let Some(alias) = &imp.alias { alias } else { imp.module.last()? };
 
                 let def_id = self.symbol_table.alloc(DefData {
                     name: bound_name.name.clone(),
@@ -404,10 +401,7 @@ impl HirLowerCtx {
                 let def_id = if let Some(id) = self.scopes.resolve(&name.name) {
                     id
                 } else {
-                    self.push_error(
-                        format!("unresolved constructor `{}`", name.name),
-                        name.span,
-                    );
+                    self.push_error(format!("unresolved constructor `{}`", name.name), name.span);
                     self.symbol_table.alloc(DefData {
                         name: name.name.clone(),
                         kind: DefKind::Constructor,

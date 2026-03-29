@@ -119,11 +119,7 @@ impl<'a> Parser<'a> {
         while i < self.tokens.len() && self.tokens[i].kind.is_trivia() {
             i += 1;
         }
-        if i < self.tokens.len() {
-            &self.tokens[i].text
-        } else {
-            ""
-        }
+        if i < self.tokens.len() { &self.tokens[i].text } else { "" }
     }
 
     /// Returns the span of the current non-trivia token.

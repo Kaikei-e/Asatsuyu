@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use asatsuyu_ast::{LiteralKind, Visibility};
+use asatsuyu_ast::{BinOp, LiteralKind, UnOp, Visibility};
 use asatsuyu_hir::{DefId, SymbolTable};
 use asatsuyu_syntax::Span;
 use smol_str::SmolStr;
@@ -131,6 +131,15 @@ pub struct ThirLiteral {
     pub span: Span,
 }
 
+// ── THIR Match Arm ─────────────────────────────────────────────────
+
+/// A type-checked match arm. Pattern typing is deferred to Issue 26+.
+#[derive(Debug)]
+pub struct ThirMatchArm {
+    pub body: ThirExpr,
+    pub span: Span,
+}
+
 // ── THIR Expression ────────────────────────────────────────────────
 
 /// A type-checked expression. Every variant carries a [`Ty`].
@@ -142,6 +151,22 @@ pub enum ThirExpr {
     Var { def_id: DefId, ty: Ty, span: Span },
     /// A block expression: `{ expr1; expr2 }`.
     Block { exprs: Vec<ThirExpr>, ty: Ty, span: Span },
+    /// A function call: `f(a, b)`.
+    Call { func: Box<ThirExpr>, args: Vec<ThirExpr>, ty: Ty, span: Span },
+    /// A binary operation: `a + b`.
+    BinaryOp { op: BinOp, lhs: Box<ThirExpr>, rhs: Box<ThirExpr>, ty: Ty, span: Span },
+    /// A unary operation: `-x`, `!flag`.
+    UnaryOp { op: UnOp, expr: Box<ThirExpr>, ty: Ty, span: Span },
+    /// An if expression: `if cond { a } else { b }`.
+    If {
+        condition: Box<ThirExpr>,
+        then_body: Box<ThirExpr>,
+        else_body: Option<Box<ThirExpr>>,
+        ty: Ty,
+        span: Span,
+    },
+    /// A match expression: `match subject { pattern -> expr ... }`.
+    Match { subject: Box<ThirExpr>, arms: Vec<ThirMatchArm>, ty: Ty, span: Span },
 }
 
 impl ThirExpr {
@@ -150,7 +175,13 @@ impl ThirExpr {
     pub fn ty(&self) -> &Ty {
         match self {
             Self::Literal(lit) => &lit.ty,
-            Self::Var { ty, .. } | Self::Block { ty, .. } => ty,
+            Self::Var { ty, .. }
+            | Self::Block { ty, .. }
+            | Self::Call { ty, .. }
+            | Self::BinaryOp { ty, .. }
+            | Self::UnaryOp { ty, .. }
+            | Self::If { ty, .. }
+            | Self::Match { ty, .. } => ty,
         }
     }
 
@@ -159,7 +190,13 @@ impl ThirExpr {
     pub fn span(&self) -> Span {
         match self {
             Self::Literal(lit) => lit.span,
-            Self::Var { span, .. } | Self::Block { span, .. } => *span,
+            Self::Var { span, .. }
+            | Self::Block { span, .. }
+            | Self::Call { span, .. }
+            | Self::BinaryOp { span, .. }
+            | Self::UnaryOp { span, .. }
+            | Self::If { span, .. }
+            | Self::Match { span, .. } => *span,
         }
     }
 }

@@ -21,8 +21,11 @@
 
 mod check;
 mod types;
+mod unify;
 
-pub use types::{PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirModule, ThirParam, Ty, TyVarId};
+pub use types::{
+    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty, TyVarId,
+};
 
 use asatsuyu_hir::HirModule;
 use asatsuyu_syntax::{Diagnostic, Severity};
@@ -314,5 +317,188 @@ mod tests {
 
         // Body and its inner expressions have non-Error types.
         assert_no_error_ty(&f.body);
+    }
+
+    // ── 16. Call — basic ───────────────────────────────────────────
+
+    #[test]
+    fn check_call_basic() {
+        let result = thir_from_source("fn f(x: Int) -> Int { x }\nfn g() -> Int { f(1) }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let g = &result.module.functions[1];
+        assert_eq!(g.return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    // ── 17. Call — arity mismatch ──────────────────────────────────
+
+    #[test]
+    fn check_call_arity_mismatch() {
+        let result = thir_from_source("fn f(x: Int) -> Int { x }\nfn g() { f(1, 2) }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("argument")),
+            "expected arity diagnostic: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 18. Call — type mismatch ───────────────────────────────────
+
+    #[test]
+    fn check_call_type_mismatch() {
+        let result = thir_from_source(r#"fn f(x: Int) -> Int { x } fn g() { f("hello") }"#);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("type mismatch")),
+            "expected type mismatch: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 19. BinaryOp — add ─────────────────────────────────────────
+
+    #[test]
+    fn check_binary_add() {
+        let result = thir_from_source("fn f(x: Int, y: Int) -> Int { x + y }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        assert_eq!(f.return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    // ── 20. BinaryOp — eq ──────────────────────────────────────────
+
+    #[test]
+    fn check_binary_eq() {
+        let result = thir_from_source("fn f(x: Int, y: Int) -> Bool { x == y }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        assert_eq!(f.return_ty, Ty::Primitive(PrimTy::Bool));
+    }
+
+    // ── 21. BinaryOp — type mismatch ───────────────────────────────
+
+    #[test]
+    fn check_binary_type_mismatch() {
+        let result = thir_from_source(r#"fn f() -> Int { 1 + "hello" }"#);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("type mismatch")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 22. BinaryOp — logical and ─────────────────────────────────
+
+    #[test]
+    fn check_binary_and() {
+        let result = thir_from_source("fn f(a: Bool, b: Bool) -> Bool { a && b }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── 23. UnaryOp — neg ──────────────────────────────────────────
+
+    #[test]
+    fn check_unary_neg() {
+        let result = thir_from_source("fn f(x: Int) -> Int { -x }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        assert_eq!(f.return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    // ── 24. UnaryOp — not ──────────────────────────────────────────
+
+    #[test]
+    fn check_unary_not() {
+        let result = thir_from_source("fn f(x: Bool) -> Bool { !x }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── 25. If — basic ─────────────────────────────────────────────
+
+    #[test]
+    fn check_if_basic() {
+        let result = thir_from_source("fn f(b: Bool) -> Int { if b { 1 } else { 2 } }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        assert_eq!(f.return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    // ── 26. If — branch type mismatch ──────────────────────────────
+
+    #[test]
+    fn check_if_branch_mismatch() {
+        let result = thir_from_source(r#"fn f(b: Bool) { if b { 1 } else { "hi" } }"#);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("type mismatch")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 27. If — condition not Bool ────────────────────────────────
+
+    #[test]
+    fn check_if_cond_not_bool() {
+        let result = thir_from_source("fn f() { if 1 { 2 } else { 3 } }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("type mismatch")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 28. Match — basic ──────────────────────────────────────────
+
+    #[test]
+    fn check_match_basic() {
+        let source = "fn f(x: Int) -> Int {\n  match x {\n    0 -> 1\n    _ -> 2\n  }\n}";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        assert_eq!(f.return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    // ── 29. Match — arm type mismatch ──────────────────────────────
+
+    #[test]
+    fn check_match_arm_mismatch() {
+        let source = r#"fn f(x: Int) { match x { 0 -> 1 _ -> "hi" } }"#;
+        let result = thir_from_source(source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("type mismatch")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 30. Non-callable diagnostic ────────────────────────────────
+
+    #[test]
+    fn check_non_callable() {
+        let result = thir_from_source("fn f(x: Int) { x(1) }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("expected function")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 31. Arithmetic on non-numeric ──────────────────────────────
+
+    #[test]
+    fn check_arithmetic_on_non_numeric() {
+        let result = thir_from_source("fn f(a: Bool, b: Bool) -> Bool { a + b }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("arithmetic")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
     }
 }

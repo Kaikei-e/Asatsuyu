@@ -777,7 +777,10 @@ mod tests {
         let result = hir_from_source(source);
         assert!(result.has_errors());
         assert!(
-            result.diagnostics.iter().any(|d| d.message.contains("unresolved constructor `Unknown`")),
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains("unresolved constructor `Unknown`")),
             "diagnostics: {:?}",
             result.diagnostics
         );
