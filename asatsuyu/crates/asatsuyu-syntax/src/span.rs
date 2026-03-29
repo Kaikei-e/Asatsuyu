@@ -16,6 +16,7 @@ pub struct Span {
 impl Span {
     /// Creates a new span.
     #[inline]
+    #[must_use]
     pub fn new(file_id: FileId, start: u32, end: u32) -> Self {
         debug_assert!(start <= end, "span start ({start}) must not exceed end ({end})");
         Self { file_id, start, end }
@@ -23,24 +24,28 @@ impl Span {
 
     /// Creates a dummy span for use in tests or synthesized nodes.
     #[inline]
+    #[must_use]
     pub fn dummy() -> Self {
         Self { file_id: FileId(0), start: 0, end: 0 }
     }
 
     /// Returns the byte length of this span.
     #[inline]
+    #[must_use]
     pub fn len(self) -> u32 {
         self.end - self.start
     }
 
     /// Returns `true` if this span is empty (zero length).
     #[inline]
+    #[must_use]
     pub fn is_empty(self) -> bool {
         self.start == self.end
     }
 
     /// Returns `true` if the given byte offset falls within this span.
     #[inline]
+    #[must_use]
     pub fn contains(self, offset: u32) -> bool {
         self.start <= offset && offset < self.end
     }

@@ -64,24 +64,28 @@ impl Diagnostic {
     }
 
     /// Adds a primary label at the given span.
+    #[must_use]
     pub fn with_label(mut self, span: Span, message: impl Into<String>) -> Self {
         self.labels.push(Label { span, message: message.into(), style: LabelStyle::Primary });
         self
     }
 
     /// Adds a secondary label at the given span.
+    #[must_use]
     pub fn with_secondary_label(mut self, span: Span, message: impl Into<String>) -> Self {
         self.labels.push(Label { span, message: message.into(), style: LabelStyle::Secondary });
         self
     }
 
     /// Adds a hint (suggested fix) to this diagnostic.
+    #[must_use]
     pub fn with_hint(mut self, hint: impl Into<String>) -> Self {
         self.hints.push(hint.into());
         self
     }
 
     /// Adds a note (additional context) to this diagnostic.
+    #[must_use]
     pub fn with_note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
         self

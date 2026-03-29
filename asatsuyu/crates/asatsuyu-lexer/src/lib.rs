@@ -95,6 +95,7 @@ pub struct Token {
 ///
 /// All trivia (whitespace, newlines, comments) is preserved as explicit tokens.
 /// An [`SyntaxKind::Eof`] token is always appended at the end.
+#[must_use]
 pub fn lex(source: &str, file_id: FileId) -> (Vec<Token>, Vec<Diagnostic>) {
     // Rough estimate: average token length ~3 bytes (keywords, delimiters, whitespace).
     let mut tokens = Vec::with_capacity(source.len() / 3 + 1);
@@ -104,23 +105,21 @@ pub fn lex(source: &str, file_id: FileId) -> (Vec<Token>, Vec<Diagnostic>) {
     while let Some(result) = lexer.next() {
         let range = lexer.span();
         let text = SmolStr::from(lexer.slice());
+        #[allow(clippy::cast_possible_truncation)] // Span uses u32; files > 4 GiB are unsupported.
         let span = Span::new(file_id, range.start as u32, range.end as u32);
 
-        match result {
-            Ok(lex_token) => {
-                tokens.push(Token { kind: SyntaxKind::from(lex_token), span, text });
-            }
-            Err(()) => {
-                diagnostics.push(
-                    Diagnostic::error("unexpected character", span)
-                        .with_label(span, "invalid token"),
-                );
-                tokens.push(Token { kind: SyntaxKind::Error, span, text });
-            }
+        if let Ok(lex_token) = result {
+            tokens.push(Token { kind: SyntaxKind::from(lex_token), span, text });
+        } else {
+            diagnostics.push(
+                Diagnostic::error("unexpected character", span).with_label(span, "invalid token"),
+            );
+            tokens.push(Token { kind: SyntaxKind::Error, span, text });
         }
     }
 
     // Append EOF token.
+    #[allow(clippy::cast_possible_truncation)]
     let eof_offset = source.len() as u32;
     tokens.push(Token {
         kind: SyntaxKind::Eof,

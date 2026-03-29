@@ -75,24 +75,28 @@ pub enum SyntaxKind {
 impl SyntaxKind {
     /// Returns `true` if this kind represents trivia (whitespace, newlines, comments).
     #[inline]
+    #[must_use]
     pub fn is_trivia(self) -> bool {
         matches!(self, Self::Whitespace | Self::Newline | Self::Comment)
     }
 
     /// Returns `true` if this kind represents a keyword token.
     #[inline]
+    #[must_use]
     pub fn is_keyword(self) -> bool {
         matches!(self, Self::FnKw | Self::PubKw)
     }
 
     /// Returns `true` if this kind represents a token (as opposed to a node).
     #[inline]
+    #[must_use]
     pub fn is_token(self) -> bool {
         (self as u16) <= (Self::Eof as u16)
     }
 
     /// Returns `true` if this kind represents a syntax tree node.
     #[inline]
+    #[must_use]
     pub fn is_node(self) -> bool {
         !self.is_token() && self != Self::__LAST
     }
