@@ -87,8 +87,11 @@ version = "0.1.0"
 name = "asatsuyu-ty"
 version = "0.1.0"
 dependencies = [
+ "asatsuyu-ast",
  "asatsuyu-hir",
+ "asatsuyu-parser",
  "asatsuyu-syntax",
+ "smol_str",
 ]
 
 [[package]]
