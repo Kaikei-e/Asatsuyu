@@ -1,6 +1,6 @@
 //! Command-line interface for the Asatsuyu compiler.
 //!
-//! Provides `check`, `build`, and `run` subcommands that drive the
+//! Provides `check`, `build`, `run`, and `new` subcommands that drive the
 //! compilation pipeline from `.asty` source to Python 3.12+ output.
 
 mod diagnostic_report;
@@ -8,7 +8,7 @@ mod diagnostic_report;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-use asatsuyu_backend_python::PackageConfig;
+use asatsuyu_backend_python::{GeneratedPackage, PackageConfig};
 use asatsuyu_syntax::{Diagnostic, FileId, Severity};
 use asatsuyu_ty::ThirModule;
 use clap::{Parser, Subcommand};
@@ -50,6 +50,11 @@ enum Commands {
         #[arg(long)]
         source_map: bool,
     },
+    /// Create a new Asatsuyu project
+    New {
+        /// Project name (used as directory name)
+        name: String,
+    },
 }
 
 // ── Entry point ────────────────────────────────────────────────────
@@ -74,6 +79,7 @@ pub fn run() -> ExitCode {
         Commands::Check { path } => cmd_check(&path),
         Commands::Build { path, output, source_map } => cmd_build(&path, &output, source_map),
         Commands::Run { path, source_map } => cmd_run(&path, source_map),
+        Commands::New { name } => cmd_new(&name),
     }
 }
 
@@ -83,7 +89,6 @@ fn cmd_check(path: &Path) -> ExitCode {
     let filename = path.display().to_string();
     match compile_with_source(path) {
         Ok(result) => {
-            // Show warnings even on success.
             if !result.warnings.is_empty() {
                 report_diagnostics(&result.warnings, &result.source, &filename);
             }
@@ -91,6 +96,7 @@ fn cmd_check(path: &Path) -> ExitCode {
         }
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename);
+            report_error_summary(&diagnostics);
             ExitCode::FAILURE
         }
         Err(err) => {
@@ -106,6 +112,7 @@ fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename);
+            report_error_summary(&diagnostics);
             return ExitCode::FAILURE;
         }
         Err(err) => {
@@ -114,7 +121,6 @@ fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
         }
     };
 
-    // Show warnings.
     if !result.warnings.is_empty() {
         report_diagnostics(&result.warnings, &result.source, &filename);
     }
@@ -124,21 +130,21 @@ fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
-    for file in &package.files {
-        let out_path = output_dir.join(&file.path);
-        if let Some(parent) = out_path.parent()
-            && let Err(e) = std::fs::create_dir_all(parent)
-        {
-            eprintln!("error: cannot create directory: {e}");
-            return ExitCode::FAILURE;
-        }
-        if let Err(e) = std::fs::write(&out_path, &file.content) {
-            eprintln!("error: cannot write {}: {e}", out_path.display());
-            return ExitCode::FAILURE;
-        }
+    // Clean the package subdirectory before writing.
+    let pkg_dir = output_dir.join(stem.as_ref());
+    if pkg_dir.exists() {
+        let _ = std::fs::remove_dir_all(&pkg_dir);
     }
 
+    if let Err(msg) = write_package(&package, output_dir) {
+        eprintln!("error: {msg}");
+        return ExitCode::FAILURE;
+    }
+
+    // stdout: output directory (for scripting).
     println!("{}", output_dir.display());
+    // stderr: human-readable summary.
+    eprintln!("  Compiled {stem} ({} files) → {}", package.files.len(), output_dir.display());
     ExitCode::SUCCESS
 }
 
@@ -148,6 +154,7 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename);
+            report_error_summary(&diagnostics);
             return ExitCode::FAILURE;
         }
         Err(err) => {
@@ -156,32 +163,28 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
         }
     };
 
-    // Show warnings.
     if !result.warnings.is_empty() {
         report_diagnostics(&result.warnings, &result.source, &filename);
     }
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let output_dir = Path::new("dist");
+    let output_dir = PathBuf::from("target/run");
     let config = PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map };
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
-    for file in &package.files {
-        let out_path = output_dir.join(&file.path);
-        if let Some(parent) = out_path.parent()
-            && let Err(e) = std::fs::create_dir_all(parent)
-        {
-            eprintln!("error: cannot create directory: {e}");
-            return ExitCode::FAILURE;
-        }
-        if let Err(e) = std::fs::write(&out_path, &file.content) {
-            eprintln!("error: cannot write {}: {e}", out_path.display());
-            return ExitCode::FAILURE;
-        }
+    // Always clean run output to avoid stale files.
+    let pkg_dir = output_dir.join(stem.as_ref());
+    if pkg_dir.exists() {
+        let _ = std::fs::remove_dir_all(&pkg_dir);
     }
 
-    // Execute with python3 -m <package> if main exists, else just the module.
+    if let Err(msg) = write_package(&package, &output_dir) {
+        eprintln!("error: {msg}");
+        return ExitCode::FAILURE;
+    }
+
+    // Execute with python3.
     let has_main = result
         .module
         .functions
@@ -189,7 +192,7 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
         .any(|f| result.module.symbol_table.get(f.def_id).name.as_str() == "main");
 
     let status_result = if has_main {
-        Command::new("python3").arg("-m").arg(stem.as_ref()).current_dir(output_dir).status()
+        Command::new("python3").arg("-m").arg(stem.as_ref()).current_dir(&output_dir).status()
     } else {
         let py_path = output_dir.join(format!("{stem}/{stem}.py"));
         Command::new("python3").arg(&py_path).status()
@@ -200,7 +203,8 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
             if status.success() {
                 ExitCode::SUCCESS
             } else {
-                ExitCode::from(2)
+                // Propagate python's exit code.
+                ExitCode::from(status.code().unwrap_or(1) as u8)
             }
         }
         Err(e) => {
@@ -208,6 +212,75 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn cmd_new(name: &str) -> ExitCode {
+    // Validate project name.
+    if name.is_empty() {
+        eprintln!("error: project name cannot be empty");
+        return ExitCode::FAILURE;
+    }
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        eprintln!("error: project name must contain only ASCII letters, digits, and underscores");
+        return ExitCode::FAILURE;
+    }
+
+    let project_dir = Path::new(name);
+    if project_dir.exists() {
+        eprintln!("error: directory `{name}` already exists");
+        return ExitCode::FAILURE;
+    }
+
+    // Create directory structure.
+    let src_dir = project_dir.join("src");
+    if let Err(e) = std::fs::create_dir_all(&src_dir) {
+        eprintln!("error: cannot create directory: {e}");
+        return ExitCode::FAILURE;
+    }
+
+    // src/main.asty
+    let main_asty = format!("pub fn main() {{\n  42\n}}\n",);
+    if let Err(e) = std::fs::write(src_dir.join("main.asty"), main_asty) {
+        eprintln!("error: cannot write main.asty: {e}");
+        return ExitCode::FAILURE;
+    }
+
+    // asatsuyu.toml
+    let toml = format!(
+        "[project]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n",
+    );
+    if let Err(e) = std::fs::write(project_dir.join("asatsuyu.toml"), toml) {
+        eprintln!("error: cannot write asatsuyu.toml: {e}");
+        return ExitCode::FAILURE;
+    }
+
+    // .gitignore
+    let gitignore = "/dist/\n/target/\n__pycache__/\n*.pyc\n";
+    if let Err(e) = std::fs::write(project_dir.join(".gitignore"), gitignore) {
+        eprintln!("error: cannot write .gitignore: {e}");
+        return ExitCode::FAILURE;
+    }
+
+    eprintln!("  Created project `{name}` in ./{name}");
+    eprintln!("  Run `asatsuyu run {name}/src/main.asty` to get started");
+    ExitCode::SUCCESS
+}
+
+// ── Package writing ───────────────────────────────────────────────
+
+fn write_package(package: &GeneratedPackage, output_dir: &Path) -> Result<(), String> {
+    for file in &package.files {
+        let out_path = output_dir.join(&file.path);
+        if let Some(parent) = out_path.parent()
+            && let Err(e) = std::fs::create_dir_all(parent)
+        {
+            return Err(format!("cannot create directory: {e}"));
+        }
+        if let Err(e) = std::fs::write(&out_path, &file.content) {
+            return Err(format!("cannot write {}: {e}", out_path.display()));
+        }
+    }
+    Ok(())
 }
 
 // ── Compilation pipeline ───────────────────────────────────────────
@@ -287,4 +360,29 @@ fn report_diagnostics(diagnostics: &[Diagnostic], source: &str, filename: &str) 
         let report = SourceDiagnostic::from_diagnostic(d, filename, source);
         eprintln!("{:?}", miette::Report::new(report));
     }
+}
+
+/// Print a summary line after error diagnostics, e.g.:
+/// `error: aborting due to 2 errors and 1 warning`
+fn report_error_summary(diagnostics: &[Diagnostic]) {
+    let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
+    let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();
+
+    if errors == 0 {
+        return;
+    }
+
+    let mut parts = Vec::new();
+    if errors == 1 {
+        parts.push("1 error".to_string());
+    } else {
+        parts.push(format!("{errors} errors"));
+    }
+    if warnings == 1 {
+        parts.push("1 warning".to_string());
+    } else if warnings > 0 {
+        parts.push(format!("{warnings} warnings"));
+    }
+
+    eprintln!("error: aborting due to {}", parts.join(" and "));
 }

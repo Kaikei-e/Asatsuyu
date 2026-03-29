@@ -151,3 +151,110 @@ fn build_greet_asty() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ── 7. build shows summary on stderr ──────────────────────────────
+
+#[test]
+fn build_shows_summary() {
+    let dir = workspace_root().join("target/test-dist-summary");
+    let dir_str = dir.display().to_string();
+    let output =
+        asatsuyu().args(["build", &example("hello.asty"), "-o", &dir_str]).output().unwrap();
+
+    assert!(output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Compiled hello"), "summary on stderr: {stderr}");
+    assert!(stderr.contains("files"), "file count in summary: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 8. check error summary ────────────────────────────────────────
+
+#[test]
+fn check_error_summary() {
+    let dir = workspace_root().join("target/test-error-summary");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("bad.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output = asatsuyu().args(["check", &bad_file_str]).output().unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("aborting due to"), "error summary: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 9. new creates project ────────────────────────────────────────
+
+#[test]
+fn new_creates_project() {
+    let dir = workspace_root().join("target/test-new-project");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["new", "demo"]).output().unwrap();
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    // Verify project structure.
+    assert!(dir.join("demo/src/main.asty").exists(), "main.asty should exist");
+    assert!(dir.join("demo/asatsuyu.toml").exists(), "asatsuyu.toml should exist");
+    assert!(dir.join("demo/.gitignore").exists(), ".gitignore should exist");
+
+    // Verify asatsuyu.toml content.
+    let toml = std::fs::read_to_string(dir.join("demo/asatsuyu.toml")).unwrap();
+    assert!(toml.contains("name = \"demo\""), "toml name: {toml}");
+
+    // Verify main.asty content.
+    let main = std::fs::read_to_string(dir.join("demo/src/main.asty")).unwrap();
+    assert!(main.contains("pub fn main()"), "main fn: {main}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 10. new then run ──────────────────────────────────────────────
+
+#[test]
+fn new_then_run() {
+    let dir = workspace_root().join("target/test-new-run");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // Create project.
+    let output = asatsuyu().current_dir(&dir).args(["new", "myapp"]).output().unwrap();
+    assert!(output.status.success());
+
+    // Run the project.
+    let main_path = dir.join("myapp/src/main.asty");
+    let main_str = main_path.display().to_string();
+    let output = asatsuyu().args(["run", &main_str]).output().unwrap();
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr),);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 11. new rejects existing directory ─────────────────────────────
+
+#[test]
+fn new_rejects_existing_dir() {
+    let dir = workspace_root().join("target/test-new-exists");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // Create first time — should succeed.
+    let output = asatsuyu().current_dir(&dir).args(["new", "dup"]).output().unwrap();
+    assert!(output.status.success());
+
+    // Create again — should fail.
+    let output = asatsuyu().current_dir(&dir).args(["new", "dup"]).output().unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("already exists"), "stderr: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
