@@ -1101,4 +1101,225 @@ _ -> 0 } }"#;
         assert!(tree.contains("MatchExpr"), "tree should contain MatchExpr:\n{tree}");
         assert!(tree.contains("IfExpr"), "tree should contain IfExpr in arm body:\n{tree}");
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Issue 18 — Malformed input tests (error recovery)
+    // ══════════════════════════════════════════════════════════════════
+
+    // ── A. Top-level recovery ───────────────────────────────────────
+
+    #[test]
+    fn error_garbage_between_fns() {
+        let source = "fn a() { 1 } @@@ fn b() { 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        let fn_count = tree.matches("FnDef@").count();
+        assert!(fn_count >= 2, "expected 2 FnDef after recovery, got {fn_count}:\n{tree}");
+        assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
+    }
+
+    #[test]
+    fn error_multiple_garbage_top_level() {
+        let source = "+ - * fn f() { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        assert!(tree.contains("FnDef"), "should recover to parse FnDef:\n{tree}");
+    }
+
+    #[test]
+    fn error_bare_number_then_type() {
+        let source = "99 type X { A }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeDef"), "should recover to parse TypeDef:\n{tree}");
+    }
+
+    #[test]
+    fn error_two_broken_items_recovery() {
+        let source = "fn { fn a() { 1 } fn b() { 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        let fn_count = tree.matches("FnDef@").count();
+        assert!(fn_count >= 2, "expected 2+ FnDef after recovery, got {fn_count}:\n{tree}");
+    }
+
+    // ── B. Function definition errors ───────────────────────────────
+
+    #[test]
+    fn error_fn_missing_name() {
+        let source = "fn () { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_fn_missing_parens_and_body() {
+        let source = "fn f";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_fn_body_missing_rbrace_recovery() {
+        let source = "fn a() { 1 fn b() { 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        // At least the second fn should be parsed via recovery
+        assert!(tree.contains("FnDef"), "should contain FnDef:\n{tree}");
+    }
+
+    #[test]
+    fn error_fn_return_type_missing_type() {
+        let source = "fn f() -> { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    // ── C. Parameter errors ─────────────────────────────────────────
+
+    #[test]
+    fn error_param_missing_type() {
+        let source = "fn f(x:) { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_param_extra_comma() {
+        let source = "fn f(x: Int,, y: Int) { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_param_no_colon_no_type() {
+        let source = "fn f(x y) { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    // ── D. Expression errors ────────────────────────────────────────
+
+    #[test]
+    fn error_unclosed_paren_expr() {
+        let source = "fn f() { (1 + 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics().iter().any(|d| d.message.contains("RParen")),
+            "should report missing `)`: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    #[test]
+    fn error_double_operator() {
+        let source = "fn f() { 1 + + 2 }";
+        let result = parse(FID, source);
+        // `+` is not a prefix operator, so second `+` triggers an error
+        // Actually `-` and `!` are prefix, but `+` is not, so this should error
+        // However the Pratt parser may parse `+ 2` as an error atom
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_bare_operator_in_block() {
+        let source = "fn f() { * }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        assert!(tree.contains("NodeError"), "should contain NodeError:\n{tree}");
+    }
+
+    // ── E. Match expression errors ──────────────────────────────────
+
+    #[test]
+    fn error_match_arm_missing_body() {
+        let source = "fn f() { match x { 1 -> } }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_match_multiple_bad_arms() {
+        let source = "fn f() { match x { -> 1\n_ -> 0 } }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_match_unclosed_constructor() {
+        let source = "fn f() { match x { Some(a -> 1 } }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    // ── F. Type definition errors ───────────────────────────────────
+
+    #[test]
+    fn error_type_missing_name() {
+        let source = "type { A }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_type_unclosed_body_recovery() {
+        let source = "type X { A\nfn f() { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        // The fn should be parsed after type body recovery
+        assert!(tree.contains("FnDef"), "should recover to parse FnDef:\n{tree}");
+    }
+
+    #[test]
+    fn error_type_malformed_variant() {
+        let source = "type X { 123 A B }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        assert!(tree.contains("NodeError"), "should contain NodeError for 123:\n{tree}");
+    }
+
+    // ── G. Nested / consecutive errors ──────────────────────────────
+
+    #[test]
+    fn error_nested_bad_if_in_match() {
+        let source = "fn f() { match x { 1 -> if y 2\n_ -> 0 } }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_nested_bad_call() {
+        let source = "fn f() { g(1, , 3) }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn error_many_garbage_then_valid() {
+        let source = "@@@ @@@ fn f() { 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        let tree = debug_tree(source);
+        assert!(tree.contains("FnDef"), "should recover to parse FnDef:\n{tree}");
+    }
+
+    #[test]
+    fn error_lossless_roundtrip_with_errors() {
+        let source = "fn f() { * } fn g() { 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert_eq!(result.syntax().to_string(), source, "lossless roundtrip even with errors");
+        let tree = debug_tree(source);
+        let fn_count = tree.matches("FnDef@").count();
+        assert_eq!(fn_count, 2, "both FnDefs should parse, got {fn_count}:\n{tree}");
+    }
 }

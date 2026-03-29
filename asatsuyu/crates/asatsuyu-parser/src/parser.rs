@@ -6,6 +6,52 @@ use rowan::{GreenNode, GreenNodeBuilder};
 
 use crate::language::raw;
 
+// ── TokenSet ────────────────────────────────────────────────────────
+
+/// A compact set of [`SyntaxKind`] values, implemented as a `u128` bitset.
+///
+/// Used to pass context-specific recovery / follow-token sets into grammar
+/// rules without heap allocation. The `SyntaxKind` enum has ~80 variants,
+/// well within the 128-bit capacity.
+#[derive(Clone, Copy)]
+pub(crate) struct TokenSet(u128);
+
+impl TokenSet {
+    pub(crate) const EMPTY: Self = Self(0);
+
+    /// Build a set from a slice of kinds. Usable in `const` context.
+    pub(crate) const fn new(kinds: &[SyntaxKind]) -> Self {
+        let mut bits = 0u128;
+        let mut i = 0;
+        while i < kinds.len() {
+            bits |= 1u128 << (kinds[i] as u16);
+            i += 1;
+        }
+        Self(bits)
+    }
+
+    pub(crate) const fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    pub(crate) const fn contains(self, kind: SyntaxKind) -> bool {
+        self.0 & (1u128 << (kind as u16)) != 0
+    }
+}
+
+/// Top-level sync points: items that start a new definition.
+pub(crate) const TOP_LEVEL_RECOVERY: TokenSet = TokenSet::new(&[
+    SyntaxKind::FnKw,
+    SyntaxKind::PubKw,
+    SyntaxKind::TypeKw,
+    SyntaxKind::LetKw,
+    SyntaxKind::ImportKw,
+]);
+
+/// Closing delimiters — **never** consumed during error recovery.
+pub(crate) const CLOSING_DELIMITERS: TokenSet =
+    TokenSet::new(&[SyntaxKind::RParen, SyntaxKind::RBrace, SyntaxKind::RBracket]);
+
 /// Recursive descent parser that builds a rowan green tree from a token stream.
 ///
 /// This struct is `pub(crate)` — the public entry point is [`crate::parse()`].
@@ -51,9 +97,20 @@ impl<'a> Parser<'a> {
         self.current() == kind
     }
 
+    /// Returns `true` if the current token is in the given set.
+    pub(crate) fn at_any(&self, set: TokenSet) -> bool {
+        set.contains(self.current())
+    }
+
     /// Returns `true` if the parser has reached the end of input.
     pub(crate) fn at_eof(&self) -> bool {
         self.current() == SyntaxKind::Eof
+    }
+
+    /// Returns the current raw token position. Used by callers to assert
+    /// that parsing loops make progress.
+    pub(crate) fn pos(&self) -> usize {
+        self.pos
     }
 
     /// Returns the span of the current non-trivia token.
@@ -140,18 +197,36 @@ impl<'a> Parser<'a> {
         self.builder.finish_node();
     }
 
+    /// Skip tokens until one from `recovery` (or a closing delimiter, or a
+    /// top-level keyword, or EOF) is reached, wrapping skipped tokens in a
+    /// `NodeError` node.
+    ///
+    /// If the current token is already in the combined stop set, the
+    /// diagnostic is emitted but **nothing is consumed** — this lets the
+    /// caller handle the token (e.g. a closing `}` that belongs to an
+    /// outer scope).
+    pub(crate) fn error_recover_until(&mut self, message: &str, recovery: TokenSet) {
+        let span = self.current_span();
+        self.diagnostics.push(Diagnostic::error(message, span).with_label(span, message));
+
+        let stop = recovery.union(CLOSING_DELIMITERS).union(TOP_LEVEL_RECOVERY);
+
+        // Already at a sync point — emit diagnostic only, no NodeError.
+        if self.at_eof() || self.at_any(stop) {
+            return;
+        }
+
+        self.builder.start_node(raw(SyntaxKind::NodeError));
+        while !self.at_eof() && !self.at_any(stop) {
+            self.bump();
+        }
+        self.eat_trivia();
+        self.builder.finish_node();
+    }
+
     /// Returns `true` if the current token is a recovery synchronization point.
     fn at_recovery_point(&self) -> bool {
-        matches!(
-            self.current(),
-            SyntaxKind::FnKw
-                | SyntaxKind::PubKw
-                | SyntaxKind::LetKw
-                | SyntaxKind::TypeKw
-                | SyntaxKind::MatchKw
-                | SyntaxKind::IfKw
-                | SyntaxKind::ImportKw
-        )
+        self.at_any(TOP_LEVEL_RECOVERY)
     }
 
     // ── Diagnostics access ─────────────────────────────────────────────

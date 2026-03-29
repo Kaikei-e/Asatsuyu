@@ -5,7 +5,7 @@
 
 use asatsuyu_syntax::SyntaxKind;
 
-use crate::parser::Parser;
+use crate::parser::{Parser, TOP_LEVEL_RECOVERY, TokenSet};
 
 /// ```text
 /// SourceFile = TopLevel*
@@ -50,17 +50,23 @@ fn parse_fn_def(p: &mut Parser<'_>) {
     // `fn` keyword
     p.expect(SyntaxKind::FnKw);
 
-    // Function name
-    p.expect(SyntaxKind::Ident);
+    // Function name — recover towards `(` if missing
+    if p.at(SyntaxKind::Ident) {
+        p.bump();
+    } else {
+        p.error_recover_until(
+            "expected function name",
+            TokenSet::new(&[SyntaxKind::LParen, SyntaxKind::LBrace, SyntaxKind::Arrow]),
+        );
+    }
 
-    // Parameter list
+    // Parameter list — recover towards `{` or `->` if `(` missing
     if p.at(SyntaxKind::LParen) {
         parse_param_list(p);
     } else {
-        let span = p.current_span();
-        p.diagnostics_mut().push(
-            asatsuyu_syntax::Diagnostic::error("expected parameter list", span)
-                .with_label(span, "expected `(`"),
+        p.error_recover_until(
+            "expected parameter list",
+            TokenSet::new(&[SyntaxKind::LBrace, SyntaxKind::Arrow]),
         );
     }
 
@@ -69,15 +75,11 @@ fn parse_fn_def(p: &mut Parser<'_>) {
         parse_return_type(p);
     }
 
-    // Body block
+    // Body block — recover towards next top-level item if `{` missing
     if p.at(SyntaxKind::LBrace) {
         parse_block_expr(p);
     } else {
-        let span = p.current_span();
-        p.diagnostics_mut().push(
-            asatsuyu_syntax::Diagnostic::error("expected function body", span)
-                .with_label(span, "expected `{`"),
-        );
+        p.error_recover_until("expected function body", TokenSet::EMPTY);
     }
 
     p.finish_node();
@@ -122,11 +124,7 @@ fn parse_type_def(p: &mut Parser<'_>) {
         parse_type_body(p);
         p.expect(SyntaxKind::RBrace);
     } else {
-        let span = p.current_span();
-        p.diagnostics_mut().push(
-            asatsuyu_syntax::Diagnostic::error("expected type body", span)
-                .with_label(span, "expected `{`"),
-        );
+        p.error_recover_until("expected type body", TokenSet::EMPTY);
     }
 
     p.finish_node();
@@ -173,20 +171,24 @@ fn parse_type_body(p: &mut Parser<'_>) {
     let is_record = p.at(SyntaxKind::Ident) && p.nth(1) == SyntaxKind::Colon;
 
     if is_record {
-        while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+        while !p.at(SyntaxKind::RBrace) && !p.at_eof() && !p.at_any(TOP_LEVEL_RECOVERY) {
+            let prev = p.pos();
             if p.at(SyntaxKind::Ident) {
                 parse_record_field(p);
             } else {
                 p.error_and_bump("expected field definition");
             }
+            debug_assert!(p.pos() > prev, "parse_type_body: no progress (record)");
         }
     } else {
-        while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+        while !p.at(SyntaxKind::RBrace) && !p.at_eof() && !p.at_any(TOP_LEVEL_RECOVERY) {
+            let prev = p.pos();
             if p.at(SyntaxKind::Ident) {
                 parse_variant(p);
             } else {
                 p.error_and_bump("expected variant definition");
             }
+            debug_assert!(p.pos() > prev, "parse_type_body: no progress (variant)");
         }
     }
 }
@@ -279,15 +281,18 @@ fn parse_param_list(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::ParamList);
     p.bump(); // consume `(`
 
-    if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+    while !p.at(SyntaxKind::RParen) && !p.at_eof() {
+        let prev = p.pos();
         parse_param(p);
-        while p.at(SyntaxKind::Comma) {
-            p.bump(); // consume `,`
-            // Allow trailing comma: stop if `)` follows
-            if p.at(SyntaxKind::RParen) {
-                break;
+        // Consume comma separator, or break if none
+        if p.at(SyntaxKind::Comma) {
+            p.bump();
+        } else if !p.at(SyntaxKind::RParen) {
+            // Not comma, not `)` — stuck
+            if p.pos() == prev {
+                p.error_and_bump("unexpected token in parameter list");
             }
-            parse_param(p);
+            break;
         }
     }
 
@@ -299,10 +304,30 @@ fn parse_param_list(p: &mut Parser<'_>) {
 /// Param = IDENT ':' IDENT
 /// ```
 fn parse_param(p: &mut Parser<'_>) {
+    const PARAM_FOLLOW: TokenSet =
+        TokenSet::new(&[SyntaxKind::Comma, SyntaxKind::RParen, SyntaxKind::LBrace]);
+
     p.start_node(SyntaxKind::Param);
-    p.expect(SyntaxKind::Ident); // parameter name
-    p.expect(SyntaxKind::Colon);
-    p.expect(SyntaxKind::Ident); // type (just an identifier for now)
+
+    // Parameter name
+    if !p.expect(SyntaxKind::Ident) {
+        p.error_recover_until("expected parameter name", PARAM_FOLLOW);
+        p.finish_node();
+        return;
+    }
+
+    // Colon
+    if !p.expect(SyntaxKind::Colon) {
+        p.error_recover_until("expected `:` after parameter name", PARAM_FOLLOW);
+        p.finish_node();
+        return;
+    }
+
+    // Type (just an identifier for now)
+    if !p.expect(SyntaxKind::Ident) {
+        p.error_recover_until("expected parameter type", PARAM_FOLLOW);
+    }
+
     p.finish_node();
 }
 
@@ -312,7 +337,9 @@ fn parse_param(p: &mut Parser<'_>) {
 fn parse_return_type(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::ReturnType);
     p.bump(); // consume `->`
-    p.expect(SyntaxKind::Ident); // return type
+    if !p.expect(SyntaxKind::Ident) {
+        p.error_recover_until("expected return type", TokenSet::new(&[SyntaxKind::LBrace]));
+    }
     p.finish_node();
 }
 
@@ -324,7 +351,11 @@ fn parse_block_expr(p: &mut Parser<'_>) {
     p.bump(); // consume `{`
 
     while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+        let prev = p.pos();
         parse_expr(p);
+        if p.pos() == prev {
+            p.error_and_bump("unexpected token in block");
+        }
     }
 
     p.expect(SyntaxKind::RBrace);
@@ -483,15 +514,16 @@ fn parse_arg_list(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::ArgList);
     p.bump(); // consume `(`
 
-    if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+    while !p.at(SyntaxKind::RParen) && !p.at_eof() {
+        let prev = p.pos();
         parse_expr_bp(p, 0);
-        while p.at(SyntaxKind::Comma) {
-            p.bump(); // consume `,`
-            // Allow trailing comma: stop if `)` follows
-            if p.at(SyntaxKind::RParen) {
-                break;
+        if p.at(SyntaxKind::Comma) {
+            p.bump();
+        } else if !p.at(SyntaxKind::RParen) {
+            if p.pos() == prev {
+                p.error_and_bump("unexpected token in argument list");
             }
-            parse_expr_bp(p, 0);
+            break;
         }
     }
 
@@ -513,10 +545,9 @@ fn parse_if_expr(p: &mut Parser<'_>) {
     if p.at(SyntaxKind::LBrace) {
         parse_block_expr(p);
     } else {
-        let span = p.current_span();
-        p.diagnostics_mut().push(
-            asatsuyu_syntax::Diagnostic::error("expected block after `if` condition", span)
-                .with_label(span, "expected `{`"),
+        p.error_recover_until(
+            "expected block after `if` condition",
+            TokenSet::new(&[SyntaxKind::ElseKw]),
         );
     }
 
@@ -529,11 +560,7 @@ fn parse_if_expr(p: &mut Parser<'_>) {
         } else if p.at(SyntaxKind::LBrace) {
             parse_block_expr(p);
         } else {
-            let span = p.current_span();
-            p.diagnostics_mut().push(
-                asatsuyu_syntax::Diagnostic::error("expected block or `if` after `else`", span)
-                    .with_label(span, "expected `{` or `if`"),
-            );
+            p.error_recover_until("expected block or `if` after `else`", TokenSet::EMPTY);
         }
     }
 
@@ -637,14 +664,16 @@ fn parse_constructor_pat(p: &mut Parser<'_>) {
     p.bump(); // consume constructor name
     p.bump(); // consume `(`
 
-    if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+    while !p.at(SyntaxKind::RParen) && !p.at_eof() {
+        let prev = p.pos();
         parse_pattern(p);
-        while p.at(SyntaxKind::Comma) {
-            p.bump(); // consume `,`
-            if p.at(SyntaxKind::RParen) {
-                break; // trailing comma
+        if p.at(SyntaxKind::Comma) {
+            p.bump();
+        } else if !p.at(SyntaxKind::RParen) {
+            if p.pos() == prev {
+                p.error_and_bump("unexpected token in constructor pattern");
             }
-            parse_pattern(p);
+            break;
         }
     }
 
@@ -659,14 +688,16 @@ fn parse_list_pat(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::ListPat);
     p.bump(); // consume `[`
 
-    if !p.at(SyntaxKind::RBracket) && !p.at(SyntaxKind::DotDot) && !p.at_eof() {
+    while !p.at(SyntaxKind::RBracket) && !p.at(SyntaxKind::DotDot) && !p.at_eof() {
+        let prev = p.pos();
         parse_pattern(p);
-        while p.at(SyntaxKind::Comma) {
-            p.bump(); // consume `,`
-            if p.at(SyntaxKind::RBracket) || p.at(SyntaxKind::DotDot) {
-                break;
+        if p.at(SyntaxKind::Comma) {
+            p.bump();
+        } else if !p.at(SyntaxKind::RBracket) && !p.at(SyntaxKind::DotDot) {
+            if p.pos() == prev {
+                p.error_and_bump("unexpected token in list pattern");
             }
-            parse_pattern(p);
+            break;
         }
     }
 
@@ -704,19 +735,25 @@ fn parse_match_arm(p: &mut Parser<'_>) {
         parse_guard(p);
     }
 
-    // Arrow separating pattern from body
-    if p.at(SyntaxKind::Arrow) {
+    // Arrow separating pattern from body — recover towards `->` if missing
+    let found_arrow = if p.at(SyntaxKind::Arrow) {
         p.bump();
+        true
     } else {
-        let span = p.current_span();
-        p.diagnostics_mut().push(
-            asatsuyu_syntax::Diagnostic::error("expected `->` after pattern", span)
-                .with_label(span, "match arms use `->` to separate patterns from expressions"),
-        );
-    }
+        p.error_recover_until("expected `->` after pattern", TokenSet::new(&[SyntaxKind::Arrow]));
+        // If we recovered to `->`, consume it
+        if p.at(SyntaxKind::Arrow) {
+            p.bump();
+            true
+        } else {
+            false
+        }
+    };
 
-    // Arm body expression
-    parse_expr_bp(p, 0);
+    // Arm body expression — only parse if arrow was found
+    if found_arrow {
+        parse_expr_bp(p, 0);
+    }
 
     p.finish_node();
 }
@@ -743,10 +780,15 @@ fn parse_match_expr(p: &mut Parser<'_>) {
     }
 
     while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+        let prev = p.pos();
         if at_pattern_start(p) {
             parse_match_arm(p);
         } else {
             p.error_and_bump("expected pattern");
+        }
+        if p.pos() == prev {
+            p.error_and_bump("unexpected token in match");
+            break;
         }
     }
 
