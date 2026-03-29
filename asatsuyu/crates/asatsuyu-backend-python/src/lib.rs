@@ -22,6 +22,9 @@
 //! ```
 
 mod emitter;
+mod prelude;
+
+use std::path::PathBuf;
 
 use asatsuyu_ty::ThirModule;
 
@@ -34,6 +37,98 @@ pub fn emit_module(module: &ThirModule) -> String {
     let mut em = emitter::Emitter::new(module);
     em.emit();
     em.into_output()
+}
+
+// ── Package generation (Issue 32–33) ──────────────────────────────
+
+/// Configuration for Python package generation.
+pub struct PackageConfig {
+    /// Package name (used in directory name and `pyproject.toml`).
+    pub name: String,
+    /// Package version.
+    pub version: String,
+    /// Whether to include source-map comments (`# asty:L<n>`).
+    pub source_map: bool,
+}
+
+/// A single file in the generated Python package.
+pub struct GeneratedFile {
+    /// Relative path within the output directory (e.g., `my_app/main.py`).
+    pub path: PathBuf,
+    /// File content.
+    pub content: String,
+}
+
+/// A complete generated Python package.
+pub struct GeneratedPackage {
+    /// All files to write.
+    pub files: Vec<GeneratedFile>,
+}
+
+/// Generate a Python package from a type-checked module.
+///
+/// Produces a `GeneratedPackage` containing the module source, prelude
+/// (if needed), `__init__.py`, `__main__.py` (if `main` exists),
+/// and `pyproject.toml`.
+#[must_use]
+pub fn emit_package(
+    module: &ThirModule,
+    config: &PackageConfig,
+    source: Option<&str>,
+) -> GeneratedPackage {
+    let mut em = if config.source_map {
+        if let Some(src) = source {
+            emitter::Emitter::with_source_map(module, src)
+        } else {
+            emitter::Emitter::new(module)
+        }
+    } else {
+        emitter::Emitter::new(module)
+    };
+    em.emit();
+    let module_py = em.into_output();
+
+    let pkg = &config.name;
+    let mut files = Vec::new();
+
+    // __init__.py
+    files.push(GeneratedFile {
+        path: PathBuf::from(format!("{pkg}/__init__.py")),
+        content: String::new(),
+    });
+
+    // Main module
+    files
+        .push(GeneratedFile { path: PathBuf::from(format!("{pkg}/{pkg}.py")), content: module_py });
+
+    // Prelude (always included for now — lightweight)
+    files.push(GeneratedFile {
+        path: PathBuf::from(format!("{pkg}/asatsuyu_prelude.py")),
+        content: prelude::PRELUDE_PY.to_string(),
+    });
+
+    // __main__.py if a `main` function exists
+    let has_main =
+        module.functions.iter().any(|f| module.symbol_table.get(f.def_id).name.as_str() == "main");
+    if has_main {
+        files.push(GeneratedFile {
+            path: PathBuf::from(format!("{pkg}/__main__.py")),
+            content: format!(
+                "from .{pkg} import main\n\nif __name__ == \"__main__\":\n    main()\n"
+            ),
+        });
+    }
+
+    // pyproject.toml
+    files.push(GeneratedFile {
+        path: PathBuf::from("pyproject.toml"),
+        content: format!(
+            "[build-system]\nrequires = [\"setuptools\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"{}\"\nversion = \"{}\"\nrequires-python = \">=3.12\"\n",
+            config.name, config.version,
+        ),
+    });
+
+    GeneratedPackage { files }
 }
 
 #[cfg(test)]
@@ -302,5 +397,244 @@ mod tests {
         let py = python_from_source(source);
         assert!(py.contains("case Some(x):"), "Some pattern: {py}");
         assert!(py.contains("case None_():"), "None pattern (sanitized): {py}");
+    }
+
+    // ── Issue 31: Match/case emission tests ───────────────────────────
+
+    #[test]
+    fn emit_match_literal_int() {
+        let py = python_from_source("pub fn f(x: Int) -> Int { match x { 0 -> 1  _ -> 2 } }");
+        assert!(py.contains("match x:"), "match statement: {py}");
+        assert!(py.contains("case 0:"), "literal 0 case: {py}");
+        assert!(py.contains("case _:"), "wildcard case: {py}");
+        assert!(py.contains("return 1"), "return in first arm: {py}");
+        assert!(py.contains("return 2"), "return in wildcard arm: {py}");
+    }
+
+    #[test]
+    fn emit_match_variable_binding() {
+        let py = python_from_source("pub fn f(x: Int) -> Int { match x { n -> n } }");
+        assert!(py.contains("case n:"), "variable binding: {py}");
+        assert!(py.contains("return n"), "return bound var: {py}");
+    }
+
+    #[test]
+    fn emit_match_constructor_return_position() {
+        let source = "
+            type Result(a, e) { Ok(a) Error(e) }
+            pub fn check(r: Result(Int, String)) -> Int {
+                match r {
+                    Ok(v) -> v
+                    Error(msg) -> 0
+                }
+            }
+        ";
+        let py = python_from_source(source);
+        assert!(py.contains("case Ok(v):"), "Ok pattern: {py}");
+        assert!(py.contains("case Error(msg):"), "Error pattern: {py}");
+        assert!(py.contains("return v"), "return from Ok: {py}");
+        assert!(py.contains("return 0"), "return from Error: {py}");
+    }
+
+    #[test]
+    fn emit_match_nested_constructor() {
+        let source = "
+            type Option(a) { Some(a) None }
+            type Result(a, e) { Ok(a) Error(e) }
+            pub fn deep(r: Result(Option(Int), String)) -> Int {
+                match r {
+                    Ok(Some(x)) -> x
+                    Ok(None) -> 0
+                    Error(msg) -> 0
+                }
+            }
+        ";
+        let py = python_from_source(source);
+        assert!(py.contains("case Ok(Some(x)):"), "nested Ok(Some(x)): {py}");
+        assert!(py.contains("case Ok(None_()):"), "nested Ok(None): {py}");
+    }
+
+    #[test]
+    fn emit_match_statement_not_return() {
+        let source = "
+            pub fn f(x: Int) -> Int {
+                match x {
+                    0 -> 0
+                    _ -> 1
+                }
+                42
+            }
+        ";
+        let py = python_from_source(source);
+        // match is NOT in return position; the `42` at the end is the return.
+        assert!(py.contains("match x:"), "match statement: {py}");
+        assert!(py.contains("return 42"), "return 42 at end: {py}");
+        // Arms in statement-position match should NOT have `return`.
+        let match_section = &py[py.find("match x:").unwrap()..py.find("return 42").unwrap()];
+        assert!(!match_section.contains("return"), "no return inside statement match: {py}");
+    }
+
+    #[test]
+    fn emit_match_multiple_arms() {
+        let source = "
+            type Color { Red Green Blue }
+            pub fn code(c: Color) -> Int {
+                match c {
+                    Red -> 1
+                    Green -> 2
+                    Blue -> 3
+                }
+            }
+        ";
+        let py = python_from_source(source);
+        assert!(py.contains("case Red():"), "Red: {py}");
+        assert!(py.contains("case Green():"), "Green: {py}");
+        assert!(py.contains("case Blue():"), "Blue: {py}");
+        assert!(py.contains("return 1"), "return 1: {py}");
+        assert!(py.contains("return 2"), "return 2: {py}");
+        assert!(py.contains("return 3"), "return 3: {py}");
+    }
+
+    // ── Issue 32: Prelude generation tests ────────────────────────────
+
+    #[test]
+    fn prelude_contains_ok_error() {
+        let content = crate::prelude::PRELUDE_PY;
+        assert!(content.contains("class Ok[T]:"), "Ok class: {content}");
+        assert!(content.contains("class Error[E]:"), "Error class: {content}");
+        assert!(
+            content.contains("type Result[T, E] = Ok[T] | Error[E]"),
+            "Result alias: {content}",
+        );
+    }
+
+    #[test]
+    fn prelude_uses_frozen_dataclass() {
+        let content = crate::prelude::PRELUDE_PY;
+        assert!(
+            content.contains("@dataclass(frozen=True, slots=True)"),
+            "frozen dataclass: {content}",
+        );
+    }
+
+    #[test]
+    fn prelude_is_valid_module() {
+        let content = crate::prelude::PRELUDE_PY;
+        assert!(content.contains("from dataclasses import dataclass"), "import: {content}");
+        assert!(content.ends_with('\n'), "trailing newline");
+    }
+
+    // ── Issue 33: Package generation tests ────────────────────────────
+
+    fn package_from_source(source: &str, name: &str) -> super::GeneratedPackage {
+        let cst = parse(FID, source);
+        let ast = asatsuyu_ast::lower(&cst, FID);
+        let hir = asatsuyu_hir::lower_to_hir(&ast.module);
+        let thir = asatsuyu_ty::check_types(&hir.module);
+        let config = super::PackageConfig {
+            name: name.to_string(),
+            version: "0.1.0".into(),
+            source_map: false,
+        };
+        super::emit_package(&thir.module, &config, None)
+    }
+
+    #[test]
+    fn package_contains_expected_files() {
+        let pkg = package_from_source("pub fn main() { 42 }", "hello");
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(paths.contains(&"hello/__init__.py".to_string()), "init: {paths:?}");
+        assert!(paths.contains(&"hello/hello.py".to_string()), "module: {paths:?}");
+        assert!(paths.contains(&"hello/asatsuyu_prelude.py".to_string()), "prelude: {paths:?}",);
+        assert!(paths.contains(&"hello/__main__.py".to_string()), "main: {paths:?}");
+        assert!(paths.contains(&"pyproject.toml".to_string()), "pyproject: {paths:?}");
+    }
+
+    #[test]
+    fn package_no_main_without_main_fn() {
+        let pkg = package_from_source("fn add(x: Int, y: Int) -> Int { x }", "lib");
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(!paths.contains(&"lib/__main__.py".to_string()), "no __main__: {paths:?}");
+    }
+
+    #[test]
+    fn package_pyproject_content() {
+        let pkg = package_from_source("pub fn main() { 42 }", "myapp");
+        let pyproject = pkg
+            .files
+            .iter()
+            .find(|f| f.path.display().to_string() == "pyproject.toml")
+            .expect("pyproject.toml");
+        assert!(pyproject.content.contains("name = \"myapp\""), "name: {}", pyproject.content);
+        assert!(
+            pyproject.content.contains("version = \"0.1.0\""),
+            "version: {}",
+            pyproject.content,
+        );
+        assert!(
+            pyproject.content.contains("requires-python = \">=3.12\""),
+            "python: {}",
+            pyproject.content,
+        );
+    }
+
+    #[test]
+    fn package_main_py_content() {
+        let pkg = package_from_source("pub fn main() { 42 }", "hello");
+        let main_py = pkg
+            .files
+            .iter()
+            .find(|f| f.path.display().to_string() == "hello/__main__.py")
+            .expect("__main__.py");
+        assert!(
+            main_py.content.contains("from .hello import main"),
+            "import main: {}",
+            main_py.content,
+        );
+        assert!(
+            main_py.content.contains("if __name__ == \"__main__\":"),
+            "guard: {}",
+            main_py.content,
+        );
+    }
+
+    // ── Issue 34: Source-map comment tests ─────────────────────────────
+
+    fn python_from_source_with_sourcemap(source: &str) -> String {
+        let cst = parse(FID, source);
+        let ast = asatsuyu_ast::lower(&cst, FID);
+        let hir = asatsuyu_hir::lower_to_hir(&ast.module);
+        let thir = asatsuyu_ty::check_types(&hir.module);
+        let config = super::PackageConfig {
+            name: "test".to_string(),
+            version: "0.1.0".into(),
+            source_map: true,
+        };
+        let pkg = super::emit_package(&thir.module, &config, Some(source));
+        pkg.files
+            .into_iter()
+            .find(|f| f.path.display().to_string() == "test/test.py")
+            .expect("module file")
+            .content
+    }
+
+    #[test]
+    fn sourcemap_comments_present() {
+        let py = python_from_source_with_sourcemap("pub fn main() { 42 }");
+        assert!(py.contains("# asty:L"), "source-map comment present: {py}");
+    }
+
+    #[test]
+    fn sourcemap_comments_absent_when_disabled() {
+        let py = python_from_source("pub fn main() { 42 }");
+        assert!(!py.contains("# asty:L"), "no source-map in plain emit: {py}");
+    }
+
+    #[test]
+    fn sourcemap_line_numbers_correct() {
+        let source = "pub fn main() -> Int {\n  42\n}";
+        let py = python_from_source_with_sourcemap(source);
+        // `def main()` maps to line 1
+        assert!(py.contains("# asty:L1"), "fn def at L1: {py}");
     }
 }

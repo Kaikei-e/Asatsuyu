@@ -954,7 +954,7 @@ impl TyCheckCtx {
                         wildcard_seen = true;
                     }
                 }
-                ThirPattern::Literal(_) => {
+                ThirPattern::Literal(_) | ThirPattern::Tuple { .. } | ThirPattern::List { .. } => {
                     if wildcard_seen || remaining.is_empty() {
                         self.push_unreachable_arm(arm.span);
                     }
@@ -996,7 +996,10 @@ impl TyCheckCtx {
                         catchall_seen = true;
                     }
                 }
-                ThirPattern::Literal(_) | ThirPattern::Constructor { .. } => {
+                ThirPattern::Literal(_)
+                | ThirPattern::Constructor { .. }
+                | ThirPattern::Tuple { .. }
+                | ThirPattern::List { .. } => {
                     if catchall_seen {
                         self.push_unreachable_arm(arm.span);
                     }

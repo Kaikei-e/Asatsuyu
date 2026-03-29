@@ -49,13 +49,19 @@ fn build_hello_asty() {
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("hello.py"), "stdout should contain output path: {stdout}");
+    assert!(stdout.contains("test-dist-hello"), "stdout should contain output dir: {stdout}",);
 
-    // Verify the file was created and contains valid Python.
-    let py_path = dir.join("hello.py");
+    // Verify the package tree was created.
+    let py_path = dir.join("hello/hello.py");
     let content = std::fs::read_to_string(&py_path).expect("generated .py should exist");
     assert!(content.contains("def main()"), "generated Python: {content}");
     assert!(content.contains("return 42"), "generated Python: {content}");
+
+    // Verify __init__.py and pyproject.toml exist.
+    assert!(dir.join("hello/__init__.py").exists(), "__init__.py should exist");
+    assert!(dir.join("pyproject.toml").exists(), "pyproject.toml should exist");
+    assert!(dir.join("hello/__main__.py").exists(), "__main__.py should exist");
+    assert!(dir.join("hello/asatsuyu_prelude.py").exists(), "prelude should exist",);
 
     // Clean up.
     let _ = std::fs::remove_dir_all(&dir);
@@ -114,7 +120,7 @@ fn build_greet_asty() {
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     let content =
-        std::fs::read_to_string(dir.join("greet.py")).expect("generated .py should exist");
+        std::fs::read_to_string(dir.join("greet/greet.py")).expect("generated .py should exist");
     assert!(content.contains("def greet(name: str) -> str:"), "content: {content}");
     assert!(content.contains("def add(x: int, y: int) -> int:"), "content: {content}");
 

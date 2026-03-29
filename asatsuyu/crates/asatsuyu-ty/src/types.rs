@@ -177,6 +177,10 @@ pub enum ThirPattern {
     Literal(ThirLiteral),
     /// A constructor pattern: `Some(x)`, `None`, `Ok(value)`.
     Constructor { def_id: DefId, fields: Vec<ThirPattern>, ty: Ty, span: Span },
+    /// A tuple pattern: `(a, b, c)`.
+    Tuple { elements: Vec<ThirPattern>, ty: Ty, span: Span },
+    /// A list pattern: `[head, ..rest]`, `[]`.
+    List { elements: Vec<ThirPattern>, rest: Option<Box<ThirPattern>>, ty: Ty, span: Span },
 }
 
 impl ThirPattern {
@@ -184,9 +188,11 @@ impl ThirPattern {
     #[must_use]
     pub fn span(&self) -> Span {
         match self {
-            Self::Wildcard(span) | Self::Variable { span, .. } | Self::Constructor { span, .. } => {
-                *span
-            }
+            Self::Wildcard(span)
+            | Self::Variable { span, .. }
+            | Self::Constructor { span, .. }
+            | Self::Tuple { span, .. }
+            | Self::List { span, .. } => *span,
             Self::Literal(lit) => lit.span,
         }
     }

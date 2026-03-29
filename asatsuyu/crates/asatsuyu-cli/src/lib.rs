@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+use asatsuyu_backend_python::PackageConfig;
 use asatsuyu_syntax::{Diagnostic, FileId, LabelStyle, Severity};
 use asatsuyu_ty::ThirModule;
 use clap::{Parser, Subcommand};
@@ -33,11 +34,17 @@ enum Commands {
         /// Output directory
         #[arg(short, long, default_value = "dist")]
         output: PathBuf,
+        /// Add source-map comments (# asty:L<n>) to generated Python
+        #[arg(long)]
+        source_map: bool,
     },
     /// Compile and execute with python3
     Run {
         /// Path to the .asty source file
         path: PathBuf,
+        /// Add source-map comments (# asty:L<n>) to generated Python
+        #[arg(long)]
+        source_map: bool,
     },
 }
 
@@ -49,8 +56,8 @@ pub fn run() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Commands::Check { path } => cmd_check(&path),
-        Commands::Build { path, output } => cmd_build(&path, &output),
-        Commands::Run { path } => cmd_run(&path),
+        Commands::Build { path, output, source_map } => cmd_build(&path, &output, source_map),
+        Commands::Run { path, source_map } => cmd_run(&path, source_map),
     }
 }
 
@@ -70,8 +77,8 @@ fn cmd_check(path: &Path) -> ExitCode {
     }
 }
 
-fn cmd_build(path: &Path, output_dir: &Path) -> ExitCode {
-    let thir = match compile(path) {
+fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
+    let (thir, source) = match compile_with_source(path) {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source);
@@ -83,26 +90,30 @@ fn cmd_build(path: &Path, output_dir: &Path) -> ExitCode {
         }
     };
 
-    let python = asatsuyu_backend_python::emit_module(&thir);
-
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let py_path = output_dir.join(format!("{stem}.py"));
+    let config = PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map };
+    let package = asatsuyu_backend_python::emit_package(&thir, &config, Some(&source));
 
-    if let Err(e) = std::fs::create_dir_all(output_dir) {
-        eprintln!("error: cannot create output directory: {e}");
-        return ExitCode::FAILURE;
-    }
-    if let Err(e) = std::fs::write(&py_path, &python) {
-        eprintln!("error: cannot write {}: {e}", py_path.display());
-        return ExitCode::FAILURE;
+    for file in &package.files {
+        let out_path = output_dir.join(&file.path);
+        if let Some(parent) = out_path.parent()
+            && let Err(e) = std::fs::create_dir_all(parent)
+        {
+            eprintln!("error: cannot create directory: {e}");
+            return ExitCode::FAILURE;
+        }
+        if let Err(e) = std::fs::write(&out_path, &file.content) {
+            eprintln!("error: cannot write {}: {e}", out_path.display());
+            return ExitCode::FAILURE;
+        }
     }
 
-    println!("{}", py_path.display());
+    println!("{}", output_dir.display());
     ExitCode::SUCCESS
 }
 
-fn cmd_run(path: &Path) -> ExitCode {
-    let thir = match compile(path) {
+fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
+    let (thir, source) = match compile_with_source(path) {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source);
@@ -114,29 +125,37 @@ fn cmd_run(path: &Path) -> ExitCode {
         }
     };
 
-    let mut python = asatsuyu_backend_python::emit_module(&thir);
-
-    // Append a __main__ guard that calls main() if it exists.
-    if thir.functions.iter().any(|f| thir.symbol_table.get(f.def_id).name.as_str() == "main") {
-        python.push_str("\n\nif __name__ == \"__main__\":\n    main()\n");
-    }
-
-    // Write to dist/ so the user can inspect generated code.
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     let output_dir = Path::new("dist");
-    let py_path = output_dir.join(format!("{stem}.py"));
+    let config = PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map };
+    let package = asatsuyu_backend_python::emit_package(&thir, &config, Some(&source));
 
-    if let Err(e) = std::fs::create_dir_all(output_dir) {
-        eprintln!("error: cannot create output directory: {e}");
-        return ExitCode::FAILURE;
-    }
-    if let Err(e) = std::fs::write(&py_path, &python) {
-        eprintln!("error: cannot write {}: {e}", py_path.display());
-        return ExitCode::FAILURE;
+    for file in &package.files {
+        let out_path = output_dir.join(&file.path);
+        if let Some(parent) = out_path.parent()
+            && let Err(e) = std::fs::create_dir_all(parent)
+        {
+            eprintln!("error: cannot create directory: {e}");
+            return ExitCode::FAILURE;
+        }
+        if let Err(e) = std::fs::write(&out_path, &file.content) {
+            eprintln!("error: cannot write {}: {e}", out_path.display());
+            return ExitCode::FAILURE;
+        }
     }
 
-    // Execute with python3, passing stdout/stderr through.
-    match Command::new("python3").arg(&py_path).status() {
+    // Execute with python3 -m <package> if main exists, else just the module.
+    let has_main =
+        thir.functions.iter().any(|f| thir.symbol_table.get(f.def_id).name.as_str() == "main");
+
+    let status_result = if has_main {
+        Command::new("python3").arg("-m").arg(stem.as_ref()).current_dir(output_dir).status()
+    } else {
+        let py_path = output_dir.join(format!("{stem}/{stem}.py"));
+        Command::new("python3").arg(&py_path).status()
+    };
+
+    match status_result {
         Ok(status) => {
             if status.success() {
                 ExitCode::SUCCESS
@@ -153,38 +172,61 @@ fn cmd_run(path: &Path) -> ExitCode {
 
 // ── Compilation pipeline ───────────────────────────────────────────
 
+/// Compile a `.asty` file, returning the typed module and the original source.
+fn compile_with_source(path: &Path) -> Result<(ThirModule, String), CliError> {
+    let source = std::fs::read_to_string(path).map_err(CliError::Io)?;
+    let module = compile_source(&source)?;
+    Ok((module, source))
+}
+
 /// Compile a `.asty` file through the full pipeline, returning the typed module.
 fn compile(path: &Path) -> Result<ThirModule, CliError> {
     let source = std::fs::read_to_string(path).map_err(CliError::Io)?;
+    compile_source(&source)
+}
 
+/// Compile source text through the full pipeline.
+fn compile_source(source: &str) -> Result<ThirModule, CliError> {
     let mut all_diagnostics = Vec::new();
 
     // Parse
-    let cst = asatsuyu_parser::parse(FileId(0), &source);
+    let cst = asatsuyu_parser::parse(FileId(0), source);
     all_diagnostics.extend(cst.diagnostics().iter().cloned());
     if cst.has_errors() {
-        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
+        return Err(CliError::CompileErrors {
+            diagnostics: all_diagnostics,
+            source: source.to_string(),
+        });
     }
 
     // AST
     let ast = asatsuyu_ast::lower(&cst, FileId(0));
     all_diagnostics.extend(ast.diagnostics.iter().cloned());
     if ast.has_errors() {
-        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
+        return Err(CliError::CompileErrors {
+            diagnostics: all_diagnostics,
+            source: source.to_string(),
+        });
     }
 
     // HIR
     let hir = asatsuyu_hir::lower_to_hir(&ast.module);
     all_diagnostics.extend(hir.diagnostics.iter().cloned());
     if hir.has_errors() {
-        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
+        return Err(CliError::CompileErrors {
+            diagnostics: all_diagnostics,
+            source: source.to_string(),
+        });
     }
 
     // Type check
     let thir = asatsuyu_ty::check_types(&hir.module);
     all_diagnostics.extend(thir.diagnostics.iter().cloned());
     if thir.has_errors() {
-        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
+        return Err(CliError::CompileErrors {
+            diagnostics: all_diagnostics,
+            source: source.to_string(),
+        });
     }
 
     Ok(thir.module)

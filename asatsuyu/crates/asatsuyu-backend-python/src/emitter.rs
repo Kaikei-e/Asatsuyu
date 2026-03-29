@@ -6,22 +6,63 @@ use std::fmt::Write;
 
 use asatsuyu_ast::{BinOp, UnOp};
 use asatsuyu_hir::{DefKind, HirCustomType, HirFieldType, HirTypeExpr, HirVariant};
+use asatsuyu_syntax::Span;
 use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirMatchArm, ThirModule, ThirPattern, Ty};
 use smol_str::SmolStr;
 
 /// 4-space indentation per PEP 8.
 const INDENT: &str = "    ";
 
+/// Precomputed line-start byte offsets for source-map comment generation.
+pub(crate) struct LineOffsets {
+    offsets: Vec<u32>,
+}
+
+impl LineOffsets {
+    /// Build a line offset table from source text.
+    pub(crate) fn from_source(source: &str) -> Self {
+        let mut offsets = vec![0u32];
+        for (i, ch) in source.char_indices() {
+            if ch == '\n' {
+                // Source files are capped well below u32::MAX.
+                #[allow(clippy::cast_possible_truncation)]
+                offsets.push((i + 1) as u32);
+            }
+        }
+        Self { offsets }
+    }
+
+    /// Convert a byte offset to a 1-based line number.
+    fn line_number(&self, offset: u32) -> usize {
+        match self.offsets.binary_search(&offset) {
+            Ok(i) => i + 1,
+            Err(i) => i,
+        }
+    }
+}
+
 /// Emits Python source code from a typed HIR module.
 pub(crate) struct Emitter<'a> {
     module: &'a ThirModule,
     output: String,
     indent: usize,
+    /// Source-map line offsets. `Some` enables `# asty:L<n>` comments.
+    line_offsets: Option<LineOffsets>,
 }
 
 impl<'a> Emitter<'a> {
     pub(crate) fn new(module: &'a ThirModule) -> Self {
-        Self { module, output: String::new(), indent: 0 }
+        Self { module, output: String::new(), indent: 0, line_offsets: None }
+    }
+
+    /// Create an emitter with source-map comment generation enabled.
+    pub(crate) fn with_source_map(module: &'a ThirModule, source: &str) -> Self {
+        Self {
+            module,
+            output: String::new(),
+            indent: 0,
+            line_offsets: Some(LineOffsets::from_source(source)),
+        }
     }
 
     pub(crate) fn emit(&mut self) {
@@ -30,6 +71,17 @@ impl<'a> Emitter<'a> {
 
     pub(crate) fn into_output(self) -> String {
         self.output
+    }
+
+    // ── Source-map helpers ─────────────────────────────────────────
+
+    /// Append a `# asty:L<n>` comment before the trailing newline on the
+    /// current output line. No-op when source-map is disabled.
+    fn write_source_comment(&mut self, span: Span) {
+        if let Some(ref lo) = self.line_offsets {
+            let line = lo.line_number(span.start);
+            let _ = write!(self.output, "  # asty:L{line}");
+        }
     }
 
     // ── Indent helpers ─────────────────────────────────────────────
@@ -68,7 +120,7 @@ impl<'a> Emitter<'a> {
             let module_name = import
                 .module_path
                 .iter()
-                .map(|seg| seg.as_str())
+                .map(smol_str::SmolStr::as_str)
                 .collect::<Vec<_>>()
                 .join(".");
             let needs_alias = import.module_path.last().is_none_or(|last| last != bound_name);
@@ -190,7 +242,9 @@ impl<'a> Emitter<'a> {
             let _ = write!(self.output, "{param_name}: {}", ty_to_python(&param.ty));
         }
 
-        let _ = writeln!(self.output, ") -> {}:", ty_to_python(&fn_def.return_ty));
+        let _ = write!(self.output, ") -> {}:", ty_to_python(&fn_def.return_ty));
+        self.write_source_comment(fn_def.span);
+        self.output.push('\n');
 
         // Body.
         self.push_indent();
@@ -240,6 +294,7 @@ impl<'a> Emitter<'a> {
         self.write_indent();
         self.output.push_str("return ");
         self.emit_expr(expr);
+        self.write_source_comment(expr.span());
         self.output.push('\n');
     }
 
@@ -356,13 +411,17 @@ impl<'a> Emitter<'a> {
         self.write_indent();
         self.output.push_str("match ");
         self.emit_expr(subject);
-        self.output.push_str(":\n");
+        self.output.push(':');
+        self.write_source_comment(subject.span());
+        self.output.push('\n');
         self.push_indent();
         for arm in arms {
             self.write_indent();
             self.output.push_str("case ");
             self.emit_pattern(&arm.pattern);
-            self.output.push_str(":\n");
+            self.output.push(':');
+            self.write_source_comment(arm.span);
+            self.output.push('\n');
             self.push_indent();
             if is_return {
                 self.emit_return_stmt(&arm.body);
@@ -403,6 +462,37 @@ impl<'a> Emitter<'a> {
                     }
                     self.output.push(')');
                 }
+            }
+            ThirPattern::Tuple { elements, .. } => {
+                self.output.push('(');
+                for (i, elem) in elements.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.emit_pattern(elem);
+                }
+                // Single-element tuples need a trailing comma.
+                if elements.len() == 1 {
+                    self.output.push(',');
+                }
+                self.output.push(')');
+            }
+            ThirPattern::List { elements, rest, .. } => {
+                self.output.push('[');
+                for (i, elem) in elements.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.emit_pattern(elem);
+                }
+                if let Some(rest_pat) = rest {
+                    if !elements.is_empty() {
+                        self.output.push_str(", ");
+                    }
+                    self.output.push('*');
+                    self.emit_pattern(rest_pat);
+                }
+                self.output.push(']');
             }
         }
     }
