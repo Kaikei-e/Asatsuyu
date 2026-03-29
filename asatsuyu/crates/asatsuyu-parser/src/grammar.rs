@@ -169,7 +169,7 @@ fn infix_binding_power(op: SyntaxKind) -> Option<(u8, u8)> {
         | SyntaxKind::LtEq
         | SyntaxKind::Gt
         | SyntaxKind::GtEq => Some((5, 6)),
-        SyntaxKind::Plus | SyntaxKind::Minus => Some((7, 8)),
+        SyntaxKind::Pipe | SyntaxKind::Plus | SyntaxKind::Minus => Some((7, 8)),
         SyntaxKind::Star | SyntaxKind::Slash | SyntaxKind::Percent => Some((9, 10)),
         _ => None,
     }
@@ -264,12 +264,17 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
             continue;
         }
 
-        // Infix: binary expression `expr op expr`
+        // Infix: binary expression `expr op expr` or pipeline `expr |> expr`
         if let Some((left_bp, right_bp)) = infix_binding_power(op) {
             if left_bp < min_bp {
                 break;
             }
-            p.start_node_at(checkpoint, SyntaxKind::BinaryExpr);
+            let node_kind = if op == SyntaxKind::Pipe {
+                SyntaxKind::PipelineExpr
+            } else {
+                SyntaxKind::BinaryExpr
+            };
+            p.start_node_at(checkpoint, node_kind);
             p.bump(); // consume the operator token
             parse_expr_bp(p, right_bp);
             p.finish_node();

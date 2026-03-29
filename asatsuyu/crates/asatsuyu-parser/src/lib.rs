@@ -208,6 +208,10 @@ mod tests {
             "fn f() { if x { 1 } else { 2 } }",
             "fn f() { (a + b) }",
             "fn f() { -x }",
+            "fn f() { x |> g }",
+            "fn f() { x |> f |> g }",
+            "fn f() { x |> f(1, 2) }",
+            "fn f() { a + b |> f }",
         ];
         for &source in sources {
             let result = parse(FID, source);
@@ -493,6 +497,151 @@ mod tests {
             "should report expected block or if: {:?}",
             result.diagnostics()
         );
+    }
+
+    // ── Pipeline expression tests ──────────────────────────────
+
+    // ── 32. Simple pipeline ────────────────────────────────────
+
+    #[test]
+    fn parse_simple_pipeline() {
+        let source = "fn f() { x |> g }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("PipelineExpr"), "tree should contain PipelineExpr:\n{tree}");
+        assert!(tree.contains("Pipe"), "tree should contain Pipe token:\n{tree}");
+    }
+
+    // ── 33. Chained pipeline ───────────────────────────────────
+
+    #[test]
+    fn parse_chained_pipeline() {
+        let source = "fn f() { x |> f |> g }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let pipeline_count = tree.matches("PipelineExpr@").count();
+        assert!(
+            pipeline_count >= 2,
+            "expected 2+ PipelineExpr for chained pipeline, got {pipeline_count}:\n{tree}"
+        );
+    }
+
+    // ── 34. Pipeline with call ─────────────────────────────────
+
+    #[test]
+    fn parse_pipeline_with_call() {
+        let source = "fn f() { x |> f(1, 2) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("PipelineExpr"), "tree should contain PipelineExpr:\n{tree}");
+        assert!(tree.contains("CallExpr"), "tree should contain CallExpr on RHS:\n{tree}");
+    }
+
+    // ── 35. Pipeline precedence vs addition ────────────────────
+
+    #[test]
+    fn parse_pipeline_precedence_add() {
+        // |> and + have the same binding power (7, 8), left-associative
+        // so `a + b |> f` parses as `(a + b) |> f`
+        let source = "fn f() { a + b |> f }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        // Outer node should be PipelineExpr wrapping BinaryExpr
+        assert!(tree.contains("PipelineExpr"), "tree should contain PipelineExpr:\n{tree}");
+        assert!(tree.contains("BinaryExpr"), "tree should contain BinaryExpr:\n{tree}");
+    }
+
+    // ── 36. Pipeline precedence vs multiplication ──────────────
+
+    #[test]
+    fn parse_pipeline_precedence_mul() {
+        // * has higher bp (9, 10) than |> (7, 8)
+        // so `a * b |> f` parses as `(a * b) |> f`
+        let source = "fn f() { a * b |> f }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("PipelineExpr"), "tree should contain PipelineExpr:\n{tree}");
+        assert!(tree.contains("BinaryExpr"), "tree should contain BinaryExpr:\n{tree}");
+    }
+
+    // ── 37. Pipeline precedence vs comparison ──────────────────
+
+    #[test]
+    fn parse_pipeline_precedence_comparison() {
+        // == has lower bp (5, 6) than |> (7, 8)
+        // so `x |> f == y` parses as `(x |> f) == y`
+        let source = "fn f() { x |> f == y }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        // Outer node should be BinaryExpr (==) wrapping PipelineExpr
+        assert!(tree.contains("PipelineExpr"), "tree should contain PipelineExpr:\n{tree}");
+        assert!(tree.contains("BinaryExpr"), "tree should contain BinaryExpr:\n{tree}");
+        assert!(tree.contains("EqEq"), "tree should contain EqEq:\n{tree}");
+    }
+
+    // ── 38. Pipeline in if condition ───────────────────────────
+
+    #[test]
+    fn parse_pipeline_in_if() {
+        let source = "fn f() { if x |> g { 1 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("IfExpr"), "tree should contain IfExpr:\n{tree}");
+        assert!(tree.contains("PipelineExpr"), "tree should contain PipelineExpr:\n{tree}");
+    }
+
+    // ── 39. Pipeline multiline (lossless roundtrip) ────────────
+
+    #[test]
+    fn parse_pipeline_multiline() {
+        let source = "fn f() { x\n|> f\n|> g }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let pipeline_count = tree.matches("PipelineExpr@").count();
+        assert!(
+            pipeline_count >= 2,
+            "expected 2+ PipelineExpr for multiline, got {pipeline_count}:\n{tree}"
+        );
+        // Lossless roundtrip
+        assert_eq!(result.syntax().to_string(), source);
+    }
+
+    // ── 40. Pipeline three stages ──────────────────────────────
+
+    #[test]
+    fn parse_pipeline_three_stages() {
+        let source = "fn f() { x |> a |> b |> c }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let pipeline_count = tree.matches("PipelineExpr@").count();
+        assert_eq!(pipeline_count, 3, "expected 3 PipelineExpr, got {pipeline_count}:\n{tree}");
+    }
+
+    // ── 41. Pipeline with call args and trailing comma ─────────
+
+    #[test]
+    fn parse_pipeline_call_trailing_comma() {
+        let source = "fn f() { x |> g(1, 2,) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
     }
 
     // ── Error tests (original) ──────────────────────────────────
