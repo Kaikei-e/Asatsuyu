@@ -6,7 +6,7 @@
 use std::fmt;
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp, Visibility};
-use asatsuyu_hir::{DefId, HirCustomType, SymbolTable};
+use asatsuyu_hir::{DefId, HirCustomType, HirImport, SymbolTable};
 use asatsuyu_syntax::Span;
 use smol_str::SmolStr;
 
@@ -120,6 +120,8 @@ pub struct ThirModule {
     pub functions: Vec<ThirFnDef>,
     /// Custom type definitions passed through from HIR for backend use.
     pub custom_types: Vec<HirCustomType>,
+    /// Import declarations passed through from HIR for backend use.
+    pub imports: Vec<HirImport>,
     /// Re-exported from HIR for downstream convenience.
     pub symbol_table: SymbolTable,
     pub span: Span,

@@ -14,6 +14,7 @@ asatsuyu-syntax = { workspace = true }
 asatsuyu-ty = { workspace = true }
 asatsuyu-hir = { workspace = true }
 asatsuyu-ast = { workspace = true }
+smol_str = { workspace = true }
 
 [dev-dependencies]
 asatsuyu-parser = { workspace = true }

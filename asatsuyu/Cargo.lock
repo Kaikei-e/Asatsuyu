@@ -86,6 +86,7 @@ dependencies = [
  "asatsuyu-parser",
  "asatsuyu-syntax",
  "asatsuyu-ty",
+ "smol_str",
 ]
 
 [[package]]

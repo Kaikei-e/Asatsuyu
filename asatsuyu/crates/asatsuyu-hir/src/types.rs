@@ -108,7 +108,7 @@ pub struct HirModule {
 // ── HIR Import ─────────────────────────────────────────────────────
 
 /// An import declaration in HIR, with a resolved [`DefId`] for the bound name.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HirImport {
     pub def_id: DefId,
     /// Module path segments: `["gleam", "io"]` for `import gleam.io`.

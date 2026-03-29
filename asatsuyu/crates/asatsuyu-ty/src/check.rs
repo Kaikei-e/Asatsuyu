@@ -336,8 +336,9 @@ impl TyCheckCtx {
     pub(crate) fn check_module(&mut self, module: &HirModule) -> ThirModule {
         let functions = module.functions.iter().map(|f| self.check_fn_def(f)).collect();
         let custom_types = module.custom_types.clone();
+        let imports = module.imports.clone();
         let symbol_table = clone_symbol_table(&module.symbol_table);
-        ThirModule { functions, custom_types, symbol_table, span: module.span }
+        ThirModule { functions, custom_types, imports, symbol_table, span: module.span }
     }
 
     fn check_fn_def(&mut self, fn_def: &HirFnDef) -> ThirFnDef {
