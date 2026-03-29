@@ -244,7 +244,8 @@ impl HirLowerCtx {
                 });
                 self.define_local(&p.name.name, param_def_id, p.name.span);
                 let type_name = match &p.type_ann {
-                    asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
+                    Some(asatsuyu_ast::TypeExpr::Named { name, .. }) => name.name.clone(),
+                    None => SmolStr::default(),
                 };
                 HirParam { def_id: param_def_id, type_ann: type_name, span: p.span }
             })
@@ -366,6 +367,60 @@ impl HirLowerCtx {
                     }
                 }
             }
+
+            Expr::Let { name, value, span } => self.lower_let(name, value, *span),
+
+            Expr::Lambda { params, return_type, body, span } => {
+                self.lower_lambda(params, return_type.as_ref(), body, *span)
+            }
+        }
+    }
+
+    fn lower_let(&mut self, name: &asatsuyu_ast::Ident, value: &Expr, span: Span) -> HirExpr {
+        let def_id = self.symbol_table.alloc(DefData {
+            name: name.name.clone(),
+            kind: DefKind::LocalBinding,
+            span: name.span,
+        });
+        self.define_local(&name.name, def_id, name.span);
+        let hir_value = self.lower_expr(value);
+        HirExpr::Let { binding: def_id, value: Box::new(hir_value), span }
+    }
+
+    fn lower_lambda(
+        &mut self,
+        params: &[asatsuyu_ast::Param],
+        return_type: Option<&asatsuyu_ast::TypeExpr>,
+        body: &Expr,
+        span: Span,
+    ) -> HirExpr {
+        self.scopes.push();
+        let hir_params: Vec<HirParam> = params
+            .iter()
+            .map(|p| {
+                let param_def_id = self.symbol_table.alloc(DefData {
+                    name: p.name.name.clone(),
+                    kind: DefKind::Parameter,
+                    span: p.name.span,
+                });
+                self.define_local(&p.name.name, param_def_id, p.name.span);
+                let type_name = match &p.type_ann {
+                    Some(asatsuyu_ast::TypeExpr::Named { name, .. }) => name.name.clone(),
+                    None => SmolStr::default(),
+                };
+                HirParam { def_id: param_def_id, type_ann: type_name, span: p.span }
+            })
+            .collect();
+        let hir_body = self.lower_expr(body);
+        self.scopes.pop();
+        let hir_return_type = return_type.map(|rt| match rt {
+            asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
+        });
+        HirExpr::Lambda {
+            params: hir_params,
+            return_type: hir_return_type,
+            body: Box::new(hir_body),
+            span,
         }
     }
 

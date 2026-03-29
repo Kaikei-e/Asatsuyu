@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 362
 expression: "snapshot(\"fn f(x: Int) -> Int {\\n  match x {\\n    0 -> 0\\n    _ -> 1\\n  }\\n}\")"
 ---
 Module {
@@ -31,9 +30,19 @@ Module {
                                 end: 6,
                             },
                         },
-                        type_ann: Named {
-                            name: Ident {
-                                name: "Int",
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 8,
+                                        end: 11,
+                                    },
+                                },
+                                args: [],
                                 span: Span {
                                     file_id: FileId(
                                         0,
@@ -42,15 +51,7 @@ Module {
                                     end: 11,
                                 },
                             },
-                            args: [],
-                            span: Span {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                start: 8,
-                                end: 11,
-                            },
-                        },
+                        ),
                         span: Span {
                             file_id: FileId(
                                 0,

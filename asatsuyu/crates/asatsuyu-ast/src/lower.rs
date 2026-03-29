@@ -366,9 +366,9 @@ impl LowerCtx {
             span: span_of_token(&name_token, self.file_id),
         };
 
-        // Type annotation: try TypeExpr child first, fall back to second Ident token
+        // Type annotation (optional): try TypeExpr child first, fall back to second Ident token
         let type_ann = if let Some(te) = first_child_of_kind(node, SyntaxKind::TypeExpr) {
-            self.lower_type_expr(&te)?
+            Some(self.lower_type_expr(&te)?)
         } else {
             // Fallback: second Ident token (simple `name: Type` without TypeExpr node)
             let idents: Vec<SyntaxToken> = node
@@ -377,20 +377,19 @@ impl LowerCtx {
                 .filter(|t| t.kind() == SyntaxKind::Ident)
                 .collect();
 
-            if idents.len() < 2 {
-                let span = span_of(node, self.file_id);
-                self.push_error("incomplete parameter", span);
-                return None;
-            }
-
-            let type_ident = Ident {
-                name: SmolStr::from(idents[1].text()),
-                span: span_of_token(&idents[1], self.file_id),
-            };
-            TypeExpr::Named {
-                name: type_ident,
-                args: Vec::new(),
-                span: span_of_token(&idents[1], self.file_id),
+            if idents.len() >= 2 {
+                let type_ident = Ident {
+                    name: SmolStr::from(idents[1].text()),
+                    span: span_of_token(&idents[1], self.file_id),
+                };
+                Some(TypeExpr::Named {
+                    name: type_ident,
+                    args: Vec::new(),
+                    span: span_of_token(&idents[1], self.file_id),
+                })
+            } else {
+                // No type annotation (valid for lambda parameters)
+                None
             }
         };
 
@@ -418,9 +417,57 @@ impl LowerCtx {
     fn lower_block_expr(&mut self, node: &SyntaxNode) -> Expr {
         debug_assert_eq!(node.kind(), SyntaxKind::BlockExpr);
 
-        let exprs: Vec<Expr> = node.children().filter_map(|c| self.lower_expr(&c)).collect();
+        let exprs: Vec<Expr> = node
+            .children()
+            .filter_map(|c| match c.kind() {
+                SyntaxKind::LetStmt => self.lower_let_stmt(&c),
+                _ => self.lower_expr(&c),
+            })
+            .collect();
 
         Expr::Block { exprs, span: span_of(node, self.file_id) }
+    }
+
+    // ── LetStmt ─────────────────────────────────────────────────────
+
+    fn lower_let_stmt(&mut self, node: &SyntaxNode) -> Option<Expr> {
+        debug_assert_eq!(node.kind(), SyntaxKind::LetStmt);
+
+        let name_token = first_token_of_kind(node, SyntaxKind::Ident)?;
+        let name = Ident {
+            name: SmolStr::from(name_token.text()),
+            span: span_of_token(&name_token, self.file_id),
+        };
+
+        // Value: the first child expression
+        let value = node.children().find_map(|c| self.lower_expr(&c))?;
+
+        Some(Expr::Let { name, value: Box::new(value), span: span_of(node, self.file_id) })
+    }
+
+    // ── LambdaExpr ──────────────────────────────────────────────────
+
+    fn lower_lambda_expr(&mut self, node: &SyntaxNode) -> Option<Expr> {
+        debug_assert_eq!(node.kind(), SyntaxKind::LambdaExpr);
+
+        let params = if let Some(pl) = first_child_of_kind(node, SyntaxKind::ParamList) {
+            self.lower_param_list(&pl)
+        } else {
+            Vec::new()
+        };
+
+        let return_type = first_child_of_kind(node, SyntaxKind::ReturnType)
+            .and_then(|rt| self.lower_return_type(&rt));
+
+        let body =
+            first_child_of_kind(node, SyntaxKind::BlockExpr).map(|b| self.lower_block_expr(&b))?;
+
+        Some(Expr::Lambda {
+            params,
+            return_type,
+            body: Box::new(body),
+            span: span_of(node, self.file_id),
+        })
     }
 
     // ── Expr dispatch ───────────────────────────────────────────────
@@ -436,6 +483,7 @@ impl LowerCtx {
             SyntaxKind::PipelineExpr => self.lower_pipeline_expr(node),
             SyntaxKind::IfExpr => self.lower_if_expr(node),
             SyntaxKind::MatchExpr => self.lower_match_expr(node),
+            SyntaxKind::LambdaExpr => self.lower_lambda_expr(node),
             SyntaxKind::ParenExpr => self.lower_paren_expr(node),
             SyntaxKind::NodeError => {
                 let span = span_of(node, self.file_id);

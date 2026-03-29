@@ -523,4 +523,76 @@ mod tests {
             }
         }
     }
+
+    // ── 33. Let binding (Issue 25) ────────────────────────────────
+
+    #[test]
+    fn let_simple_binding() {
+        let result = thir_from_source("pub fn main() { let x = 42\n x }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── 34. Lambda expression (Issue 25) ──────────────────────────
+
+    #[test]
+    fn lambda_inferred_param() {
+        // fn(x) { x } used with an Int argument should infer (Int) -> Int
+        let result = thir_from_source("pub fn main() -> Int { let f = fn(x) { x }\n f(42) }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── 35. Let-polymorphism: identity function (Issue 25 DoD) ───
+
+    #[test]
+    fn let_polymorphic_identity() {
+        // let id = fn(x) { x } should be polymorphic:
+        // id(42) : Int, id("hello") : String
+        let result = thir_from_source(
+            "pub fn main() { let id = fn(x) { x }\n let a = id(42)\n let b = id(\"hello\")\n b }",
+        );
+        assert!(
+            !result.has_errors(),
+            "polymorphic identity should type-check without errors: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 36. Let monomorphic use ───────────────────────────────────
+
+    #[test]
+    fn let_monomorphic_value() {
+        // let x = 42 — x should be Int, not polymorphic
+        let result = thir_from_source("pub fn main() -> Int { let x = 42\n x }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── 37. Lambda with type annotation ───────────────────────────
+
+    #[test]
+    fn lambda_with_annotation() {
+        let result = thir_from_source("pub fn main() -> Int { let f = fn(x: Int) { x }\n f(42) }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── 38. Generalize/instantiate unit test ──────────────────────
+
+    #[test]
+    fn generalize_and_instantiate() {
+        use crate::unify::InferCtx;
+        use std::collections::HashSet;
+
+        let mut ctx = InferCtx::new();
+        let a = ctx.fresh_var(); // ?0
+        // Type: ?0 -> ?0 (identity function type)
+        let fn_ty = Ty::Function { params: vec![a.clone()], ret: Box::new(a) };
+
+        // Generalize with empty env → forall ?0. ?0 -> ?0
+        let scheme = ctx.generalize(&fn_ty, &HashSet::new());
+        assert_eq!(scheme.vars.len(), 1, "should quantify one variable");
+
+        // Instantiate twice → independent fresh vars
+        let inst1 = ctx.instantiate(&scheme);
+        let inst2 = ctx.instantiate(&scheme);
+        assert_ne!(inst1, inst2, "each instantiation should produce fresh variables");
+    }
 }

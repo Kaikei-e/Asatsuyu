@@ -30,9 +30,19 @@ Module {
                                 end: 8,
                             },
                         },
-                        type_ann: Named {
-                            name: Ident {
-                                name: "Option",
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Option",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 10,
+                                        end: 16,
+                                    },
+                                },
+                                args: [],
                                 span: Span {
                                     file_id: FileId(
                                         0,
@@ -41,15 +51,7 @@ Module {
                                     end: 16,
                                 },
                             },
-                            args: [],
-                            span: Span {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                start: 10,
-                                end: 16,
-                            },
-                        },
+                        ),
                         span: Span {
                             file_id: FileId(
                                 0,

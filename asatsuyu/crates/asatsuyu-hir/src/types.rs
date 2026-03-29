@@ -231,6 +231,10 @@ pub enum HirExpr {
     },
     /// A match expression: `match subject { pattern -> expr ... }`.
     Match { subject: Box<HirExpr>, arms: Vec<HirMatchArm>, span: Span },
+    /// A let binding: `let x = expr`.
+    Let { binding: DefId, value: Box<HirExpr>, span: Span },
+    /// An anonymous function: `fn(params) { body }`.
+    Lambda { params: Vec<HirParam>, return_type: Option<SmolStr>, body: Box<HirExpr>, span: Span },
 }
 
 impl HirExpr {
@@ -245,7 +249,9 @@ impl HirExpr {
             | Self::BinaryOp { span, .. }
             | Self::UnaryOp { span, .. }
             | Self::If { span, .. }
-            | Self::Match { span, .. } => *span,
+            | Self::Match { span, .. }
+            | Self::Let { span, .. }
+            | Self::Lambda { span, .. } => *span,
         }
     }
 }

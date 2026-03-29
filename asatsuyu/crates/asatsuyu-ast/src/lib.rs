@@ -147,9 +147,9 @@ mod tests {
         let f = get_fn(&result.module, 0);
         assert_eq!(f.params.len(), 2);
         assert_eq!(f.params[0].name.name.as_str(), "x");
-        assert_eq!(type_name(&f.params[0].type_ann), "Int");
+        assert_eq!(type_name(f.params[0].type_ann.as_ref().unwrap()), "Int");
         assert_eq!(f.params[1].name.name.as_str(), "y");
-        assert_eq!(type_name(&f.params[1].type_ann), "Int");
+        assert_eq!(type_name(f.params[1].type_ann.as_ref().unwrap()), "Int");
     }
 
     // ── 5. Function with return type ────────────────────────────────
@@ -248,7 +248,7 @@ mod tests {
         // Param spans
         assert!(!f.params[0].span.is_empty());
         assert!(!f.params[0].name.span.is_empty());
-        assert!(!f.params[0].type_ann.span().is_empty());
+        assert!(!f.params[0].type_ann.as_ref().unwrap().span().is_empty());
 
         // Return type span
         let rt = f.return_type.as_ref().unwrap();

@@ -5,9 +5,9 @@
 //!
 //! Includes an occurs check to prevent infinite recursive types (Issue 24).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::types::{Ty, TyVarId};
+use crate::types::{Ty, TyVarId, TypeScheme};
 
 // ── Unification error ──────────────────────────────────────────────
 
@@ -31,7 +31,6 @@ pub(crate) struct UnifyError {
 
 /// Accumulates type variable bindings during inference.
 pub(crate) struct InferCtx {
-    #[allow(dead_code)] // Used in Issue 25 (let-polymorphism)
     next_var: u32,
     subst: HashMap<TyVarId, Ty>,
 }
@@ -42,7 +41,6 @@ impl InferCtx {
     }
 
     /// Allocate a fresh type variable.
-    #[allow(dead_code)] // Used in Issue 25 (let-polymorphism)
     pub(crate) fn fresh_var(&mut self) -> Ty {
         let id = TyVarId(self.next_var);
         self.next_var += 1;
@@ -87,6 +85,59 @@ impl InferCtx {
                 let ret = Box::new(self.resolve(ret));
                 Ty::Function { params, ret }
             }
+            Ty::Primitive(_) | Ty::Error => ty.clone(),
+        }
+    }
+
+    // ── Polymorphism (Issue 25: let-polymorphism) ───────────────────
+
+    /// Collect free (unbound) type variables in a type.
+    pub(crate) fn free_vars(&self, ty: &Ty) -> HashSet<TyVarId> {
+        match self.shallow_resolve(ty) {
+            Ty::Var(id) => {
+                let mut s = HashSet::new();
+                s.insert(id);
+                s
+            }
+            Ty::Function { params, ret } => {
+                let mut s = HashSet::new();
+                for p in &params {
+                    s.extend(self.free_vars(p));
+                }
+                s.extend(self.free_vars(&ret));
+                s
+            }
+            Ty::Primitive(_) | Ty::Error => HashSet::new(),
+        }
+    }
+
+    /// Generalize a type: quantify free vars not appearing in the environment.
+    pub(crate) fn generalize(&self, ty: &Ty, env_fvs: &HashSet<TyVarId>) -> TypeScheme {
+        let resolved = self.resolve(ty);
+        let ty_fvs = self.free_vars(&resolved);
+        let mut vars: Vec<TyVarId> = ty_fvs.difference(env_fvs).copied().collect();
+        vars.sort_by_key(|v| v.0); // deterministic ordering
+        TypeScheme { vars, ty: resolved }
+    }
+
+    /// Instantiate a type scheme: replace quantified vars with fresh vars.
+    pub(crate) fn instantiate(&mut self, scheme: &TypeScheme) -> Ty {
+        if scheme.vars.is_empty() {
+            return scheme.ty.clone(); // Monomorphic fast path
+        }
+        let mapping: HashMap<TyVarId, Ty> =
+            scheme.vars.iter().map(|&v| (v, self.fresh_var())).collect();
+        Self::apply_mapping(&mapping, &scheme.ty)
+    }
+
+    /// Apply a variable mapping to a type (for instantiation).
+    fn apply_mapping(mapping: &HashMap<TyVarId, Ty>, ty: &Ty) -> Ty {
+        match ty {
+            Ty::Var(id) => mapping.get(id).cloned().unwrap_or_else(|| ty.clone()),
+            Ty::Function { params, ret } => Ty::Function {
+                params: params.iter().map(|p| Self::apply_mapping(mapping, p)).collect(),
+                ret: Box::new(Self::apply_mapping(mapping, ret)),
+            },
             Ty::Primitive(_) | Ty::Error => ty.clone(),
         }
     }

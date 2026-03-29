@@ -12,7 +12,8 @@ use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirModule, SymbolTable};
 use asatsuyu_syntax::{Diagnostic, Span};
 
 use crate::types::{
-    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty,
+    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty, TyVarId,
+    TypeScheme,
 };
 use crate::unify::{InferCtx, UnifyErrorKind};
 
@@ -20,8 +21,8 @@ use crate::unify::{InferCtx, UnifyErrorKind};
 
 /// Accumulates state during HIR → THIR type checking.
 pub(crate) struct TyCheckCtx {
-    /// Maps each `DefId` to its resolved type.
-    type_env: HashMap<DefId, Ty>,
+    /// Maps each `DefId` to its type scheme (monomorphic or polymorphic).
+    type_env: HashMap<DefId, TypeScheme>,
     /// Functions whose return type was not explicitly annotated.
     unannotated_returns: HashSet<DefId>,
     diagnostics: Vec<Diagnostic>,
@@ -103,7 +104,7 @@ impl TyCheckCtx {
             .iter()
             .map(|p| {
                 let ty = self.resolve_type_name(&p.type_ann, p.span);
-                self.type_env.insert(p.def_id, ty.clone());
+                self.type_env.insert(p.def_id, TypeScheme::mono(ty.clone()));
                 ty
             })
             .collect();
@@ -117,7 +118,7 @@ impl TyCheckCtx {
         };
 
         let fn_ty = Ty::Function { params: param_tys, ret: Box::new(ret_ty) };
-        self.type_env.insert(fn_def.def_id, fn_ty);
+        self.type_env.insert(fn_def.def_id, TypeScheme::mono(fn_ty));
     }
 }
 
@@ -137,7 +138,7 @@ impl TyCheckCtx {
             .params
             .iter()
             .map(|p| {
-                let ty = self.type_env.get(&p.def_id).cloned().unwrap_or(Ty::Error);
+                let ty = self.type_env.get(&p.def_id).map_or(Ty::Error, |s| s.ty.clone());
                 ThirParam { def_id: p.def_id, ty, span: p.span }
             })
             .collect();
@@ -147,7 +148,8 @@ impl TyCheckCtx {
         let body_ty = self.infer.resolve(body.ty());
 
         // Extract the declared return type from the function signature.
-        let fn_ty = self.type_env.get(&fn_def.def_id).cloned().unwrap_or(Ty::Error);
+        let fn_scheme = self.type_env.get(&fn_def.def_id).cloned();
+        let fn_ty = fn_scheme.map_or(Ty::Error, |s| s.ty);
         let declared_ret = match &fn_ty {
             Ty::Function { ret, .. } => *ret.clone(),
             _ => Ty::Error,
@@ -202,7 +204,10 @@ impl TyCheckCtx {
             }
 
             HirExpr::Var(def_id, span) => {
-                let ty = self.type_env.get(def_id).cloned().unwrap_or(Ty::Error);
+                let ty = match self.type_env.get(def_id) {
+                    Some(scheme) => self.infer.instantiate(scheme),
+                    None => Ty::Error,
+                };
                 ThirExpr::Var { def_id: *def_id, ty, span: *span }
             }
 
@@ -225,7 +230,88 @@ impl TyCheckCtx {
             }
 
             HirExpr::Match { subject, arms, span } => self.check_match(subject, arms, *span),
+
+            HirExpr::Let { binding, value, span } => {
+                let checked_value = self.check_expr(value);
+                let value_ty = self.infer.resolve(checked_value.ty());
+                let env_fvs = self.env_free_vars();
+                let scheme = self.infer.generalize(&value_ty, &env_fvs);
+                self.type_env.insert(*binding, scheme);
+                ThirExpr::Let {
+                    binding: *binding,
+                    value: Box::new(checked_value),
+                    ty: Ty::Primitive(PrimTy::None),
+                    span: *span,
+                }
+            }
+
+            HirExpr::Lambda { params, return_type, body, span } => {
+                self.check_lambda(params, return_type.as_deref(), body, *span)
+            }
         }
+    }
+
+    // ── Lambda ─────────────────────────────────────────────────────
+
+    fn check_lambda(
+        &mut self,
+        params: &[asatsuyu_hir::HirParam],
+        return_type: Option<&str>,
+        body: &HirExpr,
+        span: Span,
+    ) -> ThirExpr {
+        // Assign types to parameters: annotated → resolve, unannotated → fresh var.
+        // Track param DefIds so we can remove them from env after checking.
+        let param_def_ids: Vec<DefId> = params.iter().map(|p| p.def_id).collect();
+        let thir_params: Vec<ThirParam> = params
+            .iter()
+            .map(|p| {
+                let ty = if p.type_ann.is_empty() {
+                    self.infer.fresh_var()
+                } else {
+                    self.resolve_type_name(&p.type_ann, p.span)
+                };
+                self.type_env.insert(p.def_id, TypeScheme::mono(ty.clone()));
+                ThirParam { def_id: p.def_id, ty, span: p.span }
+            })
+            .collect();
+
+        let checked_body = self.check_expr(body);
+        let body_ty = self.infer.resolve(checked_body.ty());
+
+        // Remove lambda params from type_env to prevent them from polluting
+        // the environment during generalization of let-bound values.
+        for def_id in &param_def_ids {
+            self.type_env.remove(def_id);
+        }
+
+        let ret_ty = if let Some(ret_name) = return_type {
+            let declared = self.resolve_type_name(ret_name, span);
+            self.unify_or_error(&declared, &body_ty, body.span());
+            declared
+        } else {
+            body_ty
+        };
+
+        let param_tys: Vec<Ty> = thir_params.iter().map(|p| self.infer.resolve(&p.ty)).collect();
+        let fn_ty = Ty::Function { params: param_tys, ret: Box::new(self.infer.resolve(&ret_ty)) };
+
+        ThirExpr::Lambda { params: thir_params, body: Box::new(checked_body), ty: fn_ty, span }
+    }
+
+    /// Collect free type variables across the entire type environment.
+    fn env_free_vars(&self) -> HashSet<TyVarId> {
+        let mut fvs = HashSet::new();
+        for scheme in self.type_env.values() {
+            let ty_fvs = self.infer.free_vars(&scheme.ty);
+            let quantified: HashSet<_> = scheme.vars.iter().copied().collect();
+            for v in ty_fvs {
+                if !quantified.contains(&v) {
+                    fvs.insert(v);
+                }
+            }
+        }
+        fvs
     }
 
     // ── Call ────────────────────────────────────────────────────────

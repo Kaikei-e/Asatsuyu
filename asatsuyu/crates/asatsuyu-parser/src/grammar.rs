@@ -316,12 +316,20 @@ fn parse_import(p: &mut Parser<'_>) {
 /// ParamList = '(' (Param (',' Param)* ','?)? ')'
 /// ```
 fn parse_param_list(p: &mut Parser<'_>) {
+    parse_param_list_with_mode(p, true);
+}
+
+fn parse_lambda_param_list(p: &mut Parser<'_>) {
+    parse_param_list_with_mode(p, false);
+}
+
+fn parse_param_list_with_mode(p: &mut Parser<'_>, require_type_ann: bool) {
     p.start_node(SyntaxKind::ParamList);
     p.bump(); // consume `(`
 
     while !p.at(SyntaxKind::RParen) && !p.at_eof() {
         let prev = p.pos();
-        parse_param(p);
+        parse_param(p, require_type_ann);
         // Consume comma separator, or break if none
         if p.at(SyntaxKind::Comma) {
             p.bump();
@@ -339,9 +347,9 @@ fn parse_param_list(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// Param = IDENT ':' TypeExpr
+/// Param = IDENT (':' TypeExpr)?
 /// ```
-fn parse_param(p: &mut Parser<'_>) {
+fn parse_param(p: &mut Parser<'_>, require_type_ann: bool) {
     const PARAM_FOLLOW: TokenSet =
         TokenSet::new(&[SyntaxKind::Comma, SyntaxKind::RParen, SyntaxKind::LBrace]);
 
@@ -354,18 +362,16 @@ fn parse_param(p: &mut Parser<'_>) {
         return;
     }
 
-    // Colon
-    if !p.expect(SyntaxKind::Colon) {
+    // Optional type annotation: `: Type`
+    if p.at(SyntaxKind::Colon) {
+        p.bump(); // consume `:`
+        if p.at(SyntaxKind::Ident) {
+            parse_type_expr(p);
+        } else {
+            p.error_recover_until("expected parameter type", PARAM_FOLLOW);
+        }
+    } else if require_type_ann {
         p.error_recover_until("expected `:` after parameter name", PARAM_FOLLOW);
-        p.finish_node();
-        return;
-    }
-
-    // Type annotation
-    if p.at(SyntaxKind::Ident) {
-        parse_type_expr(p);
-    } else {
-        p.error_recover_until("expected parameter type", PARAM_FOLLOW);
     }
 
     p.finish_node();
@@ -386,7 +392,7 @@ fn parse_return_type(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// BlockExpr = '{' Expr* '}'
+/// BlockExpr = '{' (LetStmt | Expr)* '}'
 /// ```
 fn parse_block_expr(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::BlockExpr);
@@ -394,13 +400,68 @@ fn parse_block_expr(p: &mut Parser<'_>) {
 
     while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
         let prev = p.pos();
-        parse_expr(p);
+        if p.at(SyntaxKind::LetKw) {
+            parse_let_stmt(p);
+        } else {
+            parse_expr(p);
+        }
         if p.pos() == prev {
             p.error_and_bump("unexpected token in block");
         }
     }
 
     p.expect(SyntaxKind::RBrace);
+    p.finish_node();
+}
+
+/// ```text
+/// LetStmt = 'let' IDENT '=' Expr
+/// ```
+fn parse_let_stmt(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::LetStmt);
+    p.bump(); // consume `let`
+
+    if p.at(SyntaxKind::Ident) {
+        p.bump(); // binding name
+    } else {
+        p.error_recover_until(
+            "expected binding name",
+            TokenSet::new(&[SyntaxKind::Eq, SyntaxKind::RBrace]),
+        );
+    }
+
+    p.expect(SyntaxKind::Eq);
+    parse_expr(p);
+
+    p.finish_node();
+}
+
+/// ```text
+/// LambdaExpr = 'fn' ParamList ReturnType? BlockExpr
+/// ```
+fn parse_lambda_expr(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::LambdaExpr);
+    p.bump(); // consume `fn`
+
+    if p.at(SyntaxKind::LParen) {
+        parse_lambda_param_list(p);
+    } else {
+        p.error_recover_until(
+            "expected parameter list",
+            TokenSet::new(&[SyntaxKind::LBrace, SyntaxKind::Arrow]),
+        );
+    }
+
+    if p.at(SyntaxKind::Arrow) {
+        parse_return_type(p);
+    }
+
+    if p.at(SyntaxKind::LBrace) {
+        parse_block_expr(p);
+    } else {
+        p.error_recover_until("expected lambda body", TokenSet::EMPTY);
+    }
+
     p.finish_node();
 }
 
@@ -491,6 +552,11 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
         // Match expression
         SyntaxKind::MatchKw => {
             parse_match_expr(p);
+        }
+
+        // Lambda expression: `fn(params) { body }`
+        SyntaxKind::FnKw => {
+            parse_lambda_expr(p);
         }
 
         // Literal atoms

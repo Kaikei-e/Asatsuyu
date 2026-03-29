@@ -188,6 +188,24 @@ impl<'a> Emitter<'a> {
                 }
                 let _ = (subject, arms);
             }
+            ThirExpr::Let { binding, value, .. } => {
+                let name = &self.module.symbol_table.get(*binding).name;
+                self.output.push_str(name.as_str());
+                self.output.push_str(" = ");
+                self.emit_expr(value);
+            }
+            ThirExpr::Lambda { params, body, .. } => {
+                self.output.push_str("lambda ");
+                for (i, p) in params.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    let name = &self.module.symbol_table.get(p.def_id).name;
+                    self.output.push_str(name.as_str());
+                }
+                self.output.push_str(": ");
+                self.emit_expr(body);
+            }
         }
     }
 

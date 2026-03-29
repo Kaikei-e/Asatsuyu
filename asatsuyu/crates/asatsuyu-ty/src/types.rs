@@ -13,9 +13,6 @@ use smol_str::SmolStr;
 // ── Type variable ──────────────────────────────────────────────────
 
 /// A unique identifier for a type variable during inference.
-///
-/// Placeholder for Issue 23 (HM unification). Currently unused by the
-/// placeholder pass but defined so downstream code can pattern-match.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TyVarId(pub u32);
 
@@ -80,6 +77,27 @@ impl fmt::Display for Ty {
             Self::Var(id) => write!(f, "?{}", id.0),
             Self::Error => f.write_str("<error>"),
         }
+    }
+}
+
+// ── Type Scheme (let-polymorphism, Issue 25) ──────────────────────
+
+/// A polymorphic type: universally quantified type variables + monotype.
+///
+/// Monomorphic types have `vars: vec![]`. Let-bound polymorphic types
+/// have the generalized variables listed in `vars`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TypeScheme {
+    /// Quantified type variables (empty for monomorphic types).
+    pub vars: Vec<TyVarId>,
+    /// The underlying monotype.
+    pub ty: Ty,
+}
+
+impl TypeScheme {
+    /// Create a monomorphic scheme (no quantified variables).
+    pub fn mono(ty: Ty) -> Self {
+        Self { vars: vec![], ty }
     }
 }
 
@@ -167,6 +185,10 @@ pub enum ThirExpr {
     },
     /// A match expression: `match subject { pattern -> expr ... }`.
     Match { subject: Box<ThirExpr>, arms: Vec<ThirMatchArm>, ty: Ty, span: Span },
+    /// A let binding: `let x = expr`.
+    Let { binding: DefId, value: Box<ThirExpr>, ty: Ty, span: Span },
+    /// An anonymous function: `fn(params) { body }`.
+    Lambda { params: Vec<ThirParam>, body: Box<ThirExpr>, ty: Ty, span: Span },
 }
 
 impl ThirExpr {
@@ -181,7 +203,9 @@ impl ThirExpr {
             | Self::BinaryOp { ty, .. }
             | Self::UnaryOp { ty, .. }
             | Self::If { ty, .. }
-            | Self::Match { ty, .. } => ty,
+            | Self::Match { ty, .. }
+            | Self::Let { ty, .. }
+            | Self::Lambda { ty, .. } => ty,
         }
     }
 
@@ -196,7 +220,9 @@ impl ThirExpr {
             | Self::BinaryOp { span, .. }
             | Self::UnaryOp { span, .. }
             | Self::If { span, .. }
-            | Self::Match { span, .. } => *span,
+            | Self::Match { span, .. }
+            | Self::Let { span, .. }
+            | Self::Lambda { span, .. } => *span,
         }
     }
 }

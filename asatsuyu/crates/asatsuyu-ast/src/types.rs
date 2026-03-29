@@ -114,7 +114,8 @@ pub struct FnDef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
     pub name: Ident,
-    pub type_ann: TypeExpr,
+    /// Type annotation. `None` for lambda parameters without explicit types.
+    pub type_ann: Option<TypeExpr>,
     pub span: Span,
 }
 
@@ -261,6 +262,10 @@ pub enum Expr {
     Match { subject: Box<Expr>, arms: Vec<MatchArm>, span: Span },
     /// A pipeline expression: `x |> f`.
     Pipeline { left: Box<Expr>, right: Box<Expr>, span: Span },
+    /// A let binding: `let x = expr`.
+    Let { name: Ident, value: Box<Expr>, span: Span },
+    /// An anonymous function: `fn(params) { body }`.
+    Lambda { params: Vec<Param>, return_type: Option<TypeExpr>, body: Box<Expr>, span: Span },
 }
 
 impl Expr {
@@ -276,7 +281,9 @@ impl Expr {
             | Self::UnaryOp { span, .. }
             | Self::If { span, .. }
             | Self::Match { span, .. }
-            | Self::Pipeline { span, .. } => *span,
+            | Self::Pipeline { span, .. }
+            | Self::Let { span, .. }
+            | Self::Lambda { span, .. } => *span,
         }
     }
 }

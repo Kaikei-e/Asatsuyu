@@ -139,9 +139,19 @@ Module {
                                 end: 58,
                             },
                         },
-                        type_ann: Named {
-                            name: Ident {
-                                name: "Int",
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 60,
+                                        end: 63,
+                                    },
+                                },
+                                args: [],
                                 span: Span {
                                     file_id: FileId(
                                         0,
@@ -150,15 +160,7 @@ Module {
                                     end: 63,
                                 },
                             },
-                            args: [],
-                            span: Span {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                start: 60,
-                                end: 63,
-                            },
-                        },
+                        ),
                         span: Span {
                             file_id: FileId(
                                 0,
@@ -326,9 +328,19 @@ Module {
                                 end: 139,
                             },
                         },
-                        type_ann: Named {
-                            name: Ident {
-                                name: "Option",
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Option",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 141,
+                                        end: 147,
+                                    },
+                                },
+                                args: [],
                                 span: Span {
                                     file_id: FileId(
                                         0,
@@ -337,15 +349,7 @@ Module {
                                     end: 147,
                                 },
                             },
-                            args: [],
-                            span: Span {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                start: 141,
-                                end: 147,
-                            },
-                        },
+                        ),
                         span: Span {
                             file_id: FileId(
                                 0,
@@ -365,9 +369,19 @@ Module {
                                 end: 156,
                             },
                         },
-                        type_ann: Named {
-                            name: Ident {
-                                name: "Int",
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 158,
+                                        end: 161,
+                                    },
+                                },
+                                args: [],
                                 span: Span {
                                     file_id: FileId(
                                         0,
@@ -376,15 +390,7 @@ Module {
                                     end: 161,
                                 },
                             },
-                            args: [],
-                            span: Span {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                start: 158,
-                                end: 161,
-                            },
-                        },
+                        ),
                         span: Span {
                             file_id: FileId(
                                 0,
@@ -581,9 +587,19 @@ Module {
                                 end: 248,
                             },
                         },
-                        type_ann: Named {
-                            name: Ident {
-                                name: "List",
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "List",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 250,
+                                        end: 254,
+                                    },
+                                },
+                                args: [],
                                 span: Span {
                                     file_id: FileId(
                                         0,
@@ -592,15 +608,7 @@ Module {
                                     end: 254,
                                 },
                             },
-                            args: [],
-                            span: Span {
-                                file_id: FileId(
-                                    0,
-                                ),
-                                start: 250,
-                                end: 254,
-                            },
-                        },
+                        ),
                         span: Span {
                             file_id: FileId(
                                 0,

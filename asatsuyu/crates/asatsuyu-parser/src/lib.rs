@@ -865,15 +865,26 @@ mod tests {
     // ── 12. Error: missing param colon ───────────────────────────────
 
     #[test]
-    fn error_missing_param_colon() {
+    fn top_level_param_without_type_is_error() {
         let source = "fn f(x) { 1 }";
         let result = parse(FID, source);
-        assert!(result.has_errors());
+        assert!(result.has_errors(), "missing top-level type annotation should error");
         assert!(
-            result.diagnostics().iter().any(|d| d.message.contains("Colon")),
-            "should report missing `:`: {:?}",
+            result.diagnostics().iter().any(|d| d.message.contains("expected `:` after parameter name")),
+            "expected missing colon diagnostic: {:?}",
             result.diagnostics()
         );
+    }
+
+    #[test]
+    fn lambda_param_without_type_is_valid() {
+        let source = "fn f() { let id = fn(x) { x }\n id(1) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "lambda param inference should parse: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("LetStmt"), "tree should contain LetStmt:\n{tree}");
+        assert!(tree.contains("LambdaExpr"), "tree should contain LambdaExpr:\n{tree}");
     }
 
     // ── Match expression tests ──────────────────────────────────────
