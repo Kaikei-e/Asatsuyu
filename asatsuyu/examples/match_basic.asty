@@ -1,0 +1,25 @@
+type Option(a) {
+  Some(a)
+  None
+}
+
+pub fn describe(value: Int) -> Int {
+  match value {
+    0 -> 0
+    _ -> 1
+  }
+}
+
+pub fn unwrap_or(opt: Option, default: Int) -> Int {
+  match opt {
+    Some(x) -> x
+    None -> default
+  }
+}
+
+pub fn first(items: List) -> Option {
+  match items {
+    [head, ..] -> head
+    [] -> 0
+  }
+}
