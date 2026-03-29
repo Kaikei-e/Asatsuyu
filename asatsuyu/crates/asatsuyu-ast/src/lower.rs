@@ -60,11 +60,7 @@ fn span_of_nontrivia(node: &SyntaxNode, file_id: FileId) -> Span {
         return span_of(node, file_id);
     };
     let last = tokens.last().unwrap_or_else(|| first.clone());
-    Span::new(
-        file_id,
-        u32::from(first.text_range().start()),
-        u32::from(last.text_range().end()),
-    )
+    Span::new(file_id, u32::from(first.text_range().start()), u32::from(last.text_range().end()))
 }
 
 // ── Child helpers ───────────────────────────────────────────────────

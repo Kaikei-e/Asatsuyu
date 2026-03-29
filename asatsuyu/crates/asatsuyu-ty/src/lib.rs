@@ -501,4 +501,26 @@ mod tests {
             result.diagnostics
         );
     }
+
+    // ── 32. Occurs check (Issue 24) ───────────────────────────────
+
+    #[test]
+    fn occurs_check_produces_infinite_type_error() {
+        use crate::unify::{InferCtx, UnifyErrorKind};
+
+        let mut ctx = InferCtx::new();
+        let a = ctx.fresh_var(); // ?0
+        // ?0 = fn(?0) -> Int  →  infinite type
+        let recursive =
+            Ty::Function { params: vec![a.clone()], ret: Box::new(Ty::Primitive(PrimTy::Int)) };
+        let err = ctx.unify(&a, &recursive).unwrap_err();
+        match err.kind {
+            UnifyErrorKind::InfiniteType { var, .. } => {
+                assert_eq!(var, crate::types::TyVarId(0));
+            }
+            UnifyErrorKind::Mismatch { .. } => {
+                panic!("expected InfiniteType, got Mismatch");
+            }
+        }
+    }
 }

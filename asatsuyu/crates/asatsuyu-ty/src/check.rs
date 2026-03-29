@@ -14,7 +14,7 @@ use asatsuyu_syntax::{Diagnostic, Span};
 use crate::types::{
     PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty,
 };
-use crate::unify::InferCtx;
+use crate::unify::{InferCtx, UnifyErrorKind};
 
 // ── Context ────────────────────────────────────────────────────────
 
@@ -65,9 +65,23 @@ impl TyCheckCtx {
     /// Unify two types, emitting a diagnostic on failure.
     fn unify_or_error(&mut self, expected: &Ty, found: &Ty, span: Span) {
         if let Err(err) = self.infer.unify(expected, found) {
-            let exp = self.infer.resolve(&err.expected);
-            let fnd = self.infer.resolve(&err.found);
-            self.push_error(format!("type mismatch: expected `{exp}`, found `{fnd}`"), span);
+            match err.kind {
+                UnifyErrorKind::Mismatch { expected, found } => {
+                    let exp = self.infer.resolve(&expected);
+                    let fnd = self.infer.resolve(&found);
+                    self.push_error(
+                        format!("type mismatch: expected `{exp}`, found `{fnd}`"),
+                        span,
+                    );
+                }
+                UnifyErrorKind::InfiniteType { var, ty } => {
+                    let resolved = self.infer.resolve(&ty);
+                    self.push_error(
+                        format!("infinite type: type variable `?{}` occurs in `{resolved}`", var.0),
+                        span,
+                    );
+                }
+            }
         }
     }
 }

@@ -3,7 +3,7 @@
 //! Implements substitution-based type unification. Type variables ([`TyVarId`])
 //! are bound in a substitution map and resolved lazily via [`InferCtx::resolve`].
 //!
-//! Occurs check is deferred to Issue 24.
+//! Includes an occurs check to prevent infinite recursive types (Issue 24).
 
 use std::collections::HashMap;
 
@@ -11,11 +11,20 @@ use crate::types::{Ty, TyVarId};
 
 // ── Unification error ──────────────────────────────────────────────
 
-/// A unification failure: two types could not be made equal.
+/// The kind of unification failure.
+#[derive(Debug)]
+pub(crate) enum UnifyErrorKind {
+    /// Two concrete types could not be made equal.
+    Mismatch { expected: Ty, found: Ty },
+    /// A type variable would have to equal a type that contains itself,
+    /// producing an infinite type (e.g. `?0 = fn(?0) -> Int`).
+    InfiniteType { var: TyVarId, ty: Ty },
+}
+
+/// A unification failure.
 #[derive(Debug)]
 pub(crate) struct UnifyError {
-    pub expected: Ty,
-    pub found: Ty,
+    pub kind: UnifyErrorKind,
 }
 
 // ── Inference context ──────────────────────────────────────────────
@@ -53,6 +62,19 @@ impl InferCtx {
         }
     }
 
+    /// Returns `true` if `var` occurs anywhere inside `ty` (after shallow resolution).
+    ///
+    /// Prevents infinite types such as `?0 = fn(?0) -> Int`.
+    fn occurs_in(&self, var: TyVarId, ty: &Ty) -> bool {
+        match self.shallow_resolve(ty) {
+            Ty::Var(id) => id == var,
+            Ty::Function { params, ret } => {
+                params.iter().any(|p| self.occurs_in(var, p)) || self.occurs_in(var, &ret)
+            }
+            Ty::Primitive(_) | Ty::Error => false,
+        }
+    }
+
     /// Fully resolve a type by recursively applying the substitution.
     pub(crate) fn resolve(&self, ty: &Ty) -> Ty {
         match ty {
@@ -86,12 +108,22 @@ impl InferCtx {
             // Same variable — nothing to do.
             (Ty::Var(x), Ty::Var(y)) if x == y => Ok(()),
 
-            // Bind unbound variable to the other type.
+            // Bind unbound variable to the other type (with occurs check).
             (Ty::Var(x), _) => {
+                if self.occurs_in(*x, &b) {
+                    return Err(UnifyError {
+                        kind: UnifyErrorKind::InfiniteType { var: *x, ty: b },
+                    });
+                }
                 self.subst.insert(*x, b);
                 Ok(())
             }
             (_, Ty::Var(y)) => {
+                if self.occurs_in(*y, &a) {
+                    return Err(UnifyError {
+                        kind: UnifyErrorKind::InfiniteType { var: *y, ty: a },
+                    });
+                }
                 self.subst.insert(*y, a);
                 Ok(())
             }
@@ -101,14 +133,16 @@ impl InferCtx {
                 if p == q {
                     Ok(())
                 } else {
-                    Err(UnifyError { expected: a, found: b })
+                    Err(UnifyError { kind: UnifyErrorKind::Mismatch { expected: a, found: b } })
                 }
             }
 
             // Function types: arity must match, then unify component-wise.
             (Ty::Function { params: ps1, ret: r1 }, Ty::Function { params: ps2, ret: r2 }) => {
                 if ps1.len() != ps2.len() {
-                    return Err(UnifyError { expected: a, found: b });
+                    return Err(UnifyError {
+                        kind: UnifyErrorKind::Mismatch { expected: a, found: b },
+                    });
                 }
                 for (p1, p2) in ps1.iter().zip(ps2.iter()) {
                     self.unify(p1, p2)?;
@@ -117,7 +151,7 @@ impl InferCtx {
             }
 
             // All other combinations are incompatible.
-            _ => Err(UnifyError { expected: a, found: b }),
+            _ => Err(UnifyError { kind: UnifyErrorKind::Mismatch { expected: a, found: b } }),
         }
     }
 }
@@ -244,5 +278,47 @@ mod tests {
         let mut ctx = InferCtx::new();
         assert!(ctx.unify(&bool_ty(), &bool_ty()).is_ok());
         assert!(ctx.unify(&bool_ty(), &int()).is_err());
+    }
+
+    // ── Occurs check tests (Issue 24) ─────────────────────────────
+
+    #[test]
+    fn occurs_check_var_in_function_param() {
+        let mut ctx = InferCtx::new();
+        let a = ctx.fresh_var(); // ?0
+        // ?0 = fn(?0) -> Int  →  infinite type
+        let recursive = fun(vec![a.clone()], int());
+        let err = ctx.unify(&a, &recursive).unwrap_err();
+        assert!(matches!(err.kind, UnifyErrorKind::InfiniteType { .. }));
+    }
+
+    #[test]
+    fn occurs_check_var_in_function_return() {
+        let mut ctx = InferCtx::new();
+        let a = ctx.fresh_var(); // ?0
+        // ?0 = fn(Int) -> ?0  →  infinite type
+        let recursive = fun(vec![int()], a.clone());
+        let err = ctx.unify(&a, &recursive).unwrap_err();
+        assert!(matches!(err.kind, UnifyErrorKind::InfiniteType { .. }));
+    }
+
+    #[test]
+    fn occurs_check_transitive() {
+        let mut ctx = InferCtx::new();
+        let a = ctx.fresh_var(); // ?0
+        let b = ctx.fresh_var(); // ?1
+        // ?0 → ?1, then ?1 = fn(?0) -> Int  →  infinite type via chain
+        assert!(ctx.unify(&a, &b).is_ok());
+        let recursive = fun(vec![a.clone()], int());
+        let err = ctx.unify(&b, &recursive).unwrap_err();
+        assert!(matches!(err.kind, UnifyErrorKind::InfiniteType { .. }));
+    }
+
+    #[test]
+    fn occurs_check_same_var_identity() {
+        let mut ctx = InferCtx::new();
+        let a = ctx.fresh_var(); // ?0
+        // ?0 = ?0  →  identity, handled before occurs check
+        assert!(ctx.unify(&a, &a).is_ok());
     }
 }
