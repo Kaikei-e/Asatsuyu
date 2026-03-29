@@ -97,6 +97,31 @@ fn check_type_error() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+// ── 4b. check shows source context via miette ─────────────────────
+
+#[test]
+fn check_type_error_shows_source_context() {
+    let dir = workspace_root().join("target/test-source-ctx");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("ctx.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output = asatsuyu().args(["check", &bad_file_str]).output().unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // miette should show the actual source line.
+    assert!(
+        stderr.contains("fn f() -> Int"),
+        "stderr should contain source code snippet: {stderr}",
+    );
+    // miette should show the filename.
+    assert!(stderr.contains("ctx.asty"), "stderr should show filename: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 // ── 5. run missing file ────────────────────────────────────────────
 
 #[test]
