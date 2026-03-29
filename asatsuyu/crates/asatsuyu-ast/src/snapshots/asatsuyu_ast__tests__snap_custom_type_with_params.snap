@@ -1,0 +1,167 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 342
+expression: "snapshot(\"type Result(a, e) {\\n  Ok(a)\\n  Err(e)\\n}\")"
+---
+Module {
+    imports: [],
+    definitions: [
+        CustomType(
+            CustomType {
+                name: Ident {
+                    name: "Result",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 11,
+                    },
+                },
+                visibility: Private,
+                type_params: [
+                    Ident {
+                        name: "a",
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 12,
+                            end: 13,
+                        },
+                    },
+                    Ident {
+                        name: "e",
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 15,
+                            end: 16,
+                        },
+                    },
+                ],
+                body: Variants(
+                    [
+                        Variant {
+                            name: Ident {
+                                name: "Ok",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 22,
+                                    end: 24,
+                                },
+                            },
+                            fields: [
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "a",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 25,
+                                                end: 26,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 25,
+                                            end: 26,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 25,
+                                        end: 26,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 19,
+                                end: 27,
+                            },
+                        },
+                        Variant {
+                            name: Ident {
+                                name: "Err",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 30,
+                                    end: 33,
+                                },
+                            },
+                            fields: [
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "e",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 34,
+                                                end: 35,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 34,
+                                            end: 35,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 34,
+                                        end: 35,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 27,
+                                end: 36,
+                            },
+                        },
+                    ],
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 38,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 38,
+    },
+}

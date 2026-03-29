@@ -1,0 +1,132 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 393
+expression: "snapshot(\"fn f() -> Int {\\n  1 + 2 * 3\\n}\")"
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "f",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 4,
+                    },
+                },
+                visibility: Private,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 10,
+                                end: 13,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 10,
+                            end: 13,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        BinaryOp {
+                            op: Add,
+                            lhs: Literal(
+                                Literal {
+                                    kind: Int,
+                                    value: "1",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 18,
+                                        end: 19,
+                                    },
+                                },
+                            ),
+                            rhs: BinaryOp {
+                                op: Mul,
+                                lhs: Literal(
+                                    Literal {
+                                        kind: Int,
+                                        value: "2",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 22,
+                                            end: 23,
+                                        },
+                                    },
+                                ),
+                                rhs: Literal(
+                                    Literal {
+                                        kind: Int,
+                                        value: "3",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 26,
+                                            end: 27,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 21,
+                                    end: 27,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 15,
+                                end: 27,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 13,
+                        end: 29,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 29,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 29,
+    },
+}

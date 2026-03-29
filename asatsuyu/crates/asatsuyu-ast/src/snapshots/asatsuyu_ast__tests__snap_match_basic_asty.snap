@@ -1,0 +1,759 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 416
+expression: "format!(\"{:#?}\", result.module)"
+---
+Module {
+    imports: [],
+    definitions: [
+        CustomType(
+            CustomType {
+                name: Ident {
+                    name: "Option",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 11,
+                    },
+                },
+                visibility: Private,
+                type_params: [
+                    Ident {
+                        name: "a",
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 12,
+                            end: 13,
+                        },
+                    },
+                ],
+                body: Variants(
+                    [
+                        Variant {
+                            name: Ident {
+                                name: "Some",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 19,
+                                    end: 23,
+                                },
+                            },
+                            fields: [
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "a",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 24,
+                                                end: 25,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 24,
+                                            end: 25,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 24,
+                                        end: 25,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 16,
+                                end: 26,
+                            },
+                        },
+                        Variant {
+                            name: Ident {
+                                name: "None",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 29,
+                                    end: 33,
+                                },
+                            },
+                            fields: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 26,
+                                end: 33,
+                            },
+                        },
+                    ],
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 35,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "describe",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 44,
+                        end: 52,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "value",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 53,
+                                end: 58,
+                            },
+                        },
+                        type_ann: Named {
+                            name: Ident {
+                                name: "Int",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 60,
+                                    end: 63,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 60,
+                                end: 63,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 53,
+                            end: 63,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 68,
+                                end: 71,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 68,
+                            end: 71,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Match {
+                            subject: Variable(
+                                Ident {
+                                    name: "value",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 82,
+                                        end: 87,
+                                    },
+                                },
+                            ),
+                            arms: [
+                                MatchArm {
+                                    pattern: Literal(
+                                        Literal {
+                                            kind: Int,
+                                            value: "0",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 94,
+                                                end: 95,
+                                            },
+                                        },
+                                    ),
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: Int,
+                                            value: "0",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 99,
+                                                end: 100,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 89,
+                                        end: 100,
+                                    },
+                                },
+                                MatchArm {
+                                    pattern: Wildcard(
+                                        Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 100,
+                                            end: 106,
+                                        },
+                                    ),
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: Int,
+                                            value: "1",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 110,
+                                                end: 111,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 100,
+                                        end: 111,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 73,
+                                end: 115,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 71,
+                        end: 117,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 35,
+                    end: 117,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "unwrap_or",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 126,
+                        end: 135,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "opt",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 136,
+                                end: 139,
+                            },
+                        },
+                        type_ann: Named {
+                            name: Ident {
+                                name: "Option",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 141,
+                                    end: 147,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 141,
+                                end: 147,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 136,
+                            end: 147,
+                        },
+                    },
+                    Param {
+                        name: Ident {
+                            name: "default",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 149,
+                                end: 156,
+                            },
+                        },
+                        type_ann: Named {
+                            name: Ident {
+                                name: "Int",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 158,
+                                    end: 161,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 158,
+                                end: 161,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 148,
+                            end: 161,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 166,
+                                end: 169,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 166,
+                            end: 169,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Match {
+                            subject: Variable(
+                                Ident {
+                                    name: "opt",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 180,
+                                        end: 183,
+                                    },
+                                },
+                            ),
+                            arms: [
+                                MatchArm {
+                                    pattern: Constructor {
+                                        name: Ident {
+                                            name: "Some",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 190,
+                                                end: 194,
+                                            },
+                                        },
+                                        fields: [
+                                            Variable(
+                                                Ident {
+                                                    name: "x",
+                                                    span: Span {
+                                                        file_id: FileId(
+                                                            0,
+                                                        ),
+                                                        start: 195,
+                                                        end: 196,
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 185,
+                                            end: 197,
+                                        },
+                                    },
+                                    guard: None,
+                                    body: Variable(
+                                        Ident {
+                                            name: "x",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 201,
+                                                end: 202,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 185,
+                                        end: 202,
+                                    },
+                                },
+                                MatchArm {
+                                    pattern: Variable(
+                                        Ident {
+                                            name: "None",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 207,
+                                                end: 211,
+                                            },
+                                        },
+                                    ),
+                                    guard: None,
+                                    body: Variable(
+                                        Ident {
+                                            name: "default",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 215,
+                                                end: 222,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 202,
+                                        end: 222,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 171,
+                                end: 226,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 169,
+                        end: 228,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 117,
+                    end: 228,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "first",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 237,
+                        end: 242,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "items",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 243,
+                                end: 248,
+                            },
+                        },
+                        type_ann: Named {
+                            name: Ident {
+                                name: "List",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 250,
+                                    end: 254,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 250,
+                                end: 254,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 243,
+                            end: 254,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Option",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 259,
+                                end: 265,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 259,
+                            end: 265,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Match {
+                            subject: Variable(
+                                Ident {
+                                    name: "items",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 276,
+                                        end: 281,
+                                    },
+                                },
+                            ),
+                            arms: [
+                                MatchArm {
+                                    pattern: List {
+                                        elements: [
+                                            Variable(
+                                                Ident {
+                                                    name: "head",
+                                                    span: Span {
+                                                        file_id: FileId(
+                                                            0,
+                                                        ),
+                                                        start: 289,
+                                                        end: 293,
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                        rest: None,
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 283,
+                                            end: 298,
+                                        },
+                                    },
+                                    guard: None,
+                                    body: Variable(
+                                        Ident {
+                                            name: "head",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 302,
+                                                end: 306,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 283,
+                                        end: 306,
+                                    },
+                                },
+                                MatchArm {
+                                    pattern: List {
+                                        elements: [],
+                                        rest: None,
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 306,
+                                            end: 313,
+                                        },
+                                    },
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: Int,
+                                            value: "0",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 317,
+                                                end: 318,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 306,
+                                        end: 318,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 267,
+                                end: 322,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 265,
+                        end: 324,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 228,
+                    end: 324,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 325,
+    },
+}

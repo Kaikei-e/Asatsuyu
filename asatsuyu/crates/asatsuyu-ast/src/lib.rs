@@ -19,7 +19,11 @@
 mod lower;
 mod types;
 
-pub use types::{Definition, Expr, FnDef, Ident, Literal, LiteralKind, Module, Param, Visibility};
+pub use types::{
+    BinOp, CustomType, Definition, Expr, FnDef, Ident, Import, Literal, LiteralKind, MatchArm,
+    Module, Param, Pattern, RecordField, TypeBody, TypeExpr, UnOp, Variant, VariantField,
+    Visibility,
+};
 
 use asatsuyu_parser::ParseResult;
 use asatsuyu_syntax::{Diagnostic, FileId, Severity};
@@ -66,12 +70,28 @@ mod tests {
         lower(&cst, FID)
     }
 
+    /// Helper: extract a function definition from module.definitions by index.
+    fn get_fn(module: &Module, index: usize) -> &FnDef {
+        match &module.definitions[index] {
+            Definition::Function(f) => f,
+            Definition::CustomType(ct) => panic!("expected Function, got CustomType({:?})", ct.name),
+        }
+    }
+
+    /// Helper: extract type name from `TypeExpr`.
+    fn type_name(te: &TypeExpr) -> &str {
+        match te {
+            TypeExpr::Named { name, .. } => name.name.as_str(),
+        }
+    }
+
     // ── 1. Empty source ─────────────────────────────────────────────
 
     #[test]
     fn lower_empty_source() {
         let result = lower_source("");
         assert!(!result.has_errors());
+        assert!(result.module.imports.is_empty());
         assert!(result.module.definitions.is_empty());
     }
 
@@ -83,7 +103,7 @@ mod tests {
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
         assert_eq!(result.module.definitions.len(), 1);
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         assert_eq!(f.name.name.as_str(), "main");
         assert_eq!(f.visibility, Visibility::Public);
         assert!(f.params.is_empty());
@@ -111,7 +131,7 @@ mod tests {
         let result = lower_source("fn main() { 42 }");
         assert!(!result.has_errors());
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         assert_eq!(f.visibility, Visibility::Private);
     }
 
@@ -122,12 +142,12 @@ mod tests {
         let result = lower_source("fn add(x: Int, y: Int) { 1 }");
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         assert_eq!(f.params.len(), 2);
         assert_eq!(f.params[0].name.name.as_str(), "x");
-        assert_eq!(f.params[0].type_ann.name.as_str(), "Int");
+        assert_eq!(type_name(&f.params[0].type_ann), "Int");
         assert_eq!(f.params[1].name.name.as_str(), "y");
-        assert_eq!(f.params[1].type_ann.name.as_str(), "Int");
+        assert_eq!(type_name(&f.params[1].type_ann), "Int");
     }
 
     // ── 5. Function with return type ────────────────────────────────
@@ -137,9 +157,9 @@ mod tests {
         let result = lower_source("fn id(x: Int) -> Int { x }");
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         let rt = f.return_type.as_ref().expect("expected return type");
-        assert_eq!(rt.name.as_str(), "Int");
+        assert_eq!(type_name(rt), "Int");
 
         match &f.body {
             Expr::Block { exprs, .. } => {
@@ -160,7 +180,7 @@ mod tests {
         let result = lower_source(r#"fn greet() { "hello" }"#);
         assert!(!result.has_errors());
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         match &f.body {
             Expr::Block { exprs, .. } => {
                 assert_eq!(exprs.len(), 1);
@@ -184,8 +204,8 @@ mod tests {
         assert!(!result.has_errors());
         assert_eq!(result.module.definitions.len(), 2);
 
-        let Definition::Function(ref a) = result.module.definitions[0];
-        let Definition::Function(ref b) = result.module.definitions[1];
+        let a = get_fn(&result.module, 0);
+        let b = get_fn(&result.module, 1);
         assert_eq!(a.name.name.as_str(), "a");
         assert_eq!(b.name.name.as_str(), "b");
     }
@@ -197,7 +217,7 @@ mod tests {
         let result = lower_source(r#"fn f() { 1 "hi" x }"#);
         assert!(!result.has_errors());
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         match &f.body {
             Expr::Block { exprs, .. } => assert_eq!(exprs.len(), 3),
             other => panic!("expected Block, got {other:?}"),
@@ -211,7 +231,7 @@ mod tests {
         let result = lower_source("pub fn add(x: Int) -> Int { x }");
         assert!(!result.has_errors());
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
 
         // Module span covers entire source
         assert!(!result.module.span.is_empty());
@@ -226,11 +246,11 @@ mod tests {
         // Param spans
         assert!(!f.params[0].span.is_empty());
         assert!(!f.params[0].name.span.is_empty());
-        assert!(!f.params[0].type_ann.span.is_empty());
+        assert!(!f.params[0].type_ann.span().is_empty());
 
         // Return type span
         let rt = f.return_type.as_ref().unwrap();
-        assert!(!rt.span.is_empty());
+        assert!(!rt.span().is_empty());
 
         // Body span
         assert!(!f.body.span().is_empty());
@@ -246,7 +266,7 @@ mod tests {
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
         assert_eq!(result.module.definitions.len(), 1);
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         assert_eq!(f.name.name.as_str(), "main");
         assert_eq!(f.visibility, Visibility::Public);
     }
@@ -261,13 +281,13 @@ mod tests {
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
         assert_eq!(result.module.definitions.len(), 2);
 
-        let Definition::Function(ref greet) = result.module.definitions[0];
+        let greet = get_fn(&result.module, 0);
         assert_eq!(greet.name.name.as_str(), "greet");
         assert_eq!(greet.visibility, Visibility::Public);
         assert_eq!(greet.params.len(), 1);
         assert!(greet.return_type.is_some());
 
-        let Definition::Function(ref add) = result.module.definitions[1];
+        let add = get_fn(&result.module, 1);
         assert_eq!(add.name.name.as_str(), "add");
         assert_eq!(add.visibility, Visibility::Private);
         assert_eq!(add.params.len(), 2);
@@ -283,7 +303,7 @@ mod tests {
         // But should still recover the function
         assert_eq!(result.module.definitions.len(), 1);
 
-        let Definition::Function(ref f) = result.module.definitions[0];
+        let f = get_fn(&result.module, 0);
         assert_eq!(f.name.name.as_str(), "main");
     }
 
@@ -296,5 +316,113 @@ mod tests {
         assert!(dump.contains("main"), "dump should contain function name:\n{dump}");
         assert!(dump.contains("Public"), "dump should contain visibility:\n{dump}");
         assert!(dump.contains("Int"), "dump should contain literal kind:\n{dump}");
+    }
+
+    // ── Snapshot tests (Issue 19) ───────────────────────────────────
+
+    /// Helper: parse + lower, assert no errors, return module debug string.
+    fn snapshot(source: &str) -> String {
+        let result = lower_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        format!("{:#?}", result.module)
+    }
+
+    #[test]
+    fn snap_custom_type_variant() {
+        insta::assert_snapshot!(snapshot("type Option(a) {\n  Some(a)\n  None\n}"));
+    }
+
+    #[test]
+    fn snap_custom_type_record() {
+        insta::assert_snapshot!(snapshot("type User {\n  name: String\n  age: Int\n}"));
+    }
+
+    #[test]
+    fn snap_custom_type_with_params() {
+        insta::assert_snapshot!(snapshot("type Result(a, e) {\n  Ok(a)\n  Err(e)\n}"));
+    }
+
+    #[test]
+    fn snap_import_basic() {
+        insta::assert_snapshot!(snapshot("import io"));
+    }
+
+    #[test]
+    fn snap_import_dotted() {
+        insta::assert_snapshot!(snapshot("import gleam.io"));
+    }
+
+    #[test]
+    fn snap_import_alias() {
+        insta::assert_snapshot!(snapshot("import io as stdio"));
+    }
+
+    #[test]
+    fn snap_match_expr() {
+        insta::assert_snapshot!(snapshot(
+            "fn f(x: Int) -> Int {\n  match x {\n    0 -> 0\n    _ -> 1\n  }\n}"
+        ));
+    }
+
+    #[test]
+    fn snap_match_constructor() {
+        insta::assert_snapshot!(snapshot(
+            "fn f(opt: Option) -> Int {\n  match opt {\n    Some(x) -> x\n    None -> 0\n  }\n}"
+        ));
+    }
+
+    #[test]
+    fn snap_if_else() {
+        insta::assert_snapshot!(snapshot("fn f(x: Int) -> Int {\n  if x { 1 } else { 2 }\n}"));
+    }
+
+    #[test]
+    fn snap_if_else_chain() {
+        insta::assert_snapshot!(snapshot(
+            "fn f(a: Int, b: Int) -> Int {\n  if a { 1 } else if b { 2 } else { 3 }\n}"
+        ));
+    }
+
+    #[test]
+    fn snap_pipeline() {
+        insta::assert_snapshot!(snapshot("fn f(x: Int) -> Int {\n  x |> g\n}"));
+    }
+
+    #[test]
+    fn snap_binary_ops() {
+        insta::assert_snapshot!(snapshot("fn f() -> Int {\n  1 + 2 * 3\n}"));
+    }
+
+    #[test]
+    fn snap_unary_ops() {
+        insta::assert_snapshot!(snapshot("fn f(x: Int) -> Int {\n  -x\n}"));
+    }
+
+    #[test]
+    fn snap_call_expr() {
+        insta::assert_snapshot!(snapshot("fn f() -> Int {\n  g(1, 2)\n}"));
+    }
+
+    #[test]
+    fn snap_pipeline_with_call() {
+        insta::assert_snapshot!(snapshot("fn f(x: Int) -> Int {\n  x |> g(1)\n}"));
+    }
+
+    #[test]
+    fn snap_match_basic_asty() {
+        let source = include_str!("../../../examples/match_basic.asty");
+        let result = lower_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        insta::assert_snapshot!(format!("{:#?}", result.module));
+    }
+
+    #[test]
+    fn snap_bool_literal() {
+        insta::assert_snapshot!(snapshot("fn f() -> Bool {\n  True\n}"));
+    }
+
+    #[test]
+    fn snap_float_literal() {
+        insta::assert_snapshot!(snapshot("fn f() -> Float {\n  3.14\n}"));
     }
 }

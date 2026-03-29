@@ -1,0 +1,49 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 352
+expression: "snapshot(\"import gleam.io\")"
+---
+Module {
+    imports: [
+        Import {
+            module: [
+                Ident {
+                    name: "gleam",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 12,
+                    },
+                },
+                Ident {
+                    name: "io",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 13,
+                        end: 15,
+                    },
+                },
+            ],
+            alias: None,
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 15,
+            },
+        },
+    ],
+    definitions: [],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 15,
+    },
+}

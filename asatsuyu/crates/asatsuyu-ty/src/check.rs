@@ -160,7 +160,9 @@ impl TyCheckCtx {
             HirExpr::Literal(lit) => {
                 let ty = match lit.kind {
                     LiteralKind::Int => Ty::Primitive(PrimTy::Int),
+                    LiteralKind::Float => Ty::Primitive(PrimTy::Float),
                     LiteralKind::String => Ty::Primitive(PrimTy::String),
+                    LiteralKind::Bool => Ty::Primitive(PrimTy::Bool),
                 };
                 ThirExpr::Literal(ThirLiteral {
                     kind: lit.kind,

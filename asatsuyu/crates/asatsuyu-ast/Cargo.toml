@@ -13,3 +13,6 @@ workspace = true
 asatsuyu-syntax = { workspace = true }
 asatsuyu-parser = { workspace = true }
 smol_str = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

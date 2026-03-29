@@ -1,0 +1,122 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 337
+expression: "snapshot(\"type User {\\n  name: String\\n  age: Int\\n}\")"
+---
+Module {
+    imports: [],
+    definitions: [
+        CustomType(
+            CustomType {
+                name: Ident {
+                    name: "User",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 9,
+                    },
+                },
+                visibility: Private,
+                type_params: [],
+                body: Record(
+                    [
+                        RecordField {
+                            name: Ident {
+                                name: "name",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 14,
+                                    end: 18,
+                                },
+                            },
+                            type_ann: Named {
+                                name: Ident {
+                                    name: "String",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 20,
+                                        end: 26,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 19,
+                                    end: 26,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 11,
+                                end: 26,
+                            },
+                        },
+                        RecordField {
+                            name: Ident {
+                                name: "age",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 29,
+                                    end: 32,
+                                },
+                            },
+                            type_ann: Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 34,
+                                        end: 37,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 33,
+                                    end: 37,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 26,
+                                end: 37,
+                            },
+                        },
+                    ],
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 39,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 39,
+    },
+}

@@ -29,7 +29,8 @@ fn parse_top_level(p: &mut Parser<'_>) {
             SyntaxKind::TypeKw => parse_type_def(p),
             _ => parse_fn_def(p),
         },
-        SyntaxKind::LetKw | SyntaxKind::ImportKw => {
+        SyntaxKind::ImportKw => parse_import(p),
+        SyntaxKind::LetKw => {
             p.error_recover("not yet implemented");
         }
         _ => p.error_recover("expected item definition"),
@@ -267,6 +268,43 @@ fn parse_type_expr(p: &mut Parser<'_>) {
             }
         }
         p.expect(SyntaxKind::RParen);
+    }
+
+    p.finish_node();
+}
+
+// ── Import statement parsing ────────────────────────────────────
+
+/// ```text
+/// ImportStmt = 'import' IDENT ('.' IDENT)* ('as' IDENT)?
+/// ```
+fn parse_import(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::ImportStmt);
+    p.bump(); // consume `import`
+
+    // Module path: at least one identifier
+    if !p.expect(SyntaxKind::Ident) {
+        p.error_recover_until("expected module name", TokenSet::EMPTY);
+        p.finish_node();
+        return;
+    }
+
+    // Additional path segments: `.ident`
+    while p.at(SyntaxKind::Dot) {
+        p.bump(); // consume `.`
+        if !p.expect(SyntaxKind::Ident) {
+            p.error_recover_until("expected module name after `.`", TokenSet::EMPTY);
+            p.finish_node();
+            return;
+        }
+    }
+
+    // Optional alias: `as name`
+    if p.at(SyntaxKind::AsKw) {
+        p.bump(); // consume `as`
+        if !p.expect(SyntaxKind::Ident) {
+            p.error_recover_until("expected alias name after `as`", TokenSet::EMPTY);
+        }
     }
 
     p.finish_node();

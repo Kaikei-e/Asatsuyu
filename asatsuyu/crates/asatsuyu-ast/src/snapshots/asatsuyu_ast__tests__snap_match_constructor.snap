@@ -1,0 +1,226 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 369
+expression: "snapshot(\"fn f(opt: Option) -> Int {\\n  match opt {\\n    Some(x) -> x\\n    None -> 0\\n  }\\n}\")"
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "f",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 4,
+                    },
+                },
+                visibility: Private,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "opt",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 5,
+                                end: 8,
+                            },
+                        },
+                        type_ann: Named {
+                            name: Ident {
+                                name: "Option",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 10,
+                                    end: 16,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 10,
+                                end: 16,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 5,
+                            end: 16,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 21,
+                                end: 24,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 21,
+                            end: 24,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Match {
+                            subject: Variable(
+                                Ident {
+                                    name: "opt",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 35,
+                                        end: 38,
+                                    },
+                                },
+                            ),
+                            arms: [
+                                MatchArm {
+                                    pattern: Constructor {
+                                        name: Ident {
+                                            name: "Some",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 45,
+                                                end: 49,
+                                            },
+                                        },
+                                        fields: [
+                                            Variable(
+                                                Ident {
+                                                    name: "x",
+                                                    span: Span {
+                                                        file_id: FileId(
+                                                            0,
+                                                        ),
+                                                        start: 50,
+                                                        end: 51,
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 40,
+                                            end: 52,
+                                        },
+                                    },
+                                    guard: None,
+                                    body: Variable(
+                                        Ident {
+                                            name: "x",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 56,
+                                                end: 57,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 40,
+                                        end: 57,
+                                    },
+                                },
+                                MatchArm {
+                                    pattern: Variable(
+                                        Ident {
+                                            name: "None",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 62,
+                                                end: 66,
+                                            },
+                                        },
+                                    ),
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: Int,
+                                            value: "0",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 70,
+                                                end: 71,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 57,
+                                        end: 71,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 26,
+                                end: 75,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 24,
+                        end: 77,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 77,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 77,
+    },
+}

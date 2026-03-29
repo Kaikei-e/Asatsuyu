@@ -64,9 +64,12 @@ impl HirLowerCtx {
             .definitions
             .iter()
             .zip(fn_def_ids)
-            .map(|(def, def_id)| {
-                let Definition::Function(ref fn_def) = *def;
-                self.lower_fn_def(fn_def, def_id)
+            .filter_map(|(def, def_id)| {
+                if let Definition::Function(fn_def) = def {
+                    Some(self.lower_fn_def(fn_def, def_id))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -78,15 +81,24 @@ impl HirLowerCtx {
     fn register_functions(&mut self, ast: &Module) -> Vec<DefId> {
         ast.definitions
             .iter()
-            .map(|def| {
-                let Definition::Function(ref fn_def) = *def;
-                let def_id = self.symbol_table.alloc(DefData {
-                    name: fn_def.name.name.clone(),
-                    kind: DefKind::Function,
-                    span: fn_def.name.span,
-                });
-                self.module_scope.insert(fn_def.name.name.clone(), def_id);
-                def_id
+            .map(|def| match def {
+                Definition::Function(fn_def) => {
+                    let def_id = self.symbol_table.alloc(DefData {
+                        name: fn_def.name.name.clone(),
+                        kind: DefKind::Function,
+                        span: fn_def.name.span,
+                    });
+                    self.module_scope.insert(fn_def.name.name.clone(), def_id);
+                    def_id
+                }
+                Definition::CustomType(ct) => {
+                    // Register type name; full type handling is a later issue.
+                    self.symbol_table.alloc(DefData {
+                        name: ct.name.name.clone(),
+                        kind: DefKind::Function, // placeholder
+                        span: ct.name.span,
+                    })
+                }
             })
             .collect()
     }
@@ -108,13 +120,18 @@ impl HirLowerCtx {
                     span: p.name.span,
                 });
                 self.local_scope.insert(p.name.name.clone(), param_def_id);
-                HirParam { def_id: param_def_id, type_ann: p.type_ann.name.clone(), span: p.span }
+                let type_name = match &p.type_ann {
+                    asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
+                };
+                HirParam { def_id: param_def_id, type_ann: type_name, span: p.span }
             })
             .collect();
 
         let body = self.lower_expr(&fn_def.body);
 
-        let return_type = fn_def.return_type.as_ref().map(|rt| rt.name.clone());
+        let return_type = fn_def.return_type.as_ref().map(|rt| match rt {
+            asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
+        });
 
         HirFnDef {
             def_id,
@@ -154,6 +171,22 @@ impl HirLowerCtx {
             Expr::Block { exprs, span } => {
                 let hir_exprs = exprs.iter().map(|e| self.lower_expr(e)).collect();
                 HirExpr::Block { exprs: hir_exprs, span: *span }
+            }
+
+            // New expression kinds — stub with todo diagnostics for now.
+            // Full HIR lowering for these is Issue 20+.
+            Expr::Call { span, .. }
+            | Expr::BinaryOp { span, .. }
+            | Expr::UnaryOp { span, .. }
+            | Expr::If { span, .. }
+            | Expr::Match { span, .. }
+            | Expr::Pipeline { span, .. } => {
+                self.push_error("expression kind not yet supported in HIR", *span);
+                HirExpr::Literal(HirLiteral {
+                    kind: asatsuyu_ast::LiteralKind::Int,
+                    value: SmolStr::from("0"),
+                    span: *span,
+                })
             }
         }
     }

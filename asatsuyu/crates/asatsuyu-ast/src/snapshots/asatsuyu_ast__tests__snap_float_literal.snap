@@ -1,0 +1,86 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 426
+expression: "snapshot(\"fn f() -> Float {\\n  3.14\\n}\")"
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "f",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 4,
+                    },
+                },
+                visibility: Private,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Float",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 10,
+                                end: 15,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 10,
+                            end: 15,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Literal(
+                            Literal {
+                                kind: Float,
+                                value: "3.14",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 20,
+                                    end: 24,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 15,
+                        end: 26,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 26,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 26,
+    },
+}

@@ -1,0 +1,39 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 347
+expression: "snapshot(\"import io\")"
+---
+Module {
+    imports: [
+        Import {
+            module: [
+                Ident {
+                    name: "io",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 9,
+                    },
+                },
+            ],
+            alias: None,
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 9,
+            },
+        },
+    ],
+    definitions: [],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 9,
+    },
+}

@@ -1,0 +1,50 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 357
+expression: "snapshot(\"import io as stdio\")"
+---
+Module {
+    imports: [
+        Import {
+            module: [
+                Ident {
+                    name: "io",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 9,
+                    },
+                },
+            ],
+            alias: Some(
+                Ident {
+                    name: "stdio",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 13,
+                        end: 18,
+                    },
+                },
+            ),
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 18,
+            },
+        },
+    ],
+    definitions: [],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 18,
+    },
+}
