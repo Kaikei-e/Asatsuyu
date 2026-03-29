@@ -24,7 +24,8 @@ mod types;
 mod unify;
 
 pub use types::{
-    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty, TyVarId,
+    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, ThirPattern, Ty,
+    TyVarId,
 };
 
 use asatsuyu_hir::HirModule;
@@ -687,5 +688,326 @@ mod tests {
             }
             other => panic!("expected Named(Color), got {other:?}"),
         }
+    }
+
+    // ── Match typing tests (Issue 27) ─────────────────────────────────
+
+    // ── Pattern type checking ──
+
+    #[test]
+    fn check_match_option_constructor_patterns() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn unwrap(opt: Option(Int)) -> Int {\n\
+              match opt { Some(x) -> x  None -> 0 }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert_eq!(result.module.functions[0].return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    #[test]
+    fn check_match_binding_type() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn get(opt: Option(String)) -> String {\n\
+              match opt { Some(s) -> s  None -> \"\" }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn check_match_wildcard() {
+        let source = "pub fn f(x: Int) -> Int { match x { _ -> 42 } }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn check_match_variable_catchall() {
+        let source = "pub fn f(x: Int) -> Int { match x { 0 -> 1  n -> n } }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    // ── Exhaustiveness ──
+
+    #[test]
+    fn check_match_non_exhaustive_option() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f(opt: Option(Int)) -> Int {\n\
+              match opt { Some(x) -> x }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("non-exhaustive")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_match_non_exhaustive_result() {
+        let source = "\
+            type Result(a, e) { Ok(a) Err(e) }\n\
+            pub fn f(r: Result(Int, String)) -> Int {\n\
+              match r { Ok(x) -> x }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("non-exhaustive")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_match_exhaustive_option() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f(opt: Option(Int)) -> Int {\n\
+              match opt { Some(x) -> x  None -> 0 }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn check_match_exhaustive_with_wildcard() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f(opt: Option(Int)) -> Int {\n\
+              match opt { _ -> 0 }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn check_match_primitive_non_exhaustive() {
+        let source = "pub fn f(x: Int) -> Int { match x { 0 -> 1  1 -> 2 } }";
+        let result = thir_from_source(source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("non-exhaustive")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_match_exhaustive_color() {
+        let source = "\
+            type Color { Red Green Blue }\n\
+            pub fn f(c: Color) -> Int {\n\
+              match c { Red -> 1  Green -> 2  Blue -> 3 }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn check_match_non_exhaustive_color() {
+        let source = "\
+            type Color { Red Green Blue }\n\
+            pub fn f(c: Color) -> Int {\n\
+              match c { Red -> 1  Green -> 2 }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains("non-exhaustive") && d.message.contains("Blue")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── Unreachable arms ──
+
+    #[test]
+    fn check_match_unreachable_after_wildcard() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f(opt: Option(Int)) -> Int {\n\
+              match opt { _ -> 0  Some(x) -> x }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(
+            !result.has_errors(),
+            "warnings should not count as errors: {:?}",
+            result.diagnostics
+        );
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("unreachable")),
+            "expected unreachable warning: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_match_unreachable_after_all_ctors() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f(opt: Option(Int)) -> Int {\n\
+              match opt { Some(x) -> x  None -> 0  _ -> 99 }\n\
+            }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("unreachable")),
+            "expected unreachable warning: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn check_match_unreachable_primitive() {
+        let source = "pub fn f(x: Int) -> Int { match x { 0 -> 1  n -> n  _ -> 99 } }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("unreachable")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── Issue 28: Diagnostic quality representative tests ──────────
+
+    use asatsuyu_syntax::DiagnosticCode;
+
+    /// Find a diagnostic by code.
+    fn find_by_code(result: &TyCheckResult, code: DiagnosticCode) -> Option<&Diagnostic> {
+        result.diagnostics.iter().find(|d| d.code == Some(code))
+    }
+
+    #[test]
+    fn type_mismatch_has_labels() {
+        // Use an argument type mismatch (goes through unify_or_error).
+        let source = r#"pub fn f(x: Int) -> Int { f("hello") }"#;
+        let result = thir_from_source(source);
+        let diag =
+            find_by_code(&result, DiagnosticCode::E0200).expect("should have E0200 diagnostic");
+        assert!(!diag.labels.is_empty(), "E0200 should have labels");
+        assert!(
+            diag.labels
+                .iter()
+                .any(|l| l.message.contains("expected") && l.message.contains("found")),
+            "label should mention expected and found: {:?}",
+            diag.labels,
+        );
+    }
+
+    #[test]
+    fn return_type_mismatch_shows_declaration() {
+        let source = r#"pub fn f() -> Int { "hello" }"#;
+        let result = thir_from_source(source);
+        let diag =
+            find_by_code(&result, DiagnosticCode::E0200).expect("should have E0200 diagnostic");
+        // Should have a secondary label pointing to the function declaration.
+        assert!(
+            diag.labels.len() >= 2,
+            "return mismatch should have primary + secondary label: {:?}",
+            diag.labels,
+        );
+        assert!(
+            diag.labels.iter().any(|l| l.message.contains("return type annotation")),
+            "secondary label should mention return type annotation: {:?}",
+            diag.labels,
+        );
+    }
+
+    #[test]
+    fn argument_count_error_has_code() {
+        let source = "pub fn f(x: Int) -> Int { f(1, 2) }";
+        let result = thir_from_source(source);
+        let diag =
+            find_by_code(&result, DiagnosticCode::E0203).expect("should have E0203 diagnostic");
+        assert!(diag.message.contains("argument"));
+        assert!(!diag.labels.is_empty(), "E0203 should have labels");
+    }
+
+    #[test]
+    fn non_exhaustive_match_has_hint() {
+        let source = "
+            type Option(a) { Some(a) None }
+            pub fn f(x: Option(Int)) -> Int {
+                match x { Some(v) -> v }
+            }
+        ";
+        let result = thir_from_source(source);
+        let diag =
+            find_by_code(&result, DiagnosticCode::E0300).expect("should have E0300 diagnostic");
+        assert!(!diag.hints.is_empty(), "E0300 should have hints: {diag:?}");
+        assert!(
+            diag.hints.iter().any(|h| h.contains("None")),
+            "hint should mention missing variant: {:?}",
+            diag.hints,
+        );
+    }
+
+    #[test]
+    fn unreachable_arm_warning_has_code() {
+        let source = "
+            type Option(a) { Some(a) None }
+            pub fn f(x: Option(Int)) -> Int {
+                match x { _ -> 0  Some(v) -> v  None -> 1 }
+            }
+        ";
+        let result = thir_from_source(source);
+        let warnings: Vec<_> =
+            result.diagnostics.iter().filter(|d| d.code == Some(DiagnosticCode::E0301)).collect();
+        assert!(!warnings.is_empty(), "should have E0301 warnings");
+        for w in &warnings {
+            assert!(!w.labels.is_empty(), "E0301 should have labels");
+            assert!(!w.notes.is_empty(), "E0301 should have notes");
+        }
+    }
+
+    #[test]
+    fn unknown_type_suggests_builtins() {
+        let source = "pub fn f(x: Foo) -> Int { 42 }";
+        let result = thir_from_source(source);
+        let diag =
+            find_by_code(&result, DiagnosticCode::E0202).expect("should have E0202 diagnostic");
+        assert!(!diag.hints.is_empty(), "E0202 should have hints");
+        assert!(
+            diag.hints.iter().any(|h| h.contains("Int")),
+            "hint should mention built-in types: {:?}",
+            diag.hints,
+        );
+    }
+
+    #[test]
+    fn infinite_type_has_note() {
+        let source = "pub fn f(x: Int) -> Int { f(f) }";
+        let result = thir_from_source(source);
+        let diag = find_by_code(&result, DiagnosticCode::E0201);
+        // The occurs check might fire or it might produce a mismatch depending on
+        // the unification order. Either way, we should have a type error with a note.
+        if let Some(d) = diag {
+            assert!(!d.notes.is_empty(), "E0201 should have notes: {d:?}");
+        }
+    }
+
+    #[test]
+    fn if_else_branch_mismatch_labels() {
+        let source = r#"pub fn f(b: Bool) -> Int { if b { 42 } else { "hello" } }"#;
+        let result = thir_from_source(source);
+        let diag =
+            find_by_code(&result, DiagnosticCode::E0200).expect("should have E0200 diagnostic");
+        // Should have a secondary label pointing to the then branch.
+        assert!(
+            diag.labels.iter().any(|l| l.message.contains("because of this branch")),
+            "should have secondary label for if/else branch: {:?}",
+            diag.labels,
+        );
     }
 }

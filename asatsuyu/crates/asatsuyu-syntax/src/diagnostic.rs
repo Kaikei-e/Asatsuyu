@@ -1,4 +1,67 @@
+use std::fmt;
+
 use crate::Span;
+
+/// Machine-readable diagnostic codes.
+///
+/// Convention: `E` + 4-digit number, grouped by phase.
+/// - E0001–E0099: syntax / parse errors (reserved)
+/// - E0100–E0199: name resolution / HIR errors (reserved)
+/// - E0200–E0299: type checking errors
+/// - E0300–E0399: match / pattern errors
+/// - E0400–E0499: backend errors (reserved)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticCode {
+    // ── Type checking ──────────────────────────────────────────────
+    /// Type mismatch: expected vs found.
+    E0200,
+    /// Infinite type (occurs check failure).
+    E0201,
+    /// Unknown type annotation.
+    E0202,
+    /// Argument count mismatch.
+    E0203,
+    /// Expected function, found non-callable type.
+    E0204,
+    /// Arithmetic operator requires numeric type.
+    E0205,
+    /// Negation requires numeric type.
+    E0206,
+    /// Logical operator requires Bool.
+    E0207,
+
+    // ── Match / pattern ────────────────────────────────────────────
+    /// Non-exhaustive match.
+    E0300,
+    /// Unreachable match arm.
+    E0301,
+    /// Unknown constructor in pattern.
+    E0302,
+    /// Constructor pattern field count mismatch.
+    E0303,
+    /// Unsupported pattern kind.
+    E0304,
+}
+
+impl fmt::Display for DiagnosticCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::E0200 => write!(f, "E0200"),
+            Self::E0201 => write!(f, "E0201"),
+            Self::E0202 => write!(f, "E0202"),
+            Self::E0203 => write!(f, "E0203"),
+            Self::E0204 => write!(f, "E0204"),
+            Self::E0205 => write!(f, "E0205"),
+            Self::E0206 => write!(f, "E0206"),
+            Self::E0207 => write!(f, "E0207"),
+            Self::E0300 => write!(f, "E0300"),
+            Self::E0301 => write!(f, "E0301"),
+            Self::E0302 => write!(f, "E0302"),
+            Self::E0303 => write!(f, "E0303"),
+            Self::E0304 => write!(f, "E0304"),
+        }
+    }
+}
 
 /// Severity level of a diagnostic message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +94,7 @@ pub struct Label {
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
     pub severity: Severity,
+    pub code: Option<DiagnosticCode>,
     pub message: String,
     pub span: Span,
     pub labels: Vec<Label>,
@@ -43,6 +107,7 @@ impl Diagnostic {
     pub fn error(message: impl Into<String>, span: Span) -> Self {
         Self {
             severity: Severity::Error,
+            code: None,
             message: message.into(),
             span,
             labels: Vec::new(),
@@ -55,12 +120,20 @@ impl Diagnostic {
     pub fn warning(message: impl Into<String>, span: Span) -> Self {
         Self {
             severity: Severity::Warning,
+            code: None,
             message: message.into(),
             span,
             labels: Vec::new(),
             hints: Vec::new(),
             notes: Vec::new(),
         }
+    }
+
+    /// Sets the diagnostic code.
+    #[must_use]
+    pub fn with_code(mut self, code: DiagnosticCode) -> Self {
+        self.code = Some(code);
+        self
     }
 
     /// Adds a primary label at the given span.
@@ -102,6 +175,7 @@ mod tests {
         let span = Span::new(FileId(0), 10, 20);
         let diag = Diagnostic::error("unexpected token", span);
         assert_eq!(diag.severity, Severity::Error);
+        assert_eq!(diag.code, None);
         assert_eq!(diag.message, "unexpected token");
         assert_eq!(diag.span, span);
         assert!(diag.labels.is_empty());
@@ -119,16 +193,24 @@ mod tests {
     fn diagnostic_builder() {
         let file = FileId(0);
         let diag = Diagnostic::error("type mismatch", Span::new(file, 10, 15))
+            .with_code(DiagnosticCode::E0200)
             .with_label(Span::new(file, 10, 15), "expected Int")
             .with_secondary_label(Span::new(file, 30, 40), "this is String")
             .with_hint("try converting with `to_int`")
             .with_note("Int and String are not compatible");
 
+        assert_eq!(diag.code, Some(DiagnosticCode::E0200));
         assert_eq!(diag.labels.len(), 2);
         assert_eq!(diag.labels[0].style, LabelStyle::Primary);
         assert_eq!(diag.labels[0].message, "expected Int");
         assert_eq!(diag.labels[1].style, LabelStyle::Secondary);
         assert_eq!(diag.hints.len(), 1);
         assert_eq!(diag.notes.len(), 1);
+    }
+
+    #[test]
+    fn diagnostic_code_display() {
+        assert_eq!(DiagnosticCode::E0200.to_string(), "E0200");
+        assert_eq!(DiagnosticCode::E0300.to_string(), "E0300");
     }
 }

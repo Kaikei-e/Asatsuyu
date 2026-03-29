@@ -9,12 +9,12 @@ use std::collections::{HashMap, HashSet};
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp};
 use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirModule, SymbolTable};
-use asatsuyu_syntax::{Diagnostic, Span};
+use asatsuyu_syntax::{Diagnostic, DiagnosticCode, Span};
 use smol_str::SmolStr;
 
 use crate::types::{
-    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty, TyVarId,
-    TypeScheme,
+    PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, ThirPattern, Ty,
+    TyVarId, TypeScheme,
 };
 use crate::unify::{InferCtx, UnifyErrorKind};
 
@@ -24,17 +24,38 @@ use crate::unify::{InferCtx, UnifyErrorKind};
 struct AdtDef {
     /// Type parameter names in declaration order.
     type_params: Vec<SmolStr>,
-    /// Variants with constructor info (used by Issue 27 exhaustiveness checks).
-    #[allow(dead_code)]
+    /// Variants with constructor info.
     variants: Vec<AdtVariant>,
 }
 
 /// A variant in an ADT for type checking.
-#[allow(dead_code)]
 struct AdtVariant {
     ctor_def_id: DefId,
-    /// Pre-resolved field types (using type parameter variables).
+    /// Constructor name for diagnostic messages.
+    name: SmolStr,
+    /// Pre-resolved field types (used by `check_pattern` for nested matching).
+    #[allow(dead_code)]
     field_tys: Vec<Ty>,
+}
+
+// ── Diagnostic context ────────────────────────────────────────────
+
+/// Additional context for type mismatch diagnostics.
+///
+/// Allows `unify_or_error` to attach secondary labels showing *why*
+/// a particular type was expected.
+#[derive(Clone, Copy)]
+enum DiagnosticContext {
+    /// No extra context.
+    Simple,
+    /// Function return type does not match body.
+    ReturnType { fn_span: Span },
+    /// Function argument type mismatch.
+    Argument { param_index: usize, fn_span: Span },
+    /// If/else branch types differ.
+    IfElseBranch { then_span: Span },
+    /// Match arm types differ.
+    MatchArm { first_arm_span: Span },
 }
 
 // ── Context ────────────────────────────────────────────────────────
@@ -45,6 +66,8 @@ pub(crate) struct TyCheckCtx {
     type_env: HashMap<DefId, TypeScheme>,
     /// Maps type `DefId` → ADT definition.
     adt_registry: HashMap<DefId, AdtDef>,
+    /// Maps constructor `DefId` → parent type `DefId`.
+    ctor_to_type: HashMap<DefId, DefId>,
     /// Maps type name → type `DefId` for annotation resolution.
     type_name_to_def_id: HashMap<SmolStr, DefId>,
     /// Functions whose return type was not explicitly annotated.
@@ -59,6 +82,7 @@ impl TyCheckCtx {
         Self {
             type_env: HashMap::new(),
             adt_registry: HashMap::new(),
+            ctor_to_type: HashMap::new(),
             type_name_to_def_id: HashMap::new(),
             unannotated_returns: HashSet::new(),
             diagnostics: Vec::new(),
@@ -70,8 +94,8 @@ impl TyCheckCtx {
         self.diagnostics
     }
 
-    fn push_error(&mut self, message: impl Into<String>, span: Span) {
-        self.diagnostics.push(Diagnostic::error(message, span));
+    fn push_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
     }
 
     /// Resolve an HIR type expression to a [`Ty`].
@@ -120,27 +144,79 @@ impl TyCheckCtx {
             return Ty::Named { def_id: type_def_id, name: te.name.clone(), args };
         }
 
-        self.push_error(format!("unknown type `{}`", te.name), te.span);
+        // E0202: Unknown type annotation.
+        self.push_diagnostic(
+            Diagnostic::error(format!("unknown type `{}`", te.name), te.span)
+                .with_code(DiagnosticCode::E0202)
+                .with_label(te.span, "not found in this scope")
+                .with_hint("built-in types: Int, Float, String, Bool, None"),
+        );
         Ty::Error
     }
 
     /// Unify two types, emitting a diagnostic on failure.
-    fn unify_or_error(&mut self, expected: &Ty, found: &Ty, span: Span) {
+    fn unify_or_error(
+        &mut self,
+        expected: &Ty,
+        found: &Ty,
+        span: Span,
+        context: DiagnosticContext,
+    ) {
         if let Err(err) = self.infer.unify(expected, found) {
             match err.kind {
                 UnifyErrorKind::Mismatch { expected, found } => {
                     let exp = self.infer.resolve(&expected);
                     let fnd = self.infer.resolve(&found);
-                    self.push_error(
+                    let mut diag = Diagnostic::error(
                         format!("type mismatch: expected `{exp}`, found `{fnd}`"),
                         span,
-                    );
+                    )
+                    .with_code(DiagnosticCode::E0200)
+                    .with_label(span, format!("expected `{exp}`, found `{fnd}`"));
+
+                    match context {
+                        DiagnosticContext::Simple => {}
+                        DiagnosticContext::ReturnType { fn_span } => {
+                            diag = diag.with_secondary_label(
+                                fn_span,
+                                format!("expected `{exp}` because of return type annotation"),
+                            );
+                        }
+                        DiagnosticContext::Argument { param_index, fn_span } => {
+                            diag = diag.with_secondary_label(
+                                fn_span,
+                                format!("parameter {} expects `{exp}`", param_index + 1,),
+                            );
+                        }
+                        DiagnosticContext::IfElseBranch { then_span } => {
+                            diag = diag.with_secondary_label(
+                                then_span,
+                                format!("expected `{exp}` because of this branch"),
+                            );
+                        }
+                        DiagnosticContext::MatchArm { first_arm_span } => {
+                            diag = diag.with_secondary_label(
+                                first_arm_span,
+                                format!("first arm has type `{exp}`"),
+                            );
+                        }
+                    }
+
+                    self.push_diagnostic(diag);
                 }
                 UnifyErrorKind::InfiniteType { var, ty } => {
                     let resolved = self.infer.resolve(&ty);
-                    self.push_error(
-                        format!("infinite type: type variable `?{}` occurs in `{resolved}`", var.0),
-                        span,
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            format!(
+                                "infinite type: type variable `?{}` occurs in `{resolved}`",
+                                var.0,
+                            ),
+                            span,
+                        )
+                        .with_code(DiagnosticCode::E0201)
+                        .with_label(span, "this expression causes an infinite type")
+                        .with_note("a type cannot contain itself recursively"),
                     );
                 }
             }
@@ -215,7 +291,9 @@ impl TyCheckCtx {
             let scheme = TypeScheme { vars: quantified_vars.clone(), ty: ctor_ty };
             self.type_env.insert(variant.def_id, scheme);
 
-            variants.push(AdtVariant { ctor_def_id: variant.def_id, field_tys });
+            let ctor_name = symbol_table.get(variant.def_id).name.clone();
+            self.ctor_to_type.insert(variant.def_id, ct.def_id);
+            variants.push(AdtVariant { ctor_def_id: variant.def_id, name: ctor_name, field_tys });
         }
 
         self.adt_registry
@@ -293,9 +371,18 @@ impl TyCheckCtx {
         } else {
             // Check declared return type against body.
             if declared_ret != Ty::Error && body_ty != Ty::Error && declared_ret != body_ty {
-                self.push_error(
-                    format!("type mismatch: expected `{declared_ret}`, found `{body_ty}`"),
-                    fn_def.body.span(),
+                // E0200: Return type mismatch.
+                self.push_diagnostic(
+                    Diagnostic::error(
+                        format!("type mismatch: expected `{declared_ret}`, found `{body_ty}`"),
+                        fn_def.body.span(),
+                    )
+                    .with_code(DiagnosticCode::E0200)
+                    .with_label(fn_def.body.span(), format!("this expression has type `{body_ty}`"))
+                    .with_secondary_label(
+                        fn_def.span,
+                        format!("expected `{declared_ret}` because of return type annotation"),
+                    ),
                 );
             }
             declared_ret
@@ -416,7 +503,12 @@ impl TyCheckCtx {
 
         let ret_ty = if let Some(ret_te) = return_type {
             let declared = self.resolve_type_expr(ret_te);
-            self.unify_or_error(&declared, &body_ty, body.span());
+            self.unify_or_error(
+                &declared,
+                &body_ty,
+                body.span(),
+                DiagnosticContext::ReturnType { fn_span: span },
+            );
             declared
         } else {
             body_ty
@@ -454,18 +546,32 @@ impl TyCheckCtx {
         match func_ty {
             Ty::Function { params, ret } => {
                 if args.len() == params.len() {
-                    for (arg, param_ty) in checked_args.iter().zip(params.iter()) {
+                    for (i, (arg, param_ty)) in checked_args.iter().zip(params.iter()).enumerate() {
                         let arg_ty = self.infer.resolve(arg.ty());
-                        self.unify_or_error(param_ty, &arg_ty, arg.span());
+                        self.unify_or_error(
+                            param_ty,
+                            &arg_ty,
+                            arg.span(),
+                            DiagnosticContext::Argument { param_index: i, fn_span: func.span() },
+                        );
                     }
                 } else {
-                    self.push_error(
-                        format!(
-                            "function expects {} argument(s), but {} were given",
-                            params.len(),
-                            args.len()
+                    // E0203: Argument count mismatch.
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            format!(
+                                "function expects {} argument(s), but {} were given",
+                                params.len(),
+                                args.len(),
+                            ),
+                            span,
+                        )
+                        .with_code(DiagnosticCode::E0203)
+                        .with_label(span, format!("{} argument(s) given here", args.len()))
+                        .with_secondary_label(
+                            func.span(),
+                            format!("function expects {} parameter(s)", params.len()),
                         ),
-                        span,
                     );
                 }
                 let ty = self.infer.resolve(&ret);
@@ -478,7 +584,13 @@ impl TyCheckCtx {
                 span,
             },
             _ => {
-                self.push_error(format!("expected function, found `{func_ty}`"), func.span());
+                // E0204: Expected function, found non-callable type.
+                self.push_diagnostic(
+                    Diagnostic::error(format!("expected function, found `{func_ty}`"), func.span())
+                        .with_code(DiagnosticCode::E0204)
+                        .with_label(func.span(), format!("this has type `{func_ty}`"))
+                        .with_note("only functions can be called"),
+                );
                 ThirExpr::Call {
                     func: Box::new(checked_func),
                     args: checked_args,
@@ -500,12 +612,20 @@ impl TyCheckCtx {
         let ty = match op {
             // Arithmetic: both must be same numeric type.
             BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
-                self.unify_or_error(&lhs_ty, &rhs_ty, span);
+                self.unify_or_error(&lhs_ty, &rhs_ty, span, DiagnosticContext::Simple);
                 let unified = self.infer.resolve(&lhs_ty);
                 if !is_numeric(&unified) && unified != Ty::Error {
-                    self.push_error(
-                        format!("arithmetic operator requires numeric type, found `{unified}`"),
-                        span,
+                    // E0205: Arithmetic operator requires numeric type.
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            format!(
+                                "arithmetic operator requires numeric type, found `{unified}`",
+                            ),
+                            span,
+                        )
+                        .with_code(DiagnosticCode::E0205)
+                        .with_label(span, format!("operands have type `{unified}`"))
+                        .with_note("arithmetic operators work with Int and Float"),
                     );
                     Ty::Error
                 } else {
@@ -514,19 +634,39 @@ impl TyCheckCtx {
             }
             // Comparison: both must be same type, result is Bool.
             BinOp::Eq | BinOp::NotEq | BinOp::Lt | BinOp::LtEq | BinOp::Gt | BinOp::GtEq => {
-                self.unify_or_error(&lhs_ty, &rhs_ty, span);
+                self.unify_or_error(&lhs_ty, &rhs_ty, span, DiagnosticContext::Simple);
                 Ty::Primitive(PrimTy::Bool)
             }
             // Logical: both must be Bool.
             BinOp::And | BinOp::Or => {
-                self.unify_or_error(&Ty::Primitive(PrimTy::Bool), &lhs_ty, checked_lhs.span());
-                self.unify_or_error(&Ty::Primitive(PrimTy::Bool), &rhs_ty, checked_rhs.span());
+                self.unify_or_error(
+                    &Ty::Primitive(PrimTy::Bool),
+                    &lhs_ty,
+                    checked_lhs.span(),
+                    DiagnosticContext::Simple,
+                );
+                self.unify_or_error(
+                    &Ty::Primitive(PrimTy::Bool),
+                    &rhs_ty,
+                    checked_rhs.span(),
+                    DiagnosticContext::Simple,
+                );
                 Ty::Primitive(PrimTy::Bool)
             }
             // StringConcat: desugared in HIR, but handle defensively.
             BinOp::StringConcat => {
-                self.unify_or_error(&Ty::Primitive(PrimTy::String), &lhs_ty, checked_lhs.span());
-                self.unify_or_error(&Ty::Primitive(PrimTy::String), &rhs_ty, checked_rhs.span());
+                self.unify_or_error(
+                    &Ty::Primitive(PrimTy::String),
+                    &lhs_ty,
+                    checked_lhs.span(),
+                    DiagnosticContext::Simple,
+                );
+                self.unify_or_error(
+                    &Ty::Primitive(PrimTy::String),
+                    &rhs_ty,
+                    checked_rhs.span(),
+                    DiagnosticContext::Simple,
+                );
                 Ty::Primitive(PrimTy::String)
             }
         };
@@ -543,9 +683,15 @@ impl TyCheckCtx {
         let ty = match op {
             UnOp::Neg => {
                 if !is_numeric(&expr_ty) && expr_ty != Ty::Error {
-                    self.push_error(
-                        format!("negation requires numeric type, found `{expr_ty}`"),
-                        span,
+                    // E0206: Negation requires numeric type.
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            format!("negation requires numeric type, found `{expr_ty}`"),
+                            span,
+                        )
+                        .with_code(DiagnosticCode::E0206)
+                        .with_label(span, format!("this has type `{expr_ty}`"))
+                        .with_note("negation works with Int and Float"),
                     );
                     Ty::Error
                 } else {
@@ -553,7 +699,12 @@ impl TyCheckCtx {
                 }
             }
             UnOp::Not => {
-                self.unify_or_error(&Ty::Primitive(PrimTy::Bool), &expr_ty, span);
+                self.unify_or_error(
+                    &Ty::Primitive(PrimTy::Bool),
+                    &expr_ty,
+                    span,
+                    DiagnosticContext::Simple,
+                );
                 Ty::Primitive(PrimTy::Bool)
             }
         };
@@ -572,7 +723,12 @@ impl TyCheckCtx {
     ) -> ThirExpr {
         let checked_cond = self.check_expr(condition);
         let cond_ty = self.infer.resolve(checked_cond.ty());
-        self.unify_or_error(&Ty::Primitive(PrimTy::Bool), &cond_ty, checked_cond.span());
+        self.unify_or_error(
+            &Ty::Primitive(PrimTy::Bool),
+            &cond_ty,
+            checked_cond.span(),
+            DiagnosticContext::Simple,
+        );
 
         let checked_then = self.check_expr(then_body);
         let then_ty = self.infer.resolve(checked_then.ty());
@@ -580,7 +736,12 @@ impl TyCheckCtx {
         let (checked_else, ty) = if let Some(else_expr) = else_body {
             let checked = self.check_expr(else_expr);
             let else_ty = self.infer.resolve(checked.ty());
-            self.unify_or_error(&then_ty, &else_ty, span);
+            self.unify_or_error(
+                &then_ty,
+                &else_ty,
+                span,
+                DiagnosticContext::IfElseBranch { then_span: then_body.span() },
+            );
             let ty = self.infer.resolve(&then_ty);
             (Some(Box::new(checked)), ty)
         } else {
@@ -605,27 +766,265 @@ impl TyCheckCtx {
         span: Span,
     ) -> ThirExpr {
         let checked_subject = self.check_expr(subject);
+        let subject_ty = self.infer.resolve(checked_subject.ty());
 
-        // Pattern typing deferred to Issue 26+. Only check arm bodies.
         let mut checked_arms = Vec::with_capacity(arms.len());
         let mut result_ty: Option<Ty> = None;
+        let mut first_arm_span: Option<Span> = None;
 
         for arm in arms {
+            let checked_pattern = self.check_pattern(&arm.pattern, &subject_ty);
             let checked_body = self.check_expr(&arm.body);
             let arm_ty = self.infer.resolve(checked_body.ty());
 
             if let Some(ref prev_ty) = result_ty {
-                self.unify_or_error(prev_ty, &arm_ty, arm.span);
+                self.unify_or_error(
+                    prev_ty,
+                    &arm_ty,
+                    arm.span,
+                    DiagnosticContext::MatchArm {
+                        first_arm_span: first_arm_span.unwrap_or(arm.span),
+                    },
+                );
             } else {
                 result_ty = Some(arm_ty);
+                first_arm_span = Some(arm.span);
             }
 
-            checked_arms.push(ThirMatchArm { body: checked_body, span: arm.span });
+            checked_arms.push(ThirMatchArm {
+                pattern: checked_pattern,
+                body: checked_body,
+                span: arm.span,
+            });
         }
 
-        let ty = result_ty.map_or(Ty::Primitive(PrimTy::None), |t| self.infer.resolve(&t));
+        self.check_match_coverage(&subject_ty, &checked_arms, span);
 
+        let ty = result_ty.map_or(Ty::Primitive(PrimTy::None), |t| self.infer.resolve(&t));
         ThirExpr::Match { subject: Box::new(checked_subject), arms: checked_arms, ty, span }
+    }
+
+    // ── Pattern type checking ─────────────────────────────────────
+
+    fn check_pattern(
+        &mut self,
+        pattern: &asatsuyu_hir::HirPattern,
+        expected_ty: &Ty,
+    ) -> ThirPattern {
+        match pattern {
+            asatsuyu_hir::HirPattern::Wildcard(span) => ThirPattern::Wildcard(*span),
+
+            asatsuyu_hir::HirPattern::Variable(def_id, span) => {
+                let ty = self.infer.resolve(expected_ty);
+                self.type_env.insert(*def_id, TypeScheme::mono(ty.clone()));
+                ThirPattern::Variable { def_id: *def_id, ty, span: *span }
+            }
+
+            asatsuyu_hir::HirPattern::Literal(lit) => {
+                let lit_ty = match lit.kind {
+                    LiteralKind::Int => Ty::Primitive(PrimTy::Int),
+                    LiteralKind::Float => Ty::Primitive(PrimTy::Float),
+                    LiteralKind::String => Ty::Primitive(PrimTy::String),
+                    LiteralKind::Bool => Ty::Primitive(PrimTy::Bool),
+                };
+                self.unify_or_error(expected_ty, &lit_ty, lit.span, DiagnosticContext::Simple);
+                ThirPattern::Literal(ThirLiteral {
+                    kind: lit.kind,
+                    value: lit.value.clone(),
+                    ty: lit_ty,
+                    span: lit.span,
+                })
+            }
+
+            asatsuyu_hir::HirPattern::Constructor { def_id, fields, span } => {
+                let Some(scheme) = self.type_env.get(def_id) else {
+                    // E0302: Unknown constructor in pattern.
+                    self.push_diagnostic(
+                        Diagnostic::error("unknown constructor in pattern", *span)
+                            .with_code(DiagnosticCode::E0302)
+                            .with_label(*span, "not a known constructor"),
+                    );
+                    return ThirPattern::Wildcard(*span);
+                };
+                let ctor_ty = self.infer.instantiate(scheme);
+
+                let (field_tys, ret_ty) = match &ctor_ty {
+                    Ty::Function { params, ret } => (params.clone(), *ret.clone()),
+                    ty @ Ty::Named { .. } => (vec![], ty.clone()),
+                    _ => {
+                        // E0302: Expected constructor type in pattern.
+                        self.push_diagnostic(
+                            Diagnostic::error("expected constructor type in pattern", *span)
+                                .with_code(DiagnosticCode::E0302)
+                                .with_label(*span, "not a constructor"),
+                        );
+                        return ThirPattern::Wildcard(*span);
+                    }
+                };
+
+                self.unify_or_error(expected_ty, &ret_ty, *span, DiagnosticContext::Simple);
+
+                if fields.len() != field_tys.len() {
+                    // E0303: Constructor pattern field count mismatch.
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            format!(
+                                "constructor pattern expects {} field(s), but {} were given",
+                                field_tys.len(),
+                                fields.len(),
+                            ),
+                            *span,
+                        )
+                        .with_code(DiagnosticCode::E0303)
+                        .with_label(*span, format!("{} field(s) here", fields.len())),
+                    );
+                }
+
+                let checked_fields: Vec<ThirPattern> = fields
+                    .iter()
+                    .zip(field_tys.iter().chain(std::iter::repeat(&Ty::Error)))
+                    .map(|(sub_pat, field_ty)| self.check_pattern(sub_pat, field_ty))
+                    .collect();
+
+                let resolved_ty = self.infer.resolve(&ret_ty);
+                ThirPattern::Constructor {
+                    def_id: *def_id,
+                    fields: checked_fields,
+                    ty: resolved_ty,
+                    span: *span,
+                }
+            }
+
+            asatsuyu_hir::HirPattern::List { span, .. } => {
+                // E0304: Unsupported pattern kind.
+                self.push_diagnostic(
+                    Diagnostic::error("list patterns are not yet supported", *span)
+                        .with_code(DiagnosticCode::E0304)
+                        .with_label(*span, "not yet available"),
+                );
+                ThirPattern::Wildcard(*span)
+            }
+        }
+    }
+
+    // ── Exhaustiveness & reachability ─────────────────────────────
+
+    fn check_match_coverage(&mut self, subject_ty: &Ty, arms: &[ThirMatchArm], match_span: Span) {
+        let resolved = self.infer.resolve(subject_ty);
+        match &resolved {
+            Ty::Named { def_id, name, .. } => {
+                self.check_adt_coverage(*def_id, name, arms, match_span);
+            }
+            Ty::Primitive(_) => {
+                self.check_primitive_coverage(arms, match_span);
+            }
+            _ => {}
+        }
+    }
+
+    fn check_adt_coverage(
+        &mut self,
+        type_def_id: DefId,
+        type_name: &SmolStr,
+        arms: &[ThirMatchArm],
+        match_span: Span,
+    ) {
+        let variant_ctor_ids: Vec<DefId> = match self.adt_registry.get(&type_def_id) {
+            Some(adt_def) => adt_def.variants.iter().map(|v| v.ctor_def_id).collect(),
+            None => return,
+        };
+
+        let mut remaining: HashSet<DefId> = variant_ctor_ids.iter().copied().collect();
+        let mut wildcard_seen = false;
+
+        for arm in arms {
+            match &arm.pattern {
+                ThirPattern::Constructor { def_id, .. } => {
+                    if wildcard_seen {
+                        self.push_unreachable_arm(arm.span);
+                    } else {
+                        remaining.remove(def_id);
+                    }
+                }
+                ThirPattern::Wildcard(_) | ThirPattern::Variable { .. } => {
+                    if wildcard_seen || remaining.is_empty() {
+                        self.push_unreachable_arm(arm.span);
+                    } else {
+                        wildcard_seen = true;
+                    }
+                }
+                ThirPattern::Literal(_) => {
+                    if wildcard_seen || remaining.is_empty() {
+                        self.push_unreachable_arm(arm.span);
+                    }
+                }
+            }
+        }
+
+        if !wildcard_seen && !remaining.is_empty() {
+            let adt_def = &self.adt_registry[&type_def_id];
+            let missing_names: Vec<&str> = adt_def
+                .variants
+                .iter()
+                .filter(|v| remaining.contains(&v.ctor_def_id))
+                .map(|v| v.name.as_str())
+                .collect();
+            let missing_list = missing_names.join(", ");
+            // E0300: Non-exhaustive match (ADT).
+            self.push_diagnostic(
+                Diagnostic::error(
+                    format!("non-exhaustive match on `{type_name}`: missing {missing_list}"),
+                    match_span,
+                )
+                .with_code(DiagnosticCode::E0300)
+                .with_label(match_span, "not all variants are covered")
+                .with_hint(format!("add arms for: {missing_list}")),
+            );
+        }
+    }
+
+    fn check_primitive_coverage(&mut self, arms: &[ThirMatchArm], match_span: Span) {
+        let mut catchall_seen = false;
+
+        for arm in arms {
+            match &arm.pattern {
+                ThirPattern::Wildcard(_) | ThirPattern::Variable { .. } => {
+                    if catchall_seen {
+                        self.push_unreachable_arm(arm.span);
+                    } else {
+                        catchall_seen = true;
+                    }
+                }
+                ThirPattern::Literal(_) | ThirPattern::Constructor { .. } => {
+                    if catchall_seen {
+                        self.push_unreachable_arm(arm.span);
+                    }
+                }
+            }
+        }
+
+        if !catchall_seen {
+            // E0300: Non-exhaustive match (primitive).
+            self.push_diagnostic(
+                Diagnostic::error(
+                    "non-exhaustive match: a wildcard `_` or variable pattern is required",
+                    match_span,
+                )
+                .with_code(DiagnosticCode::E0300)
+                .with_label(match_span, "not all values are covered")
+                .with_hint("add a wildcard `_` or variable pattern to cover all values"),
+            );
+        }
+    }
+
+    /// Emit E0301 unreachable match arm warning.
+    fn push_unreachable_arm(&mut self, span: Span) {
+        self.push_diagnostic(
+            Diagnostic::warning("unreachable match arm", span)
+                .with_code(DiagnosticCode::E0301)
+                .with_label(span, "this arm can never be reached")
+                .with_note("a previous arm already covers all remaining patterns"),
+        );
     }
 }
 

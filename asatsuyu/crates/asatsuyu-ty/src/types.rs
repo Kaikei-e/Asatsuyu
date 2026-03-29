@@ -162,11 +162,40 @@ pub struct ThirLiteral {
     pub span: Span,
 }
 
+// ── THIR Pattern ──────────────────────────────────────────────────
+
+/// A type-checked pattern used in match arms.
+#[derive(Debug)]
+pub enum ThirPattern {
+    /// `_` — matches anything, binds nothing.
+    Wildcard(Span),
+    /// A variable binding with resolved type.
+    Variable { def_id: DefId, ty: Ty, span: Span },
+    /// A literal pattern: `42`, `"hello"`, `True`.
+    Literal(ThirLiteral),
+    /// A constructor pattern: `Some(x)`, `None`, `Ok(value)`.
+    Constructor { def_id: DefId, fields: Vec<ThirPattern>, ty: Ty, span: Span },
+}
+
+impl ThirPattern {
+    /// Returns the span of this pattern.
+    #[must_use]
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Wildcard(span) | Self::Variable { span, .. } | Self::Constructor { span, .. } => {
+                *span
+            }
+            Self::Literal(lit) => lit.span,
+        }
+    }
+}
+
 // ── THIR Match Arm ─────────────────────────────────────────────────
 
-/// A type-checked match arm. Pattern typing is deferred to Issue 26+.
+/// A type-checked match arm with a typed pattern.
 #[derive(Debug)]
 pub struct ThirMatchArm {
+    pub pattern: ThirPattern,
     pub body: ThirExpr,
     pub span: Span,
 }

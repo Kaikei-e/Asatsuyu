@@ -5,7 +5,7 @@
 use std::fmt::Write;
 
 use asatsuyu_ast::{BinOp, UnOp};
-use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirModule, Ty};
+use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirMatchArm, ThirModule, ThirPattern, Ty};
 
 /// 4-space indentation per PEP 8.
 const INDENT: &str = "    ";
@@ -108,12 +108,20 @@ impl<'a> Emitter<'a> {
     // ── Statements ─────────────────────────────────────────────────
 
     fn emit_stmt(&mut self, expr: &ThirExpr) {
+        if let ThirExpr::Match { subject, arms, .. } = expr {
+            self.emit_match_stmt(subject, arms, false);
+            return;
+        }
         self.write_indent();
         self.emit_expr(expr);
         self.output.push('\n');
     }
 
     fn emit_return_stmt(&mut self, expr: &ThirExpr) {
+        if let ThirExpr::Match { subject, arms, .. } = expr {
+            self.emit_match_stmt(subject, arms, true);
+            return;
+        }
         self.write_indent();
         self.output.push_str("return ");
         self.emit_expr(expr);
@@ -178,15 +186,12 @@ impl<'a> Emitter<'a> {
                 }
                 self.output.push(')');
             }
-            ThirExpr::Match { subject, arms, .. } => {
-                // Placeholder: pattern typing is Issue 26+.
-                // Emit a basic match/case structure.
-                // In statement position this would be multi-line; in expression
-                // position we fall back to emitting the first arm body.
+            ThirExpr::Match { arms, .. } => {
+                // Fallback for match in inline expression position.
+                // Proper match/case is emitted in emit_return_stmt/emit_stmt.
                 if let Some(first) = arms.first() {
                     self.emit_expr(&first.body);
                 }
-                let _ = (subject, arms);
             }
             ThirExpr::Let { binding, value, .. } => {
                 let name = &self.module.symbol_table.get(*binding).name;
@@ -223,6 +228,59 @@ impl<'a> Emitter<'a> {
             true
         } else {
             false
+        }
+    }
+
+    // ── Match statement emission ──────────────────────────────────
+
+    fn emit_match_stmt(&mut self, subject: &ThirExpr, arms: &[ThirMatchArm], is_return: bool) {
+        self.write_indent();
+        self.output.push_str("match ");
+        self.emit_expr(subject);
+        self.output.push_str(":\n");
+        self.push_indent();
+        for arm in arms {
+            self.write_indent();
+            self.output.push_str("case ");
+            self.emit_pattern(&arm.pattern);
+            self.output.push_str(":\n");
+            self.push_indent();
+            if is_return {
+                self.emit_return_stmt(&arm.body);
+            } else {
+                self.emit_stmt(&arm.body);
+            }
+            self.pop_indent();
+        }
+        self.pop_indent();
+    }
+
+    fn emit_pattern(&mut self, pattern: &ThirPattern) {
+        match pattern {
+            ThirPattern::Wildcard(_) => {
+                self.output.push('_');
+            }
+            ThirPattern::Variable { def_id, .. } => {
+                let name = &self.module.symbol_table.get(*def_id).name;
+                self.output.push_str(name.as_str());
+            }
+            ThirPattern::Literal(lit) => {
+                self.output.push_str(lit.value.as_str());
+            }
+            ThirPattern::Constructor { def_id, fields, .. } => {
+                let name = &self.module.symbol_table.get(*def_id).name;
+                self.output.push_str(name.as_str());
+                if !fields.is_empty() {
+                    self.output.push('(');
+                    for (i, field) in fields.iter().enumerate() {
+                        if i > 0 {
+                            self.output.push_str(", ");
+                        }
+                        self.emit_pattern(field);
+                    }
+                    self.output.push(')');
+                }
+            }
         }
     }
 }

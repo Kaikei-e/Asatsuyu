@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-use asatsuyu_syntax::{Diagnostic, FileId, Severity};
+use asatsuyu_syntax::{Diagnostic, FileId, LabelStyle, Severity};
 use asatsuyu_ty::ThirModule;
 use clap::{Parser, Subcommand};
 
@@ -59,8 +59,8 @@ pub fn run() -> ExitCode {
 fn cmd_check(path: &Path) -> ExitCode {
     match compile(path) {
         Ok(_) => ExitCode::SUCCESS,
-        Err(CliError::CompileErrors(diagnostics)) => {
-            report_diagnostics(&diagnostics);
+        Err(CliError::CompileErrors { diagnostics, source }) => {
+            report_diagnostics(&diagnostics, &source);
             ExitCode::FAILURE
         }
         Err(err) => {
@@ -73,8 +73,8 @@ fn cmd_check(path: &Path) -> ExitCode {
 fn cmd_build(path: &Path, output_dir: &Path) -> ExitCode {
     let thir = match compile(path) {
         Ok(result) => result,
-        Err(CliError::CompileErrors(diagnostics)) => {
-            report_diagnostics(&diagnostics);
+        Err(CliError::CompileErrors { diagnostics, source }) => {
+            report_diagnostics(&diagnostics, &source);
             return ExitCode::FAILURE;
         }
         Err(err) => {
@@ -104,8 +104,8 @@ fn cmd_build(path: &Path, output_dir: &Path) -> ExitCode {
 fn cmd_run(path: &Path) -> ExitCode {
     let thir = match compile(path) {
         Ok(result) => result,
-        Err(CliError::CompileErrors(diagnostics)) => {
-            report_diagnostics(&diagnostics);
+        Err(CliError::CompileErrors { diagnostics, source }) => {
+            report_diagnostics(&diagnostics, &source);
             return ExitCode::FAILURE;
         }
         Err(err) => {
@@ -163,28 +163,28 @@ fn compile(path: &Path) -> Result<ThirModule, CliError> {
     let cst = asatsuyu_parser::parse(FileId(0), &source);
     all_diagnostics.extend(cst.diagnostics().iter().cloned());
     if cst.has_errors() {
-        return Err(CliError::CompileErrors(all_diagnostics));
+        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
     }
 
     // AST
     let ast = asatsuyu_ast::lower(&cst, FileId(0));
     all_diagnostics.extend(ast.diagnostics.iter().cloned());
     if ast.has_errors() {
-        return Err(CliError::CompileErrors(all_diagnostics));
+        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
     }
 
     // HIR
     let hir = asatsuyu_hir::lower_to_hir(&ast.module);
     all_diagnostics.extend(hir.diagnostics.iter().cloned());
     if hir.has_errors() {
-        return Err(CliError::CompileErrors(all_diagnostics));
+        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
     }
 
     // Type check
     let thir = asatsuyu_ty::check_types(&hir.module);
     all_diagnostics.extend(thir.diagnostics.iter().cloned());
     if thir.has_errors() {
-        return Err(CliError::CompileErrors(all_diagnostics));
+        return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });
     }
 
     Ok(thir.module)
@@ -194,15 +194,15 @@ fn compile(path: &Path) -> Result<ThirModule, CliError> {
 
 enum CliError {
     Io(std::io::Error),
-    CompileErrors(Vec<Diagnostic>),
+    CompileErrors { diagnostics: Vec<Diagnostic>, source: String },
 }
 
 impl std::fmt::Display for CliError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Io(e) => write!(f, "{e}"),
-            Self::CompileErrors(diags) => {
-                for d in diags {
+            Self::CompileErrors { diagnostics, .. } => {
+                for d in diagnostics {
                     writeln!(f, "{}", d.message)?;
                 }
                 Ok(())
@@ -213,12 +213,54 @@ impl std::fmt::Display for CliError {
 
 // ── Diagnostic reporting ───────────────────────────────────────────
 
-fn report_diagnostics(diagnostics: &[Diagnostic]) {
+fn report_diagnostics(diagnostics: &[Diagnostic], source: &str) {
     for d in diagnostics {
         let prefix = match d.severity {
             Severity::Error => "error",
             Severity::Warning => "warning",
         };
-        eprintln!("{prefix}: {}", d.message);
+        let code_str = d.code.map_or(String::new(), |c| format!("[{c}] "));
+        eprintln!("{prefix}: {code_str}{}", d.message);
+
+        // Labels with source location.
+        for label in &d.labels {
+            let marker = match label.style {
+                LabelStyle::Primary => "-->",
+                LabelStyle::Secondary => "  =",
+            };
+            let (line, col) = offset_to_line_col(source, label.span.start);
+            eprintln!("  {marker} {line}:{col}: {}", label.message);
+        }
+
+        // Notes.
+        for note in &d.notes {
+            eprintln!("  = note: {note}");
+        }
+
+        // Hints.
+        for hint in &d.hints {
+            eprintln!("  = hint: {hint}");
+        }
+
+        eprintln!();
     }
+}
+
+/// Convert a byte offset to a 1-based (line, column) pair.
+fn offset_to_line_col(source: &str, offset: u32) -> (usize, usize) {
+    let offset = offset as usize;
+    let mut line = 1;
+    let mut col = 1;
+    for (i, ch) in source.char_indices() {
+        if i >= offset {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+    (line, col)
 }
