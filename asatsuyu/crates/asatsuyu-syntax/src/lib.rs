@@ -1,7 +1,17 @@
 //! Shared type definitions for the Asatsuyu compiler.
 //!
-//! This crate defines the foundational types used by all other compiler crates:
-//! - `TokenKind` — token classification for the lexer
-//! - `NodeKind` — CST node classification for the parser
-//! - `Span` — source location tracking
-//! - `Diagnostic` — compiler error and warning messages
+//! This crate is the lowest-level dependency in the compiler, depended upon by
+//! all other crates. It has **zero external dependencies** by design.
+//!
+//! Provides:
+//! - [`SyntaxKind`] — unified token/node classification (rowan-compatible)
+//! - [`Span`] / [`FileId`] — source location tracking
+//! - [`Diagnostic`] / [`Label`] — compiler error and warning messages
+
+pub mod diagnostic;
+pub mod span;
+pub mod syntax_kind;
+
+pub use diagnostic::{Diagnostic, Label, LabelStyle, Severity};
+pub use span::{FileId, Span};
+pub use syntax_kind::SyntaxKind;
