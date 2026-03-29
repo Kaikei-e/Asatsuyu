@@ -50,6 +50,23 @@ fn span_of_token(token: &SyntaxToken, file_id: FileId) -> Span {
     Span::new(file_id, u32::from(range.start()), u32::from(range.end()))
 }
 
+fn span_of_nontrivia(node: &SyntaxNode, file_id: FileId) -> Span {
+    let mut tokens = node
+        .descendants_with_tokens()
+        .filter_map(|el| el.into_token())
+        .filter(|tok| !tok.kind().is_trivia());
+
+    let Some(first) = tokens.next() else {
+        return span_of(node, file_id);
+    };
+    let last = tokens.last().unwrap_or_else(|| first.clone());
+    Span::new(
+        file_id,
+        u32::from(first.text_range().start()),
+        u32::from(last.text_range().end()),
+    )
+}
+
 // ── Child helpers ───────────────────────────────────────────────────
 
 /// Find the first child node with the given kind.
@@ -323,7 +340,7 @@ impl LowerCtx {
             .filter_map(|te| self.lower_type_expr(te))
             .collect();
 
-        Some(TypeExpr::Named { name, args, span: span_of(node, self.file_id) })
+        Some(TypeExpr::Named { name, args, span: span_of_nontrivia(node, self.file_id) })
     }
 
     // ── ParamList ───────────────────────────────────────────────────

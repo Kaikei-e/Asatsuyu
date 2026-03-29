@@ -155,6 +155,20 @@ mod tests {
         assert!(tree.contains("IdentExpr"), "tree should contain IdentExpr:\n{tree}");
     }
 
+    #[test]
+    fn parse_function_with_parameterized_types() {
+        let source = "fn wrap(xs: List(Int)) -> Result(Int, String) { xs }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("ReturnType"), "tree should contain ReturnType:\n{tree}");
+        assert!(tree.contains("TypeExpr"), "tree should contain TypeExpr:\n{tree}");
+        assert!(tree.contains("\"List\""), "tree should contain List:\n{tree}");
+        assert!(tree.contains("\"Result\""), "tree should contain Result:\n{tree}");
+        assert!(tree.contains("\"String\""), "tree should contain String:\n{tree}");
+    }
+
     // ── 6. String literal ────────────────────────────────────────────
 
     #[test]

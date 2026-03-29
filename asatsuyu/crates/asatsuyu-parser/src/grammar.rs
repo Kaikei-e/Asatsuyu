@@ -339,7 +339,7 @@ fn parse_param_list(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// Param = IDENT ':' IDENT
+/// Param = IDENT ':' TypeExpr
 /// ```
 fn parse_param(p: &mut Parser<'_>) {
     const PARAM_FOLLOW: TokenSet =
@@ -361,8 +361,10 @@ fn parse_param(p: &mut Parser<'_>) {
         return;
     }
 
-    // Type (just an identifier for now)
-    if !p.expect(SyntaxKind::Ident) {
+    // Type annotation
+    if p.at(SyntaxKind::Ident) {
+        parse_type_expr(p);
+    } else {
         p.error_recover_until("expected parameter type", PARAM_FOLLOW);
     }
 
@@ -370,12 +372,14 @@ fn parse_param(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// ReturnType = '->' IDENT
+/// ReturnType = '->' TypeExpr
 /// ```
 fn parse_return_type(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::ReturnType);
     p.bump(); // consume `->`
-    if !p.expect(SyntaxKind::Ident) {
+    if p.at(SyntaxKind::Ident) {
+        parse_type_expr(p);
+    } else {
         p.error_recover_until("expected return type", TokenSet::new(&[SyntaxKind::LBrace]));
     }
     p.finish_node();

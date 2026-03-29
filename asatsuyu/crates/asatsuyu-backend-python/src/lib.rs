@@ -171,4 +171,11 @@ def add(x: int, y: int) -> int:
         assert!(!py.contains("Any"), "no Any in valid output: {py}");
         assert!(!py.contains("<error>"), "no <error> in valid output: {py}");
     }
+
+    #[test]
+    fn emit_string_concat_as_python_plus() {
+        let py = python_from_source(r#"fn f(name: String) -> String { "Hello, " <> name }"#);
+        assert!(py.contains("return (\"Hello, \" + name)"), "output: {py}");
+        assert!(!py.contains("string_concat("), "output: {py}");
+    }
 }

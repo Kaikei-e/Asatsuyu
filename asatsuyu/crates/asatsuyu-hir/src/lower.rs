@@ -95,6 +95,16 @@ impl HirLowerCtx {
         self.diagnostics.push(Diagnostic::error(message, span));
     }
 
+    fn define_local(&mut self, name: &SmolStr, id: DefId, span: Span) {
+        if let Some(prev_id) = self.scopes.define(name.clone(), id) {
+            let prev = self.symbol_table.get(prev_id);
+            self.diagnostics.push(
+                Diagnostic::error(format!("duplicate binding `{name}`"), span)
+                    .with_secondary_label(prev.span, "previously bound here"),
+            );
+        }
+    }
+
     /// Define a name in the current scope. If a duplicate exists in the
     /// **module scope** (bottom of stack), emit a diagnostic.
     fn define_module_level(&mut self, name: &SmolStr, id: DefId, span: Span) {
@@ -232,7 +242,7 @@ impl HirLowerCtx {
                     kind: DefKind::Parameter,
                     span: p.name.span,
                 });
-                self.scopes.define(p.name.name.clone(), param_def_id);
+                self.define_local(&p.name.name, param_def_id, p.name.span);
                 let type_name = match &p.type_ann {
                     asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
                 };
@@ -386,7 +396,7 @@ impl HirLowerCtx {
                     kind: DefKind::LocalBinding,
                     span: ident.span,
                 });
-                self.scopes.define(ident.name.clone(), def_id);
+                self.define_local(&ident.name, def_id, ident.span);
                 HirPattern::Variable(def_id, ident.span)
             }
 
@@ -419,7 +429,7 @@ impl HirLowerCtx {
                         kind: DefKind::LocalBinding,
                         span: ident.span,
                     });
-                    self.scopes.define(ident.name.clone(), def_id);
+                    self.define_local(&ident.name, def_id, ident.span);
                     def_id
                 });
                 HirPattern::List { elements: hir_elements, rest: hir_rest, span: *span }

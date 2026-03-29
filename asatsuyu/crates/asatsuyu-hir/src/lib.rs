@@ -222,6 +222,17 @@ mod tests {
         assert_eq!(result.module.functions.len(), 1);
     }
 
+    #[test]
+    fn duplicate_parameter_binding_diagnostic() {
+        let result = hir_from_source("fn f(x: Int, x: Int) { x }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate binding `x`")),
+            "expected duplicate binding diagnostic: {:?}",
+            result.diagnostics
+        );
+    }
+
     // ── 9. String literal ───────────────────────────────────────────
 
     #[test]
@@ -575,6 +586,17 @@ mod tests {
             },
             other => panic!("expected Block, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn duplicate_pattern_binding_diagnostic() {
+        let result = hir_from_source("fn f(xs: Int) { match xs { [x, ..x] -> x } }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate binding `x`")),
+            "expected duplicate binding diagnostic: {:?}",
+            result.diagnostics
+        );
     }
 
     // ── 22. Match arm scope isolation ────────────────────────────────

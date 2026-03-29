@@ -138,6 +138,9 @@ impl<'a> Emitter<'a> {
                 }
             }
             ThirExpr::Call { func, args, .. } => {
+                if self.emit_builtin_call(func, args) {
+                    return;
+                }
                 self.emit_expr(func);
                 self.output.push('(');
                 for (i, arg) in args.iter().enumerate() {
@@ -185,6 +188,23 @@ impl<'a> Emitter<'a> {
                 }
                 let _ = (subject, arms);
             }
+        }
+    }
+
+    fn emit_builtin_call(&mut self, func: &ThirExpr, args: &[ThirExpr]) -> bool {
+        let ThirExpr::Var { def_id, .. } = func else {
+            return false;
+        };
+        let name = self.module.symbol_table.get(*def_id).name.as_str();
+        if name == "string_concat" && args.len() == 2 {
+            self.output.push('(');
+            self.emit_expr(&args[0]);
+            self.output.push_str(" + ");
+            self.emit_expr(&args[1]);
+            self.output.push(')');
+            true
+        } else {
+            false
         }
     }
 }
