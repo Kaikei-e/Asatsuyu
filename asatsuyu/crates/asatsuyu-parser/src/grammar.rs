@@ -336,11 +336,8 @@ fn parse_if_expr(p: &mut Parser<'_>) {
         } else {
             let span = p.current_span();
             p.diagnostics_mut().push(
-                asatsuyu_syntax::Diagnostic::error(
-                    "expected block or `if` after `else`",
-                    span,
-                )
-                .with_label(span, "expected `{` or `if`"),
+                asatsuyu_syntax::Diagnostic::error("expected block or `if` after `else`", span)
+                    .with_label(span, "expected `{` or `if`"),
             );
         }
     }

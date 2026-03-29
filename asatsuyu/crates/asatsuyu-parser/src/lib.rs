@@ -242,7 +242,10 @@ mod tests {
         let tree = debug_tree(source);
         // Should have nested BinaryExpr: outer (+) wrapping inner (*)
         let binary_count = tree.matches("BinaryExpr@").count();
-        assert!(binary_count >= 2, "expected 2+ BinaryExpr for precedence, got {binary_count}:\n{tree}");
+        assert!(
+            binary_count >= 2,
+            "expected 2+ BinaryExpr for precedence, got {binary_count}:\n{tree}"
+        );
     }
 
     // ── 12. Comparison ──────────────────────────────────────────
