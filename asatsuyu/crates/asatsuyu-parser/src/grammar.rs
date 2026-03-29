@@ -20,11 +20,14 @@ pub(crate) fn parse_source_file(p: &mut Parser<'_>) {
     p.finish_node();
 }
 
-/// Dispatch a top-level item. Currently only function definitions.
+/// Dispatch a top-level item.
 fn parse_top_level(p: &mut Parser<'_>) {
     match p.current() {
         SyntaxKind::PubKw | SyntaxKind::FnKw => parse_fn_def(p),
-        _ => p.error_recover("expected function definition"),
+        SyntaxKind::LetKw | SyntaxKind::TypeKw | SyntaxKind::ImportKw => {
+            p.error_recover("not yet implemented");
+        }
+        _ => p.error_recover("expected item definition"),
     }
 }
 

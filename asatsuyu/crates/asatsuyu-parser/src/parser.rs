@@ -142,7 +142,16 @@ impl<'a> Parser<'a> {
 
     /// Returns `true` if the current token is a recovery synchronization point.
     fn at_recovery_point(&self) -> bool {
-        matches!(self.current(), SyntaxKind::FnKw | SyntaxKind::PubKw)
+        matches!(
+            self.current(),
+            SyntaxKind::FnKw
+                | SyntaxKind::PubKw
+                | SyntaxKind::LetKw
+                | SyntaxKind::TypeKw
+                | SyntaxKind::MatchKw
+                | SyntaxKind::IfKw
+                | SyntaxKind::ImportKw
+        )
     }
 
     // ── Diagnostics access ─────────────────────────────────────────────

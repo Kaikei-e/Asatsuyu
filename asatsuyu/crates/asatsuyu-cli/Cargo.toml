@@ -17,3 +17,4 @@ asatsuyu-ast = { workspace = true }
 asatsuyu-hir = { workspace = true }
 asatsuyu-ty = { workspace = true }
 asatsuyu-backend-python = { workspace = true }
+clap = { workspace = true }
