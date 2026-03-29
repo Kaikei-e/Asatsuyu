@@ -11,3 +11,8 @@ workspace = true
 
 [dependencies]
 asatsuyu-syntax = { workspace = true }
+logos = { workspace = true }
+smol_str = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
