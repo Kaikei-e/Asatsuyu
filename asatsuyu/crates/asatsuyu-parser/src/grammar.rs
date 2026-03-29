@@ -23,8 +23,13 @@ pub(crate) fn parse_source_file(p: &mut Parser<'_>) {
 /// Dispatch a top-level item.
 fn parse_top_level(p: &mut Parser<'_>) {
     match p.current() {
-        SyntaxKind::PubKw | SyntaxKind::FnKw => parse_fn_def(p),
-        SyntaxKind::LetKw | SyntaxKind::TypeKw | SyntaxKind::ImportKw => {
+        SyntaxKind::FnKw => parse_fn_def(p),
+        SyntaxKind::TypeKw => parse_type_def(p),
+        SyntaxKind::PubKw => match p.nth(1) {
+            SyntaxKind::TypeKw => parse_type_def(p),
+            _ => parse_fn_def(p),
+        },
+        SyntaxKind::LetKw | SyntaxKind::ImportKw => {
             p.error_recover("not yet implemented");
         }
         _ => p.error_recover("expected item definition"),
@@ -86,6 +91,186 @@ fn parse_visibility(p: &mut Parser<'_>) {
     p.bump(); // consume `pub`
     p.finish_node();
 }
+
+// ── Type definition parsing ──────────────────────────────────────
+
+/// ```text
+/// TypeDef = Visibility? 'type' IDENT TypeParams? '{' TypeBody '}'
+/// ```
+fn parse_type_def(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::TypeDef);
+
+    // Optional visibility: `pub`
+    if p.at(SyntaxKind::PubKw) {
+        parse_visibility(p);
+    }
+
+    // `type` keyword
+    p.expect(SyntaxKind::TypeKw);
+
+    // Type name
+    p.expect(SyntaxKind::Ident);
+
+    // Optional type parameters: `(a, b)`
+    if p.at(SyntaxKind::LParen) {
+        parse_type_param_list(p);
+    }
+
+    // Body: `{ ... }`
+    if p.at(SyntaxKind::LBrace) {
+        p.bump(); // consume `{`
+        parse_type_body(p);
+        p.expect(SyntaxKind::RBrace);
+    } else {
+        let span = p.current_span();
+        p.diagnostics_mut().push(
+            asatsuyu_syntax::Diagnostic::error("expected type body", span)
+                .with_label(span, "expected `{`"),
+        );
+    }
+
+    p.finish_node();
+}
+
+/// ```text
+/// TypeParams = '(' TypeParam (',' TypeParam)* ','? ')'
+/// ```
+fn parse_type_param_list(p: &mut Parser<'_>) {
+    p.bump(); // consume `(`
+
+    if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+        parse_type_param(p);
+        while p.at(SyntaxKind::Comma) {
+            p.bump(); // consume `,`
+            if p.at(SyntaxKind::RParen) {
+                break;
+            }
+            parse_type_param(p);
+        }
+    }
+
+    p.expect(SyntaxKind::RParen);
+}
+
+/// ```text
+/// TypeParam = IDENT
+/// ```
+fn parse_type_param(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::TypeParam);
+    p.expect(SyntaxKind::Ident);
+    p.finish_node();
+}
+
+/// Dispatch type body as record fields or ADT variants.
+///
+/// Detection: if the first non-trivia token after `{` is `Ident` followed
+/// by `Colon`, treat as Go-style record fields. Otherwise, ADT variants.
+fn parse_type_body(p: &mut Parser<'_>) {
+    if p.at(SyntaxKind::RBrace) {
+        return; // empty type body
+    }
+
+    let is_record = p.at(SyntaxKind::Ident) && p.nth(1) == SyntaxKind::Colon;
+
+    if is_record {
+        while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+            if p.at(SyntaxKind::Ident) {
+                parse_record_field(p);
+            } else {
+                p.error_and_bump("expected field definition");
+            }
+        }
+    } else {
+        while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+            if p.at(SyntaxKind::Ident) {
+                parse_variant(p);
+            } else {
+                p.error_and_bump("expected variant definition");
+            }
+        }
+    }
+}
+
+/// ```text
+/// Field = IDENT ':' TypeExpr
+/// ```
+fn parse_record_field(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::Field);
+    p.expect(SyntaxKind::Ident); // field name
+    p.expect(SyntaxKind::Colon);
+    parse_type_expr(p);
+    p.finish_node();
+}
+
+/// ```text
+/// Variant = IDENT VariantArgs?
+/// VariantArgs = '(' VarField (',' VarField)* ','? ')'
+/// ```
+fn parse_variant(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::Variant);
+    p.expect(SyntaxKind::Ident); // variant name
+
+    // Optional fields: `(field, field, ...)`
+    if p.at(SyntaxKind::LParen) {
+        p.bump(); // consume `(`
+        if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+            parse_variant_field(p);
+            while p.at(SyntaxKind::Comma) {
+                p.bump(); // consume `,`
+                if p.at(SyntaxKind::RParen) {
+                    break;
+                }
+                parse_variant_field(p);
+            }
+        }
+        p.expect(SyntaxKind::RParen);
+    }
+
+    p.finish_node();
+}
+
+/// ```text
+/// VarField = (IDENT ':')? TypeExpr
+/// ```
+fn parse_variant_field(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::Field);
+    // Lookahead: Ident + Colon → labelled field
+    if p.at(SyntaxKind::Ident) && p.nth(1) == SyntaxKind::Colon {
+        p.bump(); // consume label
+        p.bump(); // consume `:`
+    }
+    parse_type_expr(p);
+    p.finish_node();
+}
+
+/// ```text
+/// TypeExpr = IDENT TypeArgs?
+/// TypeArgs = '(' TypeExpr (',' TypeExpr)* ','? ')'
+/// ```
+fn parse_type_expr(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::TypeExpr);
+    p.expect(SyntaxKind::Ident); // type name
+
+    // Optional type arguments: `(Type, Type, ...)`
+    if p.at(SyntaxKind::LParen) {
+        p.bump(); // consume `(`
+        if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+            parse_type_expr(p); // recursive
+            while p.at(SyntaxKind::Comma) {
+                p.bump(); // consume `,`
+                if p.at(SyntaxKind::RParen) {
+                    break;
+                }
+                parse_type_expr(p);
+            }
+        }
+        p.expect(SyntaxKind::RParen);
+    }
+
+    p.finish_node();
+}
+
+// ── Function definition helpers ─────────────────────────────────
 
 /// ```text
 /// ParamList = '(' (Param (',' Param)* ','?)? ')'

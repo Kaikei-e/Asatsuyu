@@ -212,6 +212,11 @@ mod tests {
             "fn f() { x |> f |> g }",
             "fn f() { x |> f(1, 2) }",
             "fn f() { a + b |> f }",
+            "type User {\n  name: String\n  age: Int\n}",
+            "type Option(a) {\n  Some(a)\n  None\n}",
+            "type Result(a, e) {\n  Ok(a)\n  Error(e)\n}",
+            "pub type User {\n  User(name: String, age: Int)\n}",
+            "type Empty { }",
         ];
         for &source in sources {
             let result = parse(FID, source);
@@ -642,6 +647,166 @@ mod tests {
         let source = "fn f() { x |> g(1, 2,) }";
         let result = parse(FID, source);
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+    }
+
+    // ── Type definition tests ─────────────────────────────────
+
+    // ── 42. Record type (Go-style) ─────────────────────────────
+
+    #[test]
+    fn parse_record_type() {
+        let source = "type User {\n  name: String\n  age: Int\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeDef"), "tree should contain TypeDef:\n{tree}");
+        let field_count = tree.matches("Field@").count();
+        assert_eq!(field_count, 2, "expected 2 Field nodes, got {field_count}:\n{tree}");
+        assert!(tree.contains("TypeExpr"), "tree should contain TypeExpr:\n{tree}");
+    }
+
+    // ── 43. Pub record type ────────────────────────────────────
+
+    #[test]
+    fn parse_pub_record_type() {
+        let source = "pub type User {\n  name: String\n  age: Int\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("Visibility"), "tree should contain Visibility:\n{tree}");
+        assert!(tree.contains("TypeDef"), "tree should contain TypeDef:\n{tree}");
+    }
+
+    // ── 44. ADT with no fields ─────────────────────────────────
+
+    #[test]
+    fn parse_adt_no_fields() {
+        let source = "type Season {\n  Spring\n  Summer\n  Autumn\n  Winter\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeDef"), "tree should contain TypeDef:\n{tree}");
+        let variant_count = tree.matches("Variant@").count();
+        assert_eq!(variant_count, 4, "expected 4 Variant nodes, got {variant_count}:\n{tree}");
+    }
+
+    // ── 45. ADT Option ─────────────────────────────────────────
+
+    #[test]
+    fn parse_adt_option() {
+        let source = "type Option(a) {\n  Some(a)\n  None\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeParam"), "tree should contain TypeParam:\n{tree}");
+        let variant_count = tree.matches("Variant@").count();
+        assert_eq!(variant_count, 2, "expected 2 Variant nodes, got {variant_count}:\n{tree}");
+    }
+
+    // ── 46. ADT Result ─────────────────────────────────────────
+
+    #[test]
+    fn parse_adt_result() {
+        let source = "type Result(a, e) {\n  Ok(a)\n  Error(e)\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let type_param_count = tree.matches("TypeParam@").count();
+        assert_eq!(type_param_count, 2, "expected 2 TypeParam, got {type_param_count}:\n{tree}");
+        let variant_count = tree.matches("Variant@").count();
+        assert_eq!(variant_count, 2, "expected 2 Variant, got {variant_count}:\n{tree}");
+    }
+
+    // ── 47. ADT with labelled fields ───────────────────────────
+
+    #[test]
+    fn parse_adt_labelled_fields() {
+        let source = "type User {\n  User(name: String, age: Int)\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("Variant"), "tree should contain Variant:\n{tree}");
+        let field_count = tree.matches("Field@").count();
+        assert!(field_count >= 2, "expected 2+ Field in variant, got {field_count}:\n{tree}");
+    }
+
+    // ── 48. Parameterized field type ───────────────────────────
+
+    #[test]
+    fn parse_type_parameterized_field() {
+        let source = "type Wrapper {\n  items: List(Int)\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        // TypeExpr for List(Int) should contain nested TypeExpr for Int
+        let type_expr_count = tree.matches("TypeExpr@").count();
+        assert!(
+            type_expr_count >= 2,
+            "expected 2+ TypeExpr (List and Int), got {type_expr_count}:\n{tree}"
+        );
+    }
+
+    // ── 49. Trailing commas in type params and variant fields ──
+
+    #[test]
+    fn parse_type_trailing_commas() {
+        let source = "type R(a,) {\n  Ok(a,)\n}";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+    }
+
+    // ── 50. Type definition alongside function ─────────────────
+
+    #[test]
+    fn parse_type_alongside_fn() {
+        let source = "type Color {\n  Red\n  Blue\n}\nfn f() { 1 }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeDef"), "tree should contain TypeDef:\n{tree}");
+        assert!(tree.contains("FnDef"), "tree should contain FnDef:\n{tree}");
+    }
+
+    // ── 51. Empty type body ────────────────────────────────────
+
+    #[test]
+    fn parse_empty_type() {
+        let source = "type Empty { }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeDef"), "tree should contain TypeDef:\n{tree}");
+    }
+
+    // ── 52. Error: type missing brace ──────────────────────────
+
+    #[test]
+    fn error_type_missing_brace() {
+        let source = "type X";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+    }
+
+    // ── 53. Pub type alongside pub fn ──────────────────────────
+
+    #[test]
+    fn parse_pub_type_and_pub_fn() {
+        let source = "pub type Option(a) {\n  Some(a)\n  None\n}\npub fn main() { 1 }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TypeDef"), "tree should contain TypeDef:\n{tree}");
+        assert!(tree.contains("FnDef"), "tree should contain FnDef:\n{tree}");
     }
 
     // ── Error tests (original) ──────────────────────────────────
