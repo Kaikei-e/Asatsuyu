@@ -18,6 +18,9 @@
 
 ---
 
+
+**Asatsuyu lets developers write safer application logic for Python without abandoning Python’s libraries.**
+
 Asatsuyu is an experiment in bringing sound static typing to the Python
 ecosystem. It compiles to readable Python 3.12+ source code, aiming to let you
 use algebraic data types, exhaustive pattern matching, and type inference while
