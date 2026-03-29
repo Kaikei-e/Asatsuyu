@@ -12,3 +12,4 @@ workspace = true
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-parser = { workspace = true }
+smol_str = { workspace = true }

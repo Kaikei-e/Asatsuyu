@@ -9,21 +9,13 @@ const GREET: &str = include_str!("../../../examples/greet.asty");
 #[test]
 fn parse_hello_asty_no_errors() {
     let result = parse(FileId(0), HELLO);
-    assert!(
-        !result.has_errors(),
-        "hello.asty produced errors: {:?}",
-        result.diagnostics()
-    );
+    assert!(!result.has_errors(), "hello.asty produced errors: {:?}", result.diagnostics());
 }
 
 #[test]
 fn parse_hello_asty_lossless_roundtrip() {
     let result = parse(FileId(0), HELLO);
-    assert_eq!(
-        result.syntax().to_string(),
-        HELLO,
-        "roundtrip mismatch for hello.asty"
-    );
+    assert_eq!(result.syntax().to_string(), HELLO, "roundtrip mismatch for hello.asty");
 }
 
 #[test]
@@ -45,11 +37,7 @@ fn parse_hello_asty_tree_shape() {
 #[test]
 fn parse_greet_asty_no_errors() {
     let result = parse(FileId(0), GREET);
-    assert!(
-        !result.has_errors(),
-        "greet.asty produced errors: {:?}",
-        result.diagnostics()
-    );
+    assert!(!result.has_errors(), "greet.asty produced errors: {:?}", result.diagnostics());
 }
 
 #[test]
@@ -71,9 +59,5 @@ fn parse_greet_asty_tree_shape() {
 #[test]
 fn parse_greet_asty_lossless_roundtrip() {
     let result = parse(FileId(0), GREET);
-    assert_eq!(
-        result.syntax().to_string(),
-        GREET,
-        "roundtrip mismatch for greet.asty"
-    );
+    assert_eq!(result.syntax().to_string(), GREET, "roundtrip mismatch for greet.asty");
 }

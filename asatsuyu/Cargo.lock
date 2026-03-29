@@ -23,6 +23,7 @@ version = "0.1.0"
 dependencies = [
  "asatsuyu-parser",
  "asatsuyu-syntax",
+ "smol_str",
 ]
 
 [[package]]
