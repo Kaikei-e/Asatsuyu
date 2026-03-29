@@ -427,4 +427,9 @@ mod tests {
     fn snap_float_literal() {
         insta::assert_snapshot!(snapshot("fn f() -> Float {\n  3.14\n}"));
     }
+
+    #[test]
+    fn snap_string_concat() {
+        insta::assert_snapshot!(snapshot("fn f(name: String) -> String {\n  \"hello\" <> name\n}"));
+    }
 }

@@ -423,7 +423,9 @@ fn infix_binding_power(op: SyntaxKind) -> Option<(u8, u8)> {
         | SyntaxKind::LtEq
         | SyntaxKind::Gt
         | SyntaxKind::GtEq => Some((5, 6)),
-        SyntaxKind::Pipe | SyntaxKind::Plus | SyntaxKind::Minus => Some((7, 8)),
+        SyntaxKind::Pipe | SyntaxKind::Plus | SyntaxKind::Minus | SyntaxKind::StringConcat => {
+            Some((7, 8))
+        }
         SyntaxKind::Star | SyntaxKind::Slash | SyntaxKind::Percent => Some((9, 10)),
         _ => None,
     }
@@ -656,6 +658,11 @@ fn parse_pattern(p: &mut Parser<'_>) {
         SyntaxKind::Ident => {
             if p.nth(1) == SyntaxKind::LParen {
                 parse_constructor_pat(p);
+            } else if p.current_text().starts_with(char::is_uppercase) {
+                // Nullary constructor: e.g., `None`, `Nil`
+                p.start_node(SyntaxKind::ConstructorPat);
+                p.bump();
+                p.finish_node();
             } else {
                 parse_ident_pat(p);
             }

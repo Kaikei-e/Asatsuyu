@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 369
 expression: "snapshot(\"fn f(opt: Option) -> Int {\\n  match opt {\\n    Some(x) -> x\\n    None -> 0\\n  }\\n}\")"
 ---
 Module {
@@ -154,8 +153,8 @@ Module {
                                     },
                                 },
                                 MatchArm {
-                                    pattern: Variable(
-                                        Ident {
+                                    pattern: Constructor {
+                                        name: Ident {
                                             name: "None",
                                             span: Span {
                                                 file_id: FileId(
@@ -165,7 +164,15 @@ Module {
                                                 end: 66,
                                             },
                                         },
-                                    ),
+                                        fields: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 57,
+                                            end: 66,
+                                        },
+                                    },
                                     guard: None,
                                     body: Literal(
                                         Literal {

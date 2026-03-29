@@ -531,6 +531,7 @@ impl LowerCtx {
                     | SyntaxKind::GtEq
                     | SyntaxKind::AmpAmp
                     | SyntaxKind::PipePipe
+                    | SyntaxKind::StringConcat
             )
         })?;
 
@@ -548,6 +549,7 @@ impl LowerCtx {
             SyntaxKind::GtEq => BinOp::GtEq,
             SyntaxKind::AmpAmp => BinOp::And,
             SyntaxKind::PipePipe => BinOp::Or,
+            SyntaxKind::StringConcat => BinOp::StringConcat,
             _ => unreachable!(),
         };
 

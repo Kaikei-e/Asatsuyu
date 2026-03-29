@@ -13,8 +13,8 @@ use asatsuyu_syntax::{Diagnostic, Span};
 use smol_str::SmolStr;
 
 use crate::types::{
-    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirLiteral, HirMatchArm, HirModule,
-    HirParam, HirPattern, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirImport, HirLiteral, HirMatchArm,
+    HirModule, HirParam, HirPattern, SymbolTable,
 };
 
 // ── Scope Stack ─────────────────────────────────────────────────────
@@ -66,19 +66,29 @@ pub(crate) struct HirLowerCtx {
     symbol_table: SymbolTable,
     diagnostics: Vec<Diagnostic>,
     scopes: ScopeStack,
+    /// `DefId` for the built-in `string_concat` function.
+    string_concat_id: DefId,
 }
 
 impl HirLowerCtx {
     pub(crate) fn new() -> Self {
-        Self {
-            symbol_table: SymbolTable::new(),
-            diagnostics: Vec::new(),
-            scopes: ScopeStack::new(),
-        }
+        let mut symbol_table = SymbolTable::new();
+        let string_concat_id = symbol_table.alloc(DefData {
+            name: SmolStr::from("string_concat"),
+            kind: DefKind::Builtin,
+            span: Span::dummy(),
+        });
+        let mut scopes = ScopeStack::new();
+        scopes.define(SmolStr::from("string_concat"), string_concat_id);
+        Self { symbol_table, diagnostics: Vec::new(), scopes, string_concat_id }
     }
 
-    pub(crate) fn into_parts(self) -> (SymbolTable, Vec<Diagnostic>) {
-        (self.symbol_table, self.diagnostics)
+    pub(crate) fn into_diagnostics(self) -> Vec<Diagnostic> {
+        self.diagnostics
+    }
+
+    fn take_symbol_table(&mut self) -> SymbolTable {
+        std::mem::take(&mut self.symbol_table)
     }
 
     fn push_error(&mut self, message: impl Into<String>, span: Span) {
@@ -103,6 +113,9 @@ impl HirLowerCtx {
 impl HirLowerCtx {
     /// Lower an AST module into HIR.
     pub(crate) fn lower_module(&mut self, ast: &Module) -> HirModule {
+        // Pass 0: Register import bindings in module scope.
+        let imports = self.register_imports(ast);
+
         // Pass 1: Register all top-level names in module scope.
         let (fn_entries, ct_entries) = self.register_top_level(ast);
 
@@ -117,7 +130,42 @@ impl HirLowerCtx {
             .map(|(ct, def_id)| HirCustomType { def_id, visibility: ct.visibility, span: ct.span })
             .collect();
 
-        HirModule { functions, custom_types, symbol_table: SymbolTable::default(), span: ast.span }
+        HirModule {
+            imports,
+            functions,
+            custom_types,
+            symbol_table: self.take_symbol_table(),
+            span: ast.span,
+        }
+    }
+
+    /// Pass 0: Register import bindings in module scope.
+    ///
+    /// For `import gleam.io`, binds `io` in scope.
+    /// For `import gleam.io as stdio`, binds `stdio` in scope.
+    fn register_imports(&mut self, ast: &Module) -> Vec<HirImport> {
+        ast.imports
+            .iter()
+            .filter_map(|imp| {
+                let bound_name = if let Some(alias) = &imp.alias {
+                    alias
+                } else {
+                    imp.module.last()?
+                };
+
+                let def_id = self.symbol_table.alloc(DefData {
+                    name: bound_name.name.clone(),
+                    kind: DefKind::Import,
+                    span: bound_name.span,
+                });
+
+                self.define_module_level(&bound_name.name, def_id, bound_name.span);
+
+                let module_path = imp.module.iter().map(|seg| seg.name.clone()).collect();
+
+                Some(HirImport { def_id, module_path, span: imp.span })
+            })
+            .collect()
     }
 
     /// Pass 1: Register all function names, type names, and constructors.
@@ -143,9 +191,10 @@ impl HirLowerCtx {
                 Definition::CustomType(ct) => {
                     let type_def_id = self.symbol_table.alloc(DefData {
                         name: ct.name.name.clone(),
-                        kind: DefKind::Constructor, // type name itself
+                        kind: DefKind::Type,
                         span: ct.name.span,
                     });
+                    self.define_module_level(&ct.name.name, type_def_id, ct.name.span);
                     ct_entries.push((ct, type_def_id));
 
                     // Register constructors in module scope.
@@ -251,6 +300,17 @@ impl HirLowerCtx {
                 HirExpr::Call { func: Box::new(hir_func), args: hir_args, span: *span }
             }
 
+            Expr::BinaryOp { op: asatsuyu_ast::BinOp::StringConcat, lhs, rhs, span } => {
+                // Desugar: "a" <> "b" → string_concat("a", "b")
+                let hir_lhs = self.lower_expr(lhs);
+                let hir_rhs = self.lower_expr(rhs);
+                HirExpr::Call {
+                    func: Box::new(HirExpr::Var(self.string_concat_id, *span)),
+                    args: vec![hir_lhs, hir_rhs],
+                    span: *span,
+                }
+            }
+
             Expr::BinaryOp { op, lhs, rhs, span } => {
                 let hir_lhs = self.lower_expr(lhs);
                 let hir_rhs = self.lower_expr(rhs);
@@ -286,12 +346,17 @@ impl HirLowerCtx {
             }
 
             Expr::Pipeline { left, right, span } => {
+                // Desugar: x |> f(y) → f(x, y), x |> f → f(x)
                 let hir_left = self.lower_expr(left);
                 let hir_right = self.lower_expr(right);
-                HirExpr::Pipeline {
-                    left: Box::new(hir_left),
-                    right: Box::new(hir_right),
-                    span: *span,
+                match hir_right {
+                    HirExpr::Call { func, mut args, .. } => {
+                        args.insert(0, hir_left);
+                        HirExpr::Call { func, args, span: *span }
+                    }
+                    other => {
+                        HirExpr::Call { func: Box::new(other), args: vec![hir_left], span: *span }
+                    }
                 }
             }
         }
@@ -336,7 +401,20 @@ impl HirLowerCtx {
 
             Pattern::Constructor { name, fields, span } => {
                 let hir_fields = fields.iter().map(|f| self.lower_pattern(f)).collect();
-                HirPattern::Constructor { name: name.name.clone(), fields: hir_fields, span: *span }
+                let def_id = if let Some(id) = self.scopes.resolve(&name.name) {
+                    id
+                } else {
+                    self.push_error(
+                        format!("unresolved constructor `{}`", name.name),
+                        name.span,
+                    );
+                    self.symbol_table.alloc(DefData {
+                        name: name.name.clone(),
+                        kind: DefKind::Constructor,
+                        span: name.span,
+                    })
+                };
+                HirPattern::Constructor { def_id, fields: hir_fields, span: *span }
             }
 
             Pattern::List { elements, rest, span } => {

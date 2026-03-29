@@ -228,6 +228,7 @@ pub enum BinOp {
     GtEq,
     And,
     Or,
+    StringConcat,
 }
 
 /// Unary operator.

@@ -31,6 +31,12 @@ pub enum DefKind {
     LocalBinding,
     /// An ADT constructor (e.g., `Some`, `None`, `Ok`, `Err`).
     Constructor,
+    /// A type name (e.g., `Option`, `Result`).
+    Type,
+    /// A compiler built-in function (e.g., `string_concat`).
+    Builtin,
+    /// A name introduced by an import statement (e.g., `import io` binds `io`).
+    Import,
 }
 
 // ── Symbol Table ────────────────────────────────────────────────────
@@ -92,9 +98,21 @@ impl Default for SymbolTable {
 /// The root HIR node representing a single source file after name resolution.
 #[derive(Debug)]
 pub struct HirModule {
+    pub imports: Vec<HirImport>,
     pub functions: Vec<HirFnDef>,
     pub custom_types: Vec<HirCustomType>,
     pub symbol_table: SymbolTable,
+    pub span: Span,
+}
+
+// ── HIR Import ─────────────────────────────────────────────────────
+
+/// An import declaration in HIR, with a resolved [`DefId`] for the bound name.
+#[derive(Debug)]
+pub struct HirImport {
+    pub def_id: DefId,
+    /// Module path segments: `["gleam", "io"]` for `import gleam.io`.
+    pub module_path: Vec<SmolStr>,
     pub span: Span,
 }
 
@@ -154,8 +172,8 @@ pub enum HirPattern {
     Variable(DefId, Span),
     /// `42`, `"hello"`, `True`
     Literal(HirLiteral),
-    /// `Some(x)`, `Ok(value)`
-    Constructor { name: SmolStr, fields: Vec<HirPattern>, span: Span },
+    /// `Some(x)`, `Ok(value)`, `None`
+    Constructor { def_id: DefId, fields: Vec<HirPattern>, span: Span },
     /// `[head, ..rest]`, `[]`
     List { elements: Vec<HirPattern>, rest: Option<DefId>, span: Span },
 }
@@ -213,8 +231,6 @@ pub enum HirExpr {
     },
     /// A match expression: `match subject { pattern -> expr ... }`.
     Match { subject: Box<HirExpr>, arms: Vec<HirMatchArm>, span: Span },
-    /// A pipeline expression: `x |> f` (desugared in Issue 21).
-    Pipeline { left: Box<HirExpr>, right: Box<HirExpr>, span: Span },
 }
 
 impl HirExpr {
@@ -229,8 +245,7 @@ impl HirExpr {
             | Self::BinaryOp { span, .. }
             | Self::UnaryOp { span, .. }
             | Self::If { span, .. }
-            | Self::Match { span, .. }
-            | Self::Pipeline { span, .. } => *span,
+            | Self::Match { span, .. } => *span,
         }
     }
 }

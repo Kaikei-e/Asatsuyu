@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 416
 expression: "format!(\"{:#?}\", result.module)"
 ---
 Module {
@@ -489,8 +488,8 @@ Module {
                                     },
                                 },
                                 MatchArm {
-                                    pattern: Variable(
-                                        Ident {
+                                    pattern: Constructor {
+                                        name: Ident {
                                             name: "None",
                                             span: Span {
                                                 file_id: FileId(
@@ -500,7 +499,15 @@ Module {
                                                 end: 211,
                                             },
                                         },
-                                    ),
+                                        fields: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 202,
+                                            end: 211,
+                                        },
+                                    },
                                     guard: None,
                                     body: Variable(
                                         Ident {

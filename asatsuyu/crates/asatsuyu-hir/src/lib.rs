@@ -23,8 +23,8 @@ mod lower;
 mod types;
 
 pub use types::{
-    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirLiteral, HirMatchArm, HirModule,
-    HirParam, HirPattern, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirImport, HirLiteral, HirMatchArm,
+    HirModule, HirParam, HirPattern, SymbolTable,
 };
 
 use asatsuyu_ast::Module;
@@ -56,9 +56,8 @@ impl HirLowerResult {
 #[must_use]
 pub fn lower_to_hir(ast: &Module) -> HirLowerResult {
     let mut ctx = lower::HirLowerCtx::new();
-    let mut module = ctx.lower_module(ast);
-    let (symbol_table, diagnostics) = ctx.into_parts();
-    module.symbol_table = symbol_table;
+    let module = ctx.lower_module(ast);
+    let diagnostics = ctx.into_diagnostics();
     HirLowerResult { module, diagnostics }
 }
 
@@ -85,7 +84,8 @@ mod tests {
         let result = hir_from_source("");
         assert!(!result.has_errors());
         assert!(result.module.functions.is_empty());
-        assert!(result.module.symbol_table.is_empty());
+        // Symbol table contains built-in definitions (e.g., string_concat).
+        assert_eq!(result.module.symbol_table.len(), 1);
     }
 
     // ── 2. Minimal function ─────────────────────────────────────────
@@ -429,14 +429,111 @@ mod tests {
     // ── 20. Pipeline lowering ───────────────────────────────────────
 
     #[test]
-    fn lower_pipeline() {
-        let result = hir_from_source("fn f(x: Int) -> Int { x |> g }");
-        // `g` is unresolved but pipeline structure should still be produced.
+    fn desugar_pipeline_bare() {
+        // x |> f → f(x)
+        let result = hir_from_source("fn f(x: Int) -> Int { x |> f }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
         let func = &result.module.functions[0];
         match &func.body {
-            HirExpr::Block { exprs, .. } => {
-                assert!(matches!(&exprs[0], HirExpr::Pipeline { .. }));
-            }
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Call { func: callee, args, .. } => {
+                    assert!(matches!(callee.as_ref(), HirExpr::Var(..)), "callee should be Var");
+                    assert_eq!(args.len(), 1, "pipeline bare: f(x) has 1 arg");
+                    assert!(matches!(&args[0], HirExpr::Var(..)));
+                }
+                other => panic!("expected Call (desugared pipeline), got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn desugar_pipeline_with_args() {
+        // x |> f(1) → f(x, 1)
+        let result = hir_from_source("fn f(x: Int) -> Int { x |> f(1) }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Call { args, .. } => {
+                    assert_eq!(args.len(), 2, "pipeline with args: f(x, 1) has 2 args");
+                }
+                other => panic!("expected Call (desugared pipeline), got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn desugar_pipeline_chain() {
+        // x |> f |> g → g(f(x))
+        let result = hir_from_source("fn test(x: Int) -> Int { x |> f |> g }");
+        // f and g are unresolved, but structure should be correct
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Call { func: outer_callee, args: outer_args, .. } => {
+                    // Outer: g(...)
+                    assert!(matches!(outer_callee.as_ref(), HirExpr::Var(..)));
+                    assert_eq!(outer_args.len(), 1);
+                    // Inner: f(x)
+                    match &outer_args[0] {
+                        HirExpr::Call { args: inner_args, .. } => {
+                            assert_eq!(inner_args.len(), 1);
+                        }
+                        other => panic!("expected inner Call, got {other:?}"),
+                    }
+                }
+                other => panic!("expected Call (desugared chain), got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn desugar_string_concat() {
+        // "a" <> "b" → string_concat("a", "b")
+        let result = hir_from_source("fn f() -> String { \"a\" <> \"b\" }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Call { func: callee, args, .. } => {
+                    // Callee should be the built-in string_concat
+                    if let HirExpr::Var(def_id, _) = callee.as_ref() {
+                        let data = result.module.symbol_table.get(*def_id);
+                        assert_eq!(data.name.as_str(), "string_concat");
+                        assert_eq!(data.kind, DefKind::Builtin);
+                    } else {
+                        panic!("expected Var callee, got {callee:?}");
+                    }
+                    assert_eq!(args.len(), 2);
+                }
+                other => panic!("expected Call (desugared string concat), got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn desugar_string_concat_chain() {
+        // "a" <> b <> "c" → string_concat(string_concat("a", b), "c")
+        let result = hir_from_source("fn f(b: String) -> String { \"a\" <> b <> \"c\" }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Call { args, .. } => {
+                    assert_eq!(args.len(), 2);
+                    // First arg should be another Call (nested string_concat)
+                    assert!(matches!(&args[0], HirExpr::Call { .. }), "nested concat");
+                }
+                other => panic!("expected Call, got {other:?}"),
+            },
             other => panic!("expected Block, got {other:?}"),
         }
     }
@@ -545,8 +642,10 @@ mod tests {
             && let HirExpr::Match { arms, .. } = &exprs[0]
         {
             match &arms[0].pattern {
-                HirPattern::Constructor { name, fields, .. } => {
-                    assert_eq!(name.as_str(), "Some");
+                HirPattern::Constructor { def_id, fields, .. } => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "Some");
+                    assert_eq!(data.kind, DefKind::Constructor);
                     assert_eq!(fields.len(), 1);
                     assert!(matches!(&fields[0], HirPattern::Variable(..)));
                 }
@@ -634,5 +733,211 @@ mod tests {
         // match_basic.asty has 1 type + 3 functions
         assert_eq!(result.module.custom_types.len(), 1);
         assert_eq!(result.module.functions.len(), 3);
+    }
+
+    // ── 30. Constructor pattern resolves DefId ─────────────────────
+
+    #[test]
+    fn constructor_pattern_resolves_def_id() {
+        let source = "type Option(a) {\n  Some(a)\n  None\n}\n\
+                       fn f(opt: Option) -> Int {\n  match opt {\n    Some(x) -> x\n    None -> 0\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        // Find the constructor DefId for "Some" from the type registration
+        let some_id = result
+            .module
+            .symbol_table
+            .iter()
+            .find(|(_, d)| d.name == "Some" && d.kind == DefKind::Constructor)
+            .map(|(id, _)| id)
+            .expect("Some constructor not found");
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body
+            && let HirExpr::Match { arms, .. } = &exprs[0]
+        {
+            match &arms[0].pattern {
+                HirPattern::Constructor { def_id, fields, .. } => {
+                    assert_eq!(*def_id, some_id);
+                    assert_eq!(fields.len(), 1);
+                }
+                other => panic!("expected Constructor, got {other:?}"),
+            }
+        } else {
+            panic!("unexpected body structure");
+        }
+    }
+
+    // ── 31. Unresolved constructor pattern produces diagnostic ─────
+
+    #[test]
+    fn unresolved_constructor_pattern_diagnostic() {
+        let source = "fn f(x: Int) -> Int {\n  match x {\n    Unknown(y) -> y\n    _ -> 0\n  }\n}";
+        let result = hir_from_source(source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("unresolved constructor `Unknown`")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 32. Import registers name in scope ─────────────────────────
+
+    #[test]
+    fn import_registers_name() {
+        let result = hir_from_source("import io\nfn f() { io }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert_eq!(result.module.imports.len(), 1);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body {
+            match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "io");
+                    assert_eq!(data.kind, DefKind::Import);
+                }
+                other => panic!("expected Var, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 33. Dotted import binds last segment ───────────────────────
+
+    #[test]
+    fn dotted_import_binds_last_segment() {
+        let result = hir_from_source("import gleam.io\nfn f() { io }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert_eq!(result.module.imports.len(), 1);
+        let imp = &result.module.imports[0];
+        assert_eq!(imp.module_path, vec!["gleam", "io"]);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body {
+            match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "io");
+                    assert_eq!(data.kind, DefKind::Import);
+                }
+                other => panic!("expected Var, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 34. Import alias binds alias name ──────────────────────────
+
+    #[test]
+    fn import_alias_binds_alias() {
+        let result = hir_from_source("import gleam.io as stdio\nfn f() { stdio }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body {
+            match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "stdio");
+                    assert_eq!(data.kind, DefKind::Import);
+                }
+                other => panic!("expected Var, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 35. Import alias: original name is unresolved ──────────────
+
+    #[test]
+    fn import_alias_original_name_unresolved() {
+        let result = hir_from_source("import gleam.io as stdio\nfn f() { io }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("unresolved name `io`")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 36. No imports produces empty vec ──────────────────────────
+
+    #[test]
+    fn no_imports_empty_vec() {
+        let result = hir_from_source("fn f() { 1 }");
+        assert!(result.module.imports.is_empty());
+    }
+
+    // ── 37. Duplicate import diagnostic ────────────────────────────
+
+    #[test]
+    fn duplicate_import_diagnostic() {
+        let result = hir_from_source("import io\nimport io");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate definition `io`")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 38. Import clashes with function name ──────────────────────
+
+    #[test]
+    fn import_clashes_with_function() {
+        let result = hir_from_source("import io\nfn io() { 1 }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate definition `io`")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 39. Type name resolves in expression ───────────────────────
+
+    #[test]
+    fn type_name_resolves_in_expression() {
+        let source = "type Option(a) {\n  Some(a)\n  None\n}\nfn f() { Option }";
+        let result = hir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body {
+            match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "Option");
+                    assert_eq!(data.kind, DefKind::Type);
+                }
+                other => panic!("expected Var, got {other:?}"),
+            }
+        }
+    }
+
+    // ── 40. Type name clashes with function name ───────────────────
+
+    #[test]
+    fn type_name_clashes_with_function() {
+        let result = hir_from_source("type Foo {\n  Bar\n}\nfn Foo() { 1 }");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate definition `Foo`")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── 41. Import clashes with constructor ─────────────────────────
+
+    #[test]
+    fn import_clashes_with_constructor() {
+        let result = hir_from_source("import io\ntype T {\n  io\n}");
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics.iter().any(|d| d.message.contains("duplicate definition `io`")),
+            "diagnostics: {:?}",
+            result.diagnostics
+        );
     }
 }

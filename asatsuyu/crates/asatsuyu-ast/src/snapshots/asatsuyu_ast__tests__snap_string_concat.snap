@@ -1,0 +1,148 @@
+---
+source: crates/asatsuyu-ast/src/lib.rs
+assertion_line: 433
+expression: "snapshot(\"fn f(name: String) -> String {\\n  \\\"hello\\\" <> name\\n}\")"
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "f",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 4,
+                    },
+                },
+                visibility: Private,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "name",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 5,
+                                end: 9,
+                            },
+                        },
+                        type_ann: Named {
+                            name: Ident {
+                                name: "String",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 11,
+                                    end: 17,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 11,
+                                end: 17,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 5,
+                            end: 17,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "String",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 22,
+                                end: 28,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 22,
+                            end: 28,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        BinaryOp {
+                            op: StringConcat,
+                            lhs: Literal(
+                                Literal {
+                                    kind: String,
+                                    value: "\"hello\"",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 33,
+                                        end: 40,
+                                    },
+                                },
+                            ),
+                            rhs: Variable(
+                                Ident {
+                                    name: "name",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 44,
+                                        end: 48,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 30,
+                                end: 48,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 28,
+                        end: 50,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 50,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 50,
+    },
+}

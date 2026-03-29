@@ -189,8 +189,7 @@ impl TyCheckCtx {
             | HirExpr::BinaryOp { span, .. }
             | HirExpr::UnaryOp { span, .. }
             | HirExpr::If { span, .. }
-            | HirExpr::Match { span, .. }
-            | HirExpr::Pipeline { span, .. } => ThirExpr::Literal(ThirLiteral {
+            | HirExpr::Match { span, .. } => ThirExpr::Literal(ThirLiteral {
                 kind: LiteralKind::Int,
                 value: SmolStr::from("0"),
                 ty: Ty::Error,
