@@ -257,13 +257,21 @@ fn unop_to_python(op: UnOp) -> &'static str {
 }
 
 /// Map an Asatsuyu [`Ty`] to its Python type annotation string.
-fn ty_to_python(ty: &Ty) -> &'static str {
+fn ty_to_python(ty: &Ty) -> String {
     match ty {
-        Ty::Primitive(PrimTy::Int) => "int",
-        Ty::Primitive(PrimTy::Float) => "float",
-        Ty::Primitive(PrimTy::String) => "str",
-        Ty::Primitive(PrimTy::Bool) => "bool",
-        Ty::Primitive(PrimTy::None) => "None",
-        Ty::Function { .. } | Ty::Var(_) | Ty::Error => "Any",
+        Ty::Primitive(PrimTy::Int) => "int".into(),
+        Ty::Primitive(PrimTy::Float) => "float".into(),
+        Ty::Primitive(PrimTy::String) => "str".into(),
+        Ty::Primitive(PrimTy::Bool) => "bool".into(),
+        Ty::Primitive(PrimTy::None) => "None".into(),
+        Ty::Named { name, args, .. } => {
+            if args.is_empty() {
+                name.to_string()
+            } else {
+                let arg_strs: Vec<String> = args.iter().map(ty_to_python).collect();
+                format!("{name}[{}]", arg_strs.join(", "))
+            }
+        }
+        Ty::Function { .. } | Ty::Var(_) | Ty::Error => "Any".into(),
     }
 }

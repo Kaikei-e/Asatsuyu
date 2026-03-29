@@ -116,13 +116,47 @@ pub struct HirImport {
     pub span: Span,
 }
 
+// ── HIR Type Expression ─────────────────────────────────────────────
+
+/// A type expression in HIR, preserving structure from AST `TypeExpr`.
+///
+/// Example: `Option(Int)` → `HirTypeExpr { name: "Option", args: [HirTypeExpr { name: "Int", .. }], .. }`
+#[derive(Debug, Clone)]
+pub struct HirTypeExpr {
+    pub name: SmolStr,
+    pub args: Vec<HirTypeExpr>,
+    pub span: Span,
+}
+
 // ── HIR Custom Type ─────────────────────────────────────────────────
 
-/// A custom type definition in HIR, with a resolved [`DefId`].
-#[derive(Debug)]
+/// A custom type definition in HIR, with resolved [`DefId`]s and variant info.
+#[derive(Debug, Clone)]
 pub struct HirCustomType {
     pub def_id: DefId,
     pub visibility: Visibility,
+    /// Type parameter names (e.g., `["a"]` for `Option(a)`).
+    pub type_params: Vec<SmolStr>,
+    /// Variants of this ADT.
+    pub variants: Vec<HirVariant>,
+    pub span: Span,
+}
+
+/// A variant of a custom type in HIR.
+#[derive(Debug, Clone)]
+pub struct HirVariant {
+    /// The [`DefId`] of this constructor (`DefKind::Constructor`).
+    pub def_id: DefId,
+    /// Field types for this constructor.
+    pub fields: Vec<HirFieldType>,
+    pub span: Span,
+}
+
+/// A field type in an ADT variant.
+#[derive(Debug, Clone)]
+pub struct HirFieldType {
+    pub label: Option<SmolStr>,
+    pub type_expr: HirTypeExpr,
     pub span: Span,
 }
 
@@ -134,8 +168,8 @@ pub struct HirFnDef {
     pub def_id: DefId,
     pub visibility: Visibility,
     pub params: Vec<HirParam>,
-    /// Return type name. `None` when omitted.
-    pub return_type: Option<SmolStr>,
+    /// Return type annotation. `None` when omitted.
+    pub return_type: Option<HirTypeExpr>,
     pub body: HirExpr,
     pub span: Span,
 }
@@ -146,8 +180,8 @@ pub struct HirFnDef {
 #[derive(Debug)]
 pub struct HirParam {
     pub def_id: DefId,
-    /// Type annotation name (currently a simple identifier).
-    pub type_ann: SmolStr,
+    /// Type annotation. `None` when omitted (lambda params).
+    pub type_ann: Option<HirTypeExpr>,
     pub span: Span,
 }
 
@@ -234,7 +268,12 @@ pub enum HirExpr {
     /// A let binding: `let x = expr`.
     Let { binding: DefId, value: Box<HirExpr>, span: Span },
     /// An anonymous function: `fn(params) { body }`.
-    Lambda { params: Vec<HirParam>, return_type: Option<SmolStr>, body: Box<HirExpr>, span: Span },
+    Lambda {
+        params: Vec<HirParam>,
+        return_type: Option<HirTypeExpr>,
+        body: Box<HirExpr>,
+        span: Span,
+    },
 }
 
 impl HirExpr {

@@ -69,6 +69,7 @@ impl InferCtx {
             Ty::Function { params, ret } => {
                 params.iter().any(|p| self.occurs_in(var, p)) || self.occurs_in(var, &ret)
             }
+            Ty::Named { args, .. } => args.iter().any(|a| self.occurs_in(var, a)),
             Ty::Primitive(_) | Ty::Error => false,
         }
     }
@@ -84,6 +85,10 @@ impl InferCtx {
                 let params = params.iter().map(|p| self.resolve(p)).collect();
                 let ret = Box::new(self.resolve(ret));
                 Ty::Function { params, ret }
+            }
+            Ty::Named { def_id, name, args } => {
+                let args = args.iter().map(|a| self.resolve(a)).collect();
+                Ty::Named { def_id: *def_id, name: name.clone(), args }
             }
             Ty::Primitive(_) | Ty::Error => ty.clone(),
         }
@@ -105,6 +110,13 @@ impl InferCtx {
                     s.extend(self.free_vars(p));
                 }
                 s.extend(self.free_vars(&ret));
+                s
+            }
+            Ty::Named { args, .. } => {
+                let mut s = HashSet::new();
+                for a in &args {
+                    s.extend(self.free_vars(a));
+                }
                 s
             }
             Ty::Primitive(_) | Ty::Error => HashSet::new(),
@@ -137,6 +149,11 @@ impl InferCtx {
             Ty::Function { params, ret } => Ty::Function {
                 params: params.iter().map(|p| Self::apply_mapping(mapping, p)).collect(),
                 ret: Box::new(Self::apply_mapping(mapping, ret)),
+            },
+            Ty::Named { def_id, name, args } => Ty::Named {
+                def_id: *def_id,
+                name: name.clone(),
+                args: args.iter().map(|a| Self::apply_mapping(mapping, a)).collect(),
             },
             Ty::Primitive(_) | Ty::Error => ty.clone(),
         }
@@ -199,6 +216,19 @@ impl InferCtx {
                     self.unify(p1, p2)?;
                 }
                 self.unify(r1, r2)
+            }
+
+            // Named (ADT) types: same def_id, then unify args pairwise.
+            (Ty::Named { def_id: d1, args: a1, .. }, Ty::Named { def_id: d2, args: a2, .. }) => {
+                if d1 != d2 || a1.len() != a2.len() {
+                    return Err(UnifyError {
+                        kind: UnifyErrorKind::Mismatch { expected: a, found: b },
+                    });
+                }
+                for (x, y) in a1.iter().zip(a2.iter()) {
+                    self.unify(x, y)?;
+                }
+                Ok(())
             }
 
             // All other combinations are incompatible.
@@ -371,5 +401,103 @@ mod tests {
         let a = ctx.fresh_var(); // ?0
         // ?0 = ?0  →  identity, handled before occurs check
         assert!(ctx.unify(&a, &a).is_ok());
+    }
+
+    // ── Named (ADT) type tests (Issue 26) ────────────────────────────
+
+    use asatsuyu_hir::SymbolTable;
+
+    /// Helper: allocate a fresh type `DefId` in a symbol table.
+    fn alloc_type(st: &mut SymbolTable, name: &str) -> asatsuyu_hir::DefId {
+        st.alloc(asatsuyu_hir::DefData {
+            name: smol_str::SmolStr::from(name),
+            kind: asatsuyu_hir::DefKind::Type,
+            span: asatsuyu_syntax::Span::dummy(),
+        })
+    }
+
+    #[test]
+    fn unify_named_same_type() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id = alloc_type(&mut st, "Option");
+        let a = Ty::Named { def_id: id, name: "Option".into(), args: vec![int()] };
+        let b = Ty::Named { def_id: id, name: "Option".into(), args: vec![int()] };
+        assert!(ctx.unify(&a, &b).is_ok());
+    }
+
+    #[test]
+    fn unify_named_different_type() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id1 = alloc_type(&mut st, "Option");
+        let id2 = alloc_type(&mut st, "Result");
+        let a = Ty::Named { def_id: id1, name: "Option".into(), args: vec![int()] };
+        let b = Ty::Named { def_id: id2, name: "Result".into(), args: vec![int()] };
+        assert!(ctx.unify(&a, &b).is_err());
+    }
+
+    #[test]
+    fn unify_named_arg_mismatch() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id = alloc_type(&mut st, "Option");
+        let a = Ty::Named { def_id: id, name: "Option".into(), args: vec![int()] };
+        let b = Ty::Named { def_id: id, name: "Option".into(), args: vec![string()] };
+        assert!(ctx.unify(&a, &b).is_err());
+    }
+
+    #[test]
+    fn unify_named_with_var() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id = alloc_type(&mut st, "Option");
+        let var = ctx.fresh_var();
+        let n = Ty::Named { def_id: id, name: "Option".into(), args: vec![int()] };
+        assert!(ctx.unify(&var, &n).is_ok());
+        assert_eq!(ctx.resolve(&var), n);
+    }
+
+    #[test]
+    fn occurs_check_named() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id = alloc_type(&mut st, "Option");
+        let a = ctx.fresh_var(); // ?0
+        // ?0 = Option(?0) → infinite type
+        let recursive = Ty::Named { def_id: id, name: "Option".into(), args: vec![a.clone()] };
+        let err = ctx.unify(&a, &recursive).unwrap_err();
+        assert!(matches!(err.kind, UnifyErrorKind::InfiniteType { .. }));
+    }
+
+    #[test]
+    fn resolve_named() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id = alloc_type(&mut st, "Option");
+        let var = ctx.fresh_var(); // ?0
+        assert!(ctx.unify(&var, &int()).is_ok());
+        let n = Ty::Named { def_id: id, name: "Option".into(), args: vec![var] };
+        let resolved = ctx.resolve(&n);
+        match resolved {
+            Ty::Named { args, .. } => assert_eq!(args[0], int()),
+            other => panic!("expected Named, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn free_vars_named() {
+        let mut ctx = InferCtx::new();
+        let mut st = SymbolTable::new();
+        let id = alloc_type(&mut st, "Option");
+        let var = ctx.fresh_var(); // ?0
+        let n = Ty::Named { def_id: id, name: "Option".into(), args: vec![var.clone()] };
+        let fvs = ctx.free_vars(&n);
+        assert_eq!(fvs.len(), 1);
+        match var {
+            Ty::Var(id) => assert!(fvs.contains(&id)),
+            _ => unreachable!(),
+        }
+        let _ = st; // keep alive
     }
 }

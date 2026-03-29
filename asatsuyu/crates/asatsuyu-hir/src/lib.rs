@@ -23,8 +23,8 @@ mod lower;
 mod types;
 
 pub use types::{
-    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirImport, HirLiteral, HirMatchArm,
-    HirModule, HirParam, HirPattern, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFieldType, HirFnDef, HirImport, HirLiteral,
+    HirMatchArm, HirModule, HirParam, HirPattern, HirTypeExpr, HirVariant, SymbolTable,
 };
 
 use asatsuyu_ast::Module;
@@ -161,8 +161,8 @@ mod tests {
 
         let f = &result.module.functions[0];
         assert_eq!(f.params.len(), 2);
-        assert_eq!(f.params[0].type_ann.as_str(), "Int");
-        assert_eq!(f.params[1].type_ann.as_str(), "Int");
+        assert_eq!(f.params[0].type_ann.as_ref().unwrap().name.as_str(), "Int");
+        assert_eq!(f.params[1].type_ann.as_ref().unwrap().name.as_str(), "Int");
 
         // x should resolve to the first parameter.
         let x_def_id = f.params[0].def_id;
@@ -181,7 +181,7 @@ mod tests {
     fn lower_return_type() {
         let result = hir_from_source("fn id(x: Int) -> Int { x }");
         assert!(!result.has_errors());
-        assert_eq!(result.module.functions[0].return_type.as_deref(), Some("Int"));
+        assert_eq!(result.module.functions[0].return_type.as_ref().unwrap().name.as_str(), "Int");
     }
 
     // ── 7. Cross-function reference ─────────────────────────────────

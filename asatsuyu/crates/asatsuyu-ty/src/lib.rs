@@ -595,4 +595,97 @@ mod tests {
         let inst2 = ctx.instantiate(&scheme);
         assert_ne!(inst1, inst2, "each instantiation should produce fresh variables");
     }
+
+    // ── ADT constructor typing tests (Issue 26) ───────────────────────
+
+    #[test]
+    fn check_unary_constructor_some_int() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f() { Some(42) }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        let body_ty = f.body.ty();
+        match body_ty {
+            Ty::Named { name, args, .. } => {
+                assert_eq!(name.as_str(), "Option");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Ty::Primitive(PrimTy::Int));
+            }
+            other => panic!("expected Named(Option(Int)), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_nullary_constructor_none() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f() { None }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        match f.body.ty() {
+            Ty::Named { name, .. } => assert_eq!(name.as_str(), "Option"),
+            other => panic!("expected Named(Option(...)), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_result_constructor_ok() {
+        let source = "\
+            type Result(a, e) { Ok(a) Err(e) }\n\
+            pub fn f() { Ok(\"hello\") }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        match f.body.ty() {
+            Ty::Named { name, args, .. } => {
+                assert_eq!(name.as_str(), "Result");
+                assert_eq!(args.len(), 2);
+                assert_eq!(args[0], Ty::Primitive(PrimTy::String));
+            }
+            other => panic!("expected Named(Result(String, ?)), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_constructor_arity_mismatch() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn f() { Some(1, 2) }";
+        let result = thir_from_source(source);
+        assert!(result.has_errors(), "should report arity mismatch");
+    }
+
+    #[test]
+    fn check_type_annotation_adt() {
+        let source = "\
+            type Option(a) { Some(a) None }\n\
+            pub fn unwrap(opt: Option) -> Int { 42 }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        match &f.params[0].ty {
+            Ty::Named { name, .. } => assert_eq!(name.as_str(), "Option"),
+            other => panic!("expected Named(Option(...)), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn check_user_defined_type() {
+        let source = "\
+            type Color { Red Green Blue }\n\
+            pub fn f() { Red }";
+        let result = thir_from_source(source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        match f.body.ty() {
+            Ty::Named { name, args, .. } => {
+                assert_eq!(name.as_str(), "Color");
+                assert!(args.is_empty());
+            }
+            other => panic!("expected Named(Color), got {other:?}"),
+        }
+    }
 }

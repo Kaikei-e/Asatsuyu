@@ -13,8 +13,8 @@ use asatsuyu_syntax::{Diagnostic, Span};
 use smol_str::SmolStr;
 
 use crate::types::{
-    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFnDef, HirImport, HirLiteral, HirMatchArm,
-    HirModule, HirParam, HirPattern, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFieldType, HirFnDef, HirImport, HirLiteral,
+    HirMatchArm, HirModule, HirParam, HirPattern, HirTypeExpr, HirVariant, SymbolTable,
 };
 
 // ── Scope Stack ─────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ impl HirLowerCtx {
 
         let custom_types = ct_entries
             .into_iter()
-            .map(|(ct, def_id)| HirCustomType { def_id, visibility: ct.visibility, span: ct.span })
+            .map(|(ct, def_id, ctor_ids)| Self::lower_custom_type(ct, def_id, &ctor_ids))
             .collect();
 
         HirModule {
@@ -176,11 +176,16 @@ impl HirLowerCtx {
     }
 
     /// Pass 1: Register all function names, type names, and constructors.
+    ///
+    /// Returns function entries and custom type entries (with constructor `DefId`s).
     #[allow(clippy::type_complexity)]
     fn register_top_level<'a>(
         &mut self,
         ast: &'a Module,
-    ) -> (Vec<(&'a asatsuyu_ast::FnDef, DefId)>, Vec<(&'a asatsuyu_ast::CustomType, DefId)>) {
+    ) -> (
+        Vec<(&'a asatsuyu_ast::FnDef, DefId)>,
+        Vec<(&'a asatsuyu_ast::CustomType, DefId, Vec<DefId>)>,
+    ) {
         let mut fn_entries = Vec::new();
         let mut ct_entries = Vec::new();
 
@@ -202,9 +207,9 @@ impl HirLowerCtx {
                         span: ct.name.span,
                     });
                     self.define_module_level(&ct.name.name, type_def_id, ct.name.span);
-                    ct_entries.push((ct, type_def_id));
 
-                    // Register constructors in module scope.
+                    // Register constructors in module scope, collecting their DefIds.
+                    let mut ctor_ids = Vec::new();
                     if let TypeBody::Variants(variants) = &ct.body {
                         for variant in variants {
                             let ctor_id = self.symbol_table.alloc(DefData {
@@ -217,13 +222,70 @@ impl HirLowerCtx {
                                 ctor_id,
                                 variant.name.span,
                             );
+                            ctor_ids.push(ctor_id);
                         }
                     }
+                    ct_entries.push((ct, type_def_id, ctor_ids));
                 }
             }
         }
 
         (fn_entries, ct_entries)
+    }
+
+    // ── Custom type lowering ───────────────────────────────────────
+
+    fn lower_custom_type(
+        ct: &asatsuyu_ast::CustomType,
+        def_id: DefId,
+        ctor_ids: &[DefId],
+    ) -> HirCustomType {
+        let type_params = ct.type_params.iter().map(|p| p.name.clone()).collect();
+        let variants = match &ct.body {
+            TypeBody::Variants(variants) => variants
+                .iter()
+                .zip(ctor_ids.iter())
+                .map(|(v, &ctor_id)| HirVariant {
+                    def_id: ctor_id,
+                    fields: v
+                        .fields
+                        .iter()
+                        .map(|f| HirFieldType {
+                            label: f.label.as_ref().map(|l| l.name.clone()),
+                            type_expr: Self::lower_type_expr_to_hir(&f.type_ann),
+                            span: f.span,
+                        })
+                        .collect(),
+                    span: v.span,
+                })
+                .collect(),
+            TypeBody::Record(fields) => {
+                // Record type: single variant with the type name as constructor.
+                vec![HirVariant {
+                    def_id,
+                    fields: fields
+                        .iter()
+                        .map(|f| HirFieldType {
+                            label: Some(f.name.name.clone()),
+                            type_expr: Self::lower_type_expr_to_hir(&f.type_ann),
+                            span: f.span,
+                        })
+                        .collect(),
+                    span: ct.span,
+                }]
+            }
+        };
+        HirCustomType { def_id, visibility: ct.visibility, type_params, variants, span: ct.span }
+    }
+
+    fn lower_type_expr_to_hir(te: &asatsuyu_ast::TypeExpr) -> HirTypeExpr {
+        match te {
+            asatsuyu_ast::TypeExpr::Named { name, args, span } => HirTypeExpr {
+                name: name.name.clone(),
+                args: args.iter().map(Self::lower_type_expr_to_hir).collect(),
+                span: *span,
+            },
+        }
     }
 
     // ── Function lowering ───────────────────────────────────────────
@@ -243,19 +305,14 @@ impl HirLowerCtx {
                     span: p.name.span,
                 });
                 self.define_local(&p.name.name, param_def_id, p.name.span);
-                let type_name = match &p.type_ann {
-                    Some(asatsuyu_ast::TypeExpr::Named { name, .. }) => name.name.clone(),
-                    None => SmolStr::default(),
-                };
-                HirParam { def_id: param_def_id, type_ann: type_name, span: p.span }
+                let type_ann = p.type_ann.as_ref().map(Self::lower_type_expr_to_hir);
+                HirParam { def_id: param_def_id, type_ann, span: p.span }
             })
             .collect();
 
         let body = self.lower_expr(&fn_def.body);
 
-        let return_type = fn_def.return_type.as_ref().map(|rt| match rt {
-            asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
-        });
+        let return_type = fn_def.return_type.as_ref().map(Self::lower_type_expr_to_hir);
 
         // Pop function scope.
         self.scopes.pop();
@@ -404,18 +461,13 @@ impl HirLowerCtx {
                     span: p.name.span,
                 });
                 self.define_local(&p.name.name, param_def_id, p.name.span);
-                let type_name = match &p.type_ann {
-                    Some(asatsuyu_ast::TypeExpr::Named { name, .. }) => name.name.clone(),
-                    None => SmolStr::default(),
-                };
-                HirParam { def_id: param_def_id, type_ann: type_name, span: p.span }
+                let type_ann = p.type_ann.as_ref().map(Self::lower_type_expr_to_hir);
+                HirParam { def_id: param_def_id, type_ann, span: p.span }
             })
             .collect();
         let hir_body = self.lower_expr(body);
         self.scopes.pop();
-        let hir_return_type = return_type.map(|rt| match rt {
-            asatsuyu_ast::TypeExpr::Named { name, .. } => name.name.clone(),
-        });
+        let hir_return_type = return_type.map(Self::lower_type_expr_to_hir);
         HirExpr::Lambda {
             params: hir_params,
             return_type: hir_return_type,

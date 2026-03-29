@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp};
 use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirModule, SymbolTable};
 use asatsuyu_syntax::{Diagnostic, Span};
+use smol_str::SmolStr;
 
 use crate::types::{
     PrimTy, ThirExpr, ThirFnDef, ThirLiteral, ThirMatchArm, ThirModule, ThirParam, Ty, TyVarId,
@@ -17,12 +18,35 @@ use crate::types::{
 };
 use crate::unify::{InferCtx, UnifyErrorKind};
 
+// ── ADT Registry ──────────────────────────────────────────────────
+
+/// An ADT definition for type checking.
+struct AdtDef {
+    /// Type parameter names in declaration order.
+    type_params: Vec<SmolStr>,
+    /// Variants with constructor info (used by Issue 27 exhaustiveness checks).
+    #[allow(dead_code)]
+    variants: Vec<AdtVariant>,
+}
+
+/// A variant in an ADT for type checking.
+#[allow(dead_code)]
+struct AdtVariant {
+    ctor_def_id: DefId,
+    /// Pre-resolved field types (using type parameter variables).
+    field_tys: Vec<Ty>,
+}
+
 // ── Context ────────────────────────────────────────────────────────
 
 /// Accumulates state during HIR → THIR type checking.
 pub(crate) struct TyCheckCtx {
     /// Maps each `DefId` to its type scheme (monomorphic or polymorphic).
     type_env: HashMap<DefId, TypeScheme>,
+    /// Maps type `DefId` → ADT definition.
+    adt_registry: HashMap<DefId, AdtDef>,
+    /// Maps type name → type `DefId` for annotation resolution.
+    type_name_to_def_id: HashMap<SmolStr, DefId>,
     /// Functions whose return type was not explicitly annotated.
     unannotated_returns: HashSet<DefId>,
     diagnostics: Vec<Diagnostic>,
@@ -34,6 +58,8 @@ impl TyCheckCtx {
     pub(crate) fn new() -> Self {
         Self {
             type_env: HashMap::new(),
+            adt_registry: HashMap::new(),
+            type_name_to_def_id: HashMap::new(),
             unannotated_returns: HashSet::new(),
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
@@ -48,19 +74,54 @@ impl TyCheckCtx {
         self.diagnostics.push(Diagnostic::error(message, span));
     }
 
-    /// Resolve a type annotation name to a [`Ty`].
-    fn resolve_type_name(&mut self, name: &str, span: Span) -> Ty {
+    /// Resolve an HIR type expression to a [`Ty`].
+    fn resolve_type_expr(&mut self, te: &asatsuyu_hir::HirTypeExpr) -> Ty {
+        self.resolve_type_expr_with_params(te, &HashMap::new())
+    }
+
+    /// Resolve an HIR type expression with a type parameter scope.
+    fn resolve_type_expr_with_params(
+        &mut self,
+        te: &asatsuyu_hir::HirTypeExpr,
+        type_params: &HashMap<SmolStr, Ty>,
+    ) -> Ty {
+        let name = te.name.as_str();
+
+        // Check primitives first.
         match name {
-            "Int" => Ty::Primitive(PrimTy::Int),
-            "Float" => Ty::Primitive(PrimTy::Float),
-            "String" => Ty::Primitive(PrimTy::String),
-            "Bool" => Ty::Primitive(PrimTy::Bool),
-            "None" => Ty::Primitive(PrimTy::None),
-            _ => {
-                self.push_error(format!("unknown type `{name}`"), span);
-                Ty::Error
-            }
+            "Int" => return Ty::Primitive(PrimTy::Int),
+            "Float" => return Ty::Primitive(PrimTy::Float),
+            "String" => return Ty::Primitive(PrimTy::String),
+            "Bool" => return Ty::Primitive(PrimTy::Bool),
+            "None" => return Ty::Primitive(PrimTy::None),
+            _ => {}
         }
+
+        // Check type parameters.
+        if let Some(ty) = type_params.get(te.name.as_str()) {
+            return ty.clone();
+        }
+
+        // Look up in ADT registry by name.
+        if let Some(&type_def_id) = self.type_name_to_def_id.get(te.name.as_str()) {
+            let adt_param_count =
+                self.adt_registry.get(&type_def_id).map_or(0, |a| a.type_params.len());
+            let resolved_args: Vec<Ty> = te
+                .args
+                .iter()
+                .map(|a| self.resolve_type_expr_with_params(a, type_params))
+                .collect();
+            // If no args given but type has params, use fresh vars.
+            let args = if resolved_args.is_empty() && adt_param_count > 0 {
+                (0..adt_param_count).map(|_| self.infer.fresh_var()).collect()
+            } else {
+                resolved_args
+            };
+            return Ty::Named { def_id: type_def_id, name: te.name.clone(), args };
+        }
+
+        self.push_error(format!("unknown type `{}`", te.name), te.span);
+        Ty::Error
     }
 
     /// Unify two types, emitting a diagnostic on failure.
@@ -90,11 +151,76 @@ impl TyCheckCtx {
 // ── Pass 1: Collect signatures ─────────────────────────────────────
 
 impl TyCheckCtx {
-    /// Register all function signatures in the type environment.
+    /// Register all function and constructor signatures in the type environment.
     pub(crate) fn collect_signatures(&mut self, module: &HirModule) {
+        // Register custom types and constructor signatures first,
+        // so function signatures can reference ADT types.
+        for ct in &module.custom_types {
+            self.register_custom_type(ct, &module.symbol_table);
+        }
         for fn_def in &module.functions {
             self.collect_fn_signature(fn_def);
         }
+    }
+
+    /// Register a custom type in the ADT registry and create constructor type schemes.
+    fn register_custom_type(
+        &mut self,
+        ct: &asatsuyu_hir::HirCustomType,
+        symbol_table: &SymbolTable,
+    ) {
+        let type_name = symbol_table.get(ct.def_id).name.clone();
+
+        // Allocate fresh type variables for each type parameter.
+        let param_vars: Vec<(SmolStr, TyVarId)> = ct
+            .type_params
+            .iter()
+            .map(|name| {
+                let Ty::Var(var) = self.infer.fresh_var() else { unreachable!() };
+                (name.clone(), var)
+            })
+            .collect();
+
+        let type_param_scope: HashMap<SmolStr, Ty> =
+            param_vars.iter().map(|(name, var_id)| (name.clone(), Ty::Var(*var_id))).collect();
+
+        let quantified_vars: Vec<TyVarId> = param_vars.iter().map(|(_, v)| *v).collect();
+
+        // The return type for all constructors: Named { type_def_id, [Var for each param] }
+        let ret_ty = Ty::Named {
+            def_id: ct.def_id,
+            name: type_name.clone(),
+            args: quantified_vars.iter().map(|v| Ty::Var(*v)).collect(),
+        };
+
+        let mut variants = Vec::new();
+
+        for variant in &ct.variants {
+            // Resolve field types in the ADT's type parameter context.
+            let field_tys: Vec<Ty> = variant
+                .fields
+                .iter()
+                .map(|f| self.resolve_type_expr_with_params(&f.type_expr, &type_param_scope))
+                .collect();
+
+            // Build the constructor's type scheme.
+            let ctor_ty = if field_tys.is_empty() {
+                // Nullary constructor: directly the ADT type.
+                ret_ty.clone()
+            } else {
+                // Constructor with fields: function type.
+                Ty::Function { params: field_tys.clone(), ret: Box::new(ret_ty.clone()) }
+            };
+
+            let scheme = TypeScheme { vars: quantified_vars.clone(), ty: ctor_ty };
+            self.type_env.insert(variant.def_id, scheme);
+
+            variants.push(AdtVariant { ctor_def_id: variant.def_id, field_tys });
+        }
+
+        self.adt_registry
+            .insert(ct.def_id, AdtDef { type_params: ct.type_params.clone(), variants });
+        self.type_name_to_def_id.insert(type_name, ct.def_id);
     }
 
     fn collect_fn_signature(&mut self, fn_def: &HirFnDef) {
@@ -103,15 +229,18 @@ impl TyCheckCtx {
             .params
             .iter()
             .map(|p| {
-                let ty = self.resolve_type_name(&p.type_ann, p.span);
+                let ty = match &p.type_ann {
+                    Some(te) => self.resolve_type_expr(te),
+                    None => self.infer.fresh_var(),
+                };
                 self.type_env.insert(p.def_id, TypeScheme::mono(ty.clone()));
                 ty
             })
             .collect();
 
         // Resolve return type: annotated or provisional None.
-        let ret_ty = if let Some(name) = &fn_def.return_type {
-            self.resolve_type_name(name, fn_def.span)
+        let ret_ty = if let Some(te) = &fn_def.return_type {
+            self.resolve_type_expr(te)
         } else {
             self.unannotated_returns.insert(fn_def.def_id);
             Ty::Primitive(PrimTy::None) // provisional; replaced after body check
@@ -128,8 +257,9 @@ impl TyCheckCtx {
     /// Type-check the entire module, producing THIR.
     pub(crate) fn check_module(&mut self, module: &HirModule) -> ThirModule {
         let functions = module.functions.iter().map(|f| self.check_fn_def(f)).collect();
+        let custom_types = module.custom_types.clone();
         let symbol_table = clone_symbol_table(&module.symbol_table);
-        ThirModule { functions, symbol_table, span: module.span }
+        ThirModule { functions, custom_types, symbol_table, span: module.span }
     }
 
     fn check_fn_def(&mut self, fn_def: &HirFnDef) -> ThirFnDef {
@@ -246,7 +376,7 @@ impl TyCheckCtx {
             }
 
             HirExpr::Lambda { params, return_type, body, span } => {
-                self.check_lambda(params, return_type.as_deref(), body, *span)
+                self.check_lambda(params, return_type.as_ref(), body, *span)
             }
         }
     }
@@ -256,7 +386,7 @@ impl TyCheckCtx {
     fn check_lambda(
         &mut self,
         params: &[asatsuyu_hir::HirParam],
-        return_type: Option<&str>,
+        return_type: Option<&asatsuyu_hir::HirTypeExpr>,
         body: &HirExpr,
         span: Span,
     ) -> ThirExpr {
@@ -266,10 +396,9 @@ impl TyCheckCtx {
         let thir_params: Vec<ThirParam> = params
             .iter()
             .map(|p| {
-                let ty = if p.type_ann.is_empty() {
-                    self.infer.fresh_var()
-                } else {
-                    self.resolve_type_name(&p.type_ann, p.span)
+                let ty = match &p.type_ann {
+                    Some(te) => self.resolve_type_expr(te),
+                    None => self.infer.fresh_var(),
                 };
                 self.type_env.insert(p.def_id, TypeScheme::mono(ty.clone()));
                 ThirParam { def_id: p.def_id, ty, span: p.span }
@@ -285,8 +414,8 @@ impl TyCheckCtx {
             self.type_env.remove(def_id);
         }
 
-        let ret_ty = if let Some(ret_name) = return_type {
-            let declared = self.resolve_type_name(ret_name, span);
+        let ret_ty = if let Some(ret_te) = return_type {
+            let declared = self.resolve_type_expr(ret_te);
             self.unify_or_error(&declared, &body_ty, body.span());
             declared
         } else {

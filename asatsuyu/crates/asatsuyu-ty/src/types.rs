@@ -6,7 +6,7 @@
 use std::fmt;
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp, Visibility};
-use asatsuyu_hir::{DefId, SymbolTable};
+use asatsuyu_hir::{DefId, HirCustomType, SymbolTable};
 use asatsuyu_syntax::Span;
 use smol_str::SmolStr;
 
@@ -43,18 +43,15 @@ impl fmt::Display for PrimTy {
 // ── Type ───────────────────────────────────────────────────────────
 
 /// A resolved type in the Asatsuyu type system.
-///
-/// Currently covers primitives and function types. Will be extended in:
-/// - Issue 23: `Var` used for HM inference
-/// - Issue 25: let-polymorphism (type schemes)
-/// - Issue 26: `Named` for ADT constructors
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
     /// A primitive type: `Int`, `Float`, `String`, `Bool`, `None`.
     Primitive(PrimTy),
     /// A function type: `(params) -> ret`.
     Function { params: Vec<Ty>, ret: Box<Ty> },
-    /// An inference variable (placeholder for Issue 23).
+    /// A named (ADT) type: `Option(Int)`, `Result(String, Error)`.
+    Named { def_id: DefId, name: SmolStr, args: Vec<Ty> },
+    /// An inference variable.
     Var(TyVarId),
     /// A type that failed to resolve. Allows checking to continue.
     Error,
@@ -73,6 +70,20 @@ impl fmt::Display for Ty {
                     write!(f, "{p}")?;
                 }
                 write!(f, ") -> {ret}")
+            }
+            Self::Named { name, args, .. } => {
+                write!(f, "{name}")?;
+                if !args.is_empty() {
+                    f.write_str("(")?;
+                    for (i, a) in args.iter().enumerate() {
+                        if i > 0 {
+                            f.write_str(", ")?;
+                        }
+                        write!(f, "{a}")?;
+                    }
+                    f.write_str(")")?;
+                }
+                Ok(())
             }
             Self::Var(id) => write!(f, "?{}", id.0),
             Self::Error => f.write_str("<error>"),
@@ -107,6 +118,8 @@ impl TypeScheme {
 #[derive(Debug)]
 pub struct ThirModule {
     pub functions: Vec<ThirFnDef>,
+    /// Custom type definitions passed through from HIR for backend use.
+    pub custom_types: Vec<HirCustomType>,
     /// Re-exported from HIR for downstream convenience.
     pub symbol_table: SymbolTable,
     pub span: Span,

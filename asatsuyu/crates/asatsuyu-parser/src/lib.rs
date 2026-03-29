@@ -870,7 +870,10 @@ mod tests {
         let result = parse(FID, source);
         assert!(result.has_errors(), "missing top-level type annotation should error");
         assert!(
-            result.diagnostics().iter().any(|d| d.message.contains("expected `:` after parameter name")),
+            result
+                .diagnostics()
+                .iter()
+                .any(|d| d.message.contains("expected `:` after parameter name")),
             "expected missing colon diagnostic: {:?}",
             result.diagnostics()
         );
@@ -880,7 +883,11 @@ mod tests {
     fn lambda_param_without_type_is_valid() {
         let source = "fn f() { let id = fn(x) { x }\n id(1) }";
         let result = parse(FID, source);
-        assert!(!result.has_errors(), "lambda param inference should parse: {:?}", result.diagnostics());
+        assert!(
+            !result.has_errors(),
+            "lambda param inference should parse: {:?}",
+            result.diagnostics()
+        );
 
         let tree = debug_tree(source);
         assert!(tree.contains("LetStmt"), "tree should contain LetStmt:\n{tree}");
