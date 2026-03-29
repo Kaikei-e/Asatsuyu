@@ -12,3 +12,8 @@ workspace = true
 [dependencies]
 asatsuyu-syntax = { workspace = true }
 asatsuyu-ty = { workspace = true }
+asatsuyu-hir = { workspace = true }
+
+[dev-dependencies]
+asatsuyu-parser = { workspace = true }
+asatsuyu-ast = { workspace = true }

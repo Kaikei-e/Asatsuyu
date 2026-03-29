@@ -30,6 +30,9 @@ dependencies = [
 name = "asatsuyu-backend-python"
 version = "0.1.0"
 dependencies = [
+ "asatsuyu-ast",
+ "asatsuyu-hir",
+ "asatsuyu-parser",
  "asatsuyu-syntax",
  "asatsuyu-ty",
 ]
