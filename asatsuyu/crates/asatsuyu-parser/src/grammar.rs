@@ -413,6 +413,11 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
             parse_if_expr(p);
         }
 
+        // Match expression
+        SyntaxKind::MatchKw => {
+            parse_match_expr(p);
+        }
+
         // Literal atoms
         SyntaxKind::IntLit
         | SyntaxKind::FloatLit
@@ -550,5 +555,201 @@ fn parse_literal_expr(p: &mut Parser<'_>) {
 fn parse_ident_expr(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::IdentExpr);
     p.bump();
+    p.finish_node();
+}
+
+// ── Match expression and pattern parsing ────────────────────────
+
+/// Returns `true` if the current token can start a pattern.
+fn at_pattern_start(p: &Parser<'_>) -> bool {
+    matches!(
+        p.current(),
+        SyntaxKind::Underscore
+            | SyntaxKind::IntLit
+            | SyntaxKind::FloatLit
+            | SyntaxKind::StringLit
+            | SyntaxKind::TrueKw
+            | SyntaxKind::FalseKw
+            | SyntaxKind::Ident
+            | SyntaxKind::LBracket
+    )
+}
+
+/// ```text
+/// Pattern = WildcardPat | LiteralPat | ConstructorPat | IdentPat | ListPat
+/// ```
+fn parse_pattern(p: &mut Parser<'_>) {
+    match p.current() {
+        SyntaxKind::Underscore => parse_wildcard_pat(p),
+
+        SyntaxKind::IntLit
+        | SyntaxKind::FloatLit
+        | SyntaxKind::StringLit
+        | SyntaxKind::TrueKw
+        | SyntaxKind::FalseKw => parse_literal_pat(p),
+
+        SyntaxKind::Ident => {
+            if p.nth(1) == SyntaxKind::LParen {
+                parse_constructor_pat(p);
+            } else {
+                parse_ident_pat(p);
+            }
+        }
+
+        SyntaxKind::LBracket => parse_list_pat(p),
+
+        _ => p.error_and_bump("expected pattern"),
+    }
+}
+
+/// ```text
+/// WildcardPat = '_'
+/// ```
+fn parse_wildcard_pat(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::WildcardPat);
+    p.bump(); // consume `_`
+    p.finish_node();
+}
+
+/// ```text
+/// LiteralPat = INT_LIT | FLOAT_LIT | STRING_LIT | TRUE | FALSE
+/// ```
+fn parse_literal_pat(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::LiteralPat);
+    p.bump(); // consume the literal token
+    p.finish_node();
+}
+
+/// ```text
+/// IdentPat = IDENT
+/// ```
+fn parse_ident_pat(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::IdentPat);
+    p.bump(); // consume the identifier
+    p.finish_node();
+}
+
+/// ```text
+/// ConstructorPat = IDENT '(' (Pattern (',' Pattern)* ','?)? ')'
+/// ```
+fn parse_constructor_pat(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::ConstructorPat);
+    p.bump(); // consume constructor name
+    p.bump(); // consume `(`
+
+    if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+        parse_pattern(p);
+        while p.at(SyntaxKind::Comma) {
+            p.bump(); // consume `,`
+            if p.at(SyntaxKind::RParen) {
+                break; // trailing comma
+            }
+            parse_pattern(p);
+        }
+    }
+
+    p.expect(SyntaxKind::RParen);
+    p.finish_node();
+}
+
+/// ```text
+/// ListPat = '[' (Pattern (',' Pattern)* ','?)? ('..' IDENT?)? ']'
+/// ```
+fn parse_list_pat(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::ListPat);
+    p.bump(); // consume `[`
+
+    if !p.at(SyntaxKind::RBracket) && !p.at(SyntaxKind::DotDot) && !p.at_eof() {
+        parse_pattern(p);
+        while p.at(SyntaxKind::Comma) {
+            p.bump(); // consume `,`
+            if p.at(SyntaxKind::RBracket) || p.at(SyntaxKind::DotDot) {
+                break;
+            }
+            parse_pattern(p);
+        }
+    }
+
+    // Optional rest pattern: `..` or `..rest`
+    if p.at(SyntaxKind::DotDot) {
+        p.bump(); // consume `..`
+        if p.at(SyntaxKind::Ident) {
+            p.bump(); // consume optional rest binding name
+        }
+    }
+
+    p.expect(SyntaxKind::RBracket);
+    p.finish_node();
+}
+
+/// ```text
+/// Guard = 'if' Expr
+/// ```
+fn parse_guard(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::Guard);
+    p.bump(); // consume `if`
+    parse_expr_bp(p, 0); // guard condition; stops at `->` naturally
+    p.finish_node();
+}
+
+/// ```text
+/// MatchArm = Pattern Guard? '->' Expr
+/// ```
+fn parse_match_arm(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::MatchArm);
+    parse_pattern(p);
+
+    // Optional guard: `if condition`
+    if p.at(SyntaxKind::IfKw) {
+        parse_guard(p);
+    }
+
+    // Arrow separating pattern from body
+    if p.at(SyntaxKind::Arrow) {
+        p.bump();
+    } else {
+        let span = p.current_span();
+        p.diagnostics_mut().push(
+            asatsuyu_syntax::Diagnostic::error("expected `->` after pattern", span)
+                .with_label(span, "match arms use `->` to separate patterns from expressions"),
+        );
+    }
+
+    // Arm body expression
+    parse_expr_bp(p, 0);
+
+    p.finish_node();
+}
+
+/// ```text
+/// MatchExpr = 'match' Expr '{' MatchArm* '}'
+/// ```
+fn parse_match_expr(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::MatchExpr);
+    p.bump(); // consume `match`
+
+    // Subject expression; stops at `{` naturally (no infix bp)
+    parse_expr_bp(p, 0);
+
+    // Arm list: `{ arm* }`
+    if p.at(SyntaxKind::LBrace) {
+        p.bump(); // consume `{`
+    } else {
+        let span = p.current_span();
+        p.diagnostics_mut().push(
+            asatsuyu_syntax::Diagnostic::error("expected block after match subject", span)
+                .with_label(span, "expected `{`"),
+        );
+    }
+
+    while !p.at(SyntaxKind::RBrace) && !p.at_eof() {
+        if at_pattern_start(p) {
+            parse_match_arm(p);
+        } else {
+            p.error_and_bump("expected pattern");
+        }
+    }
+
+    p.expect(SyntaxKind::RBrace);
     p.finish_node();
 }

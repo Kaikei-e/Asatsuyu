@@ -217,6 +217,10 @@ mod tests {
             "type Result(a, e) {\n  Ok(a)\n  Error(e)\n}",
             "pub type User {\n  User(name: String, age: Int)\n}",
             "type Empty { }",
+            "fn f() { match x { 1 -> 2\n_ -> 0 } }",
+            "fn f() { match value { Some(x) -> x\nNone -> 0 } }",
+            "fn f() { match items { [head, ..] -> head\n[] -> 0 } }",
+            "fn f() { match x { Some(n) if n > 0 -> n\n_ -> 0 } }",
         ];
         for &source in sources {
             let result = parse(FID, source);
@@ -856,5 +860,245 @@ mod tests {
             "should report missing `:`: {:?}",
             result.diagnostics()
         );
+    }
+
+    // ── Match expression tests ──────────────────────────────────────
+
+    // ── 54. Match with constructor patterns (DoD case) ──────────────
+
+    #[test]
+    fn parse_match_constructor_patterns() {
+        let source = "fn f() { match value { Some(x) -> x\nNone -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("MatchExpr"), "tree should contain MatchExpr:\n{tree}");
+        let arm_count = tree.matches("MatchArm@").count();
+        assert_eq!(arm_count, 2, "expected 2 MatchArm, got {arm_count}:\n{tree}");
+        assert!(tree.contains("ConstructorPat"), "tree should contain ConstructorPat:\n{tree}");
+        assert!(tree.contains("IdentPat"), "tree should contain IdentPat:\n{tree}");
+    }
+
+    // ── 55. Match with wildcard pattern ─────────────────────────────
+
+    #[test]
+    fn parse_match_wildcard() {
+        let source = "fn f() { match b { 0 -> 1\n_ -> 2 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("MatchExpr"), "tree should contain MatchExpr:\n{tree}");
+        assert!(tree.contains("WildcardPat"), "tree should contain WildcardPat:\n{tree}");
+        assert!(tree.contains("LiteralPat"), "tree should contain LiteralPat:\n{tree}");
+    }
+
+    // ── 56. Match with multiple literal patterns ────────────────────
+
+    #[test]
+    fn parse_match_literal_patterns() {
+        let source = "fn f() { match x { 1 -> 10\n2 -> 20\n_ -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let arm_count = tree.matches("MatchArm@").count();
+        assert_eq!(arm_count, 3, "expected 3 MatchArm, got {arm_count}:\n{tree}");
+        let literal_pat_count = tree.matches("LiteralPat@").count();
+        assert!(literal_pat_count >= 2, "expected 2+ LiteralPat, got {literal_pat_count}:\n{tree}");
+    }
+
+    // ── 57. Match with guard ────────────────────────────────────────
+
+    #[test]
+    fn parse_match_guard() {
+        let source = "fn f() { match value { Some(n) if n > 100 -> n\nSome(n) -> n\nNone -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("Guard"), "tree should contain Guard:\n{tree}");
+        let arm_count = tree.matches("MatchArm@").count();
+        assert_eq!(arm_count, 3, "expected 3 MatchArm, got {arm_count}:\n{tree}");
+    }
+
+    // ── 58. Match with list patterns ────────────────────────────────
+
+    #[test]
+    fn parse_match_list_patterns() {
+        let source = "fn f() { match items { [head, ..] -> head\n[] -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let list_pat_count = tree.matches("ListPat@").count();
+        assert_eq!(list_pat_count, 2, "expected 2 ListPat, got {list_pat_count}:\n{tree}");
+    }
+
+    // ── 59. Match with list rest binding ────────────────────────────
+
+    #[test]
+    fn parse_match_list_rest_binding() {
+        let source = "fn f() { match items { [head, ..rest] -> head\n[] -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("ListPat"), "tree should contain ListPat:\n{tree}");
+        assert!(tree.contains("DotDot"), "tree should contain DotDot for rest:\n{tree}");
+    }
+
+    // ── 60. Match with call expression in arm body ──────────────────
+
+    #[test]
+    fn parse_match_arm_call_body() {
+        let source = r#"fn f() { match b { 0 -> Error("division by zero")
+_ -> Ok(1) } }"#;
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let call_count = tree.matches("CallExpr@").count();
+        assert!(call_count >= 2, "expected 2+ CallExpr, got {call_count}:\n{tree}");
+    }
+
+    // ── 61. Match as expression in function body ────────────────────
+
+    #[test]
+    fn parse_match_as_expression() {
+        let source = "fn f() { match x { 1 -> True\n_ -> False } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("MatchExpr"), "tree should contain MatchExpr:\n{tree}");
+        assert!(tree.contains("BlockExpr"), "MatchExpr should be inside BlockExpr:\n{tree}");
+    }
+
+    // ── 62. Empty match body ────────────────────────────────────────
+
+    #[test]
+    fn parse_match_empty_body() {
+        let source = "fn f() { match x { } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("MatchExpr"), "tree should contain MatchExpr:\n{tree}");
+        let arm_count = tree.matches("MatchArm@").count();
+        assert_eq!(arm_count, 0, "expected 0 MatchArm, got {arm_count}:\n{tree}");
+    }
+
+    // ── 63. Match with trailing comma in constructor ────────────────
+
+    #[test]
+    fn parse_match_constructor_trailing_comma() {
+        let source = "fn f() { match x { Some(a,) -> a\nNone -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+    }
+
+    // ── 64. Nested match ────────────────────────────────────────────
+
+    #[test]
+    fn parse_nested_match() {
+        let source =
+            "fn f() { match x { Some(y) -> match y { 1 -> True\n_ -> False }\nNone -> False } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let match_count = tree.matches("MatchExpr@").count();
+        assert_eq!(match_count, 2, "expected 2 MatchExpr, got {match_count}:\n{tree}");
+    }
+
+    // ── 65. Match with boolean literal patterns ─────────────────────
+
+    #[test]
+    fn parse_match_bool_patterns() {
+        let source = "fn f() { match b { True -> 1\nFalse -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let literal_pat_count = tree.matches("LiteralPat@").count();
+        assert_eq!(literal_pat_count, 2, "expected 2 LiteralPat, got {literal_pat_count}:\n{tree}");
+    }
+
+    // ── 66. Match with string literal pattern ───────────────────────
+
+    #[test]
+    fn parse_match_string_pattern() {
+        let source = r#"fn f() { match s { "hello" -> 1
+_ -> 0 } }"#;
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("LiteralPat"), "tree should contain LiteralPat:\n{tree}");
+        assert!(tree.contains("WildcardPat"), "tree should contain WildcardPat:\n{tree}");
+    }
+
+    // ── 67. Nested constructor patterns ─────────────────────────────
+
+    #[test]
+    fn parse_nested_constructor_patterns() {
+        let source = "fn f() { match x { Ok(Some(n)) -> n\n_ -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let constructor_count = tree.matches("ConstructorPat@").count();
+        assert_eq!(
+            constructor_count, 2,
+            "expected 2 ConstructorPat (Ok + Some), got {constructor_count}:\n{tree}"
+        );
+    }
+
+    // ── Match error recovery tests ──────────────────────────────────
+
+    // ── 68. Error: missing `{` after match subject ──────────────────
+
+    #[test]
+    fn error_match_missing_lbrace() {
+        let source = "fn f() { match x 1 -> 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics().iter().any(|d| d.message.contains("block after match")),
+            "should report missing block: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    // ── 69. Error: missing `->` in arm ──────────────────────────────
+
+    #[test]
+    fn error_match_missing_arrow() {
+        let source = "fn f() { match x { 1 2 } }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics()
+                .iter()
+                .any(|d| d.message.contains("->") || d.message.contains("Arrow")),
+            "should report missing `->`: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    // ── 70. Match with if-expression in arm body ────────────────────
+
+    #[test]
+    fn parse_match_arm_with_if_body() {
+        let source = "fn f() { match x { 1 -> if y { 2 } else { 3 }\n_ -> 0 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("MatchExpr"), "tree should contain MatchExpr:\n{tree}");
+        assert!(tree.contains("IfExpr"), "tree should contain IfExpr in arm body:\n{tree}");
     }
 }

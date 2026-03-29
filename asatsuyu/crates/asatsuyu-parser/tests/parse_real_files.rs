@@ -5,6 +5,7 @@ use asatsuyu_syntax::FileId;
 
 const HELLO: &str = include_str!("../../../examples/hello.asty");
 const GREET: &str = include_str!("../../../examples/greet.asty");
+const MATCH_BASIC: &str = include_str!("../../../examples/match_basic.asty");
 
 #[test]
 fn parse_hello_asty_no_errors() {
@@ -60,4 +61,39 @@ fn parse_greet_asty_tree_shape() {
 fn parse_greet_asty_lossless_roundtrip() {
     let result = parse(FileId(0), GREET);
     assert_eq!(result.syntax().to_string(), GREET, "roundtrip mismatch for greet.asty");
+}
+
+#[test]
+fn parse_match_basic_asty_no_errors() {
+    let result = parse(FileId(0), MATCH_BASIC);
+    assert!(!result.has_errors(), "match_basic.asty produced errors: {:?}", result.diagnostics());
+}
+
+#[test]
+fn parse_match_basic_asty_tree_shape() {
+    let result = parse(FileId(0), MATCH_BASIC);
+    let tree = format!("{:#?}", result.syntax());
+    eprintln!("=== CST for match_basic.asty ===\n{tree}");
+
+    // Three function definitions + one type definition
+    let fn_count = tree.matches("FnDef@").count();
+    assert_eq!(fn_count, 3, "expected 3 FnDef, got {fn_count}");
+    assert!(tree.contains("TypeDef"), "missing TypeDef");
+
+    // Three match expressions
+    let match_count = tree.matches("MatchExpr@").count();
+    assert_eq!(match_count, 3, "expected 3 MatchExpr, got {match_count}");
+
+    // Pattern types present
+    assert!(tree.contains("WildcardPat"), "missing WildcardPat");
+    assert!(tree.contains("LiteralPat"), "missing LiteralPat");
+    assert!(tree.contains("ConstructorPat"), "missing ConstructorPat");
+    assert!(tree.contains("IdentPat"), "missing IdentPat");
+    assert!(tree.contains("ListPat"), "missing ListPat");
+}
+
+#[test]
+fn parse_match_basic_asty_lossless_roundtrip() {
+    let result = parse(FileId(0), MATCH_BASIC);
+    assert_eq!(result.syntax().to_string(), MATCH_BASIC, "roundtrip mismatch for match_basic.asty");
 }
