@@ -61,7 +61,7 @@ fn build_hello_asty() {
     assert!(dir.join("hello/__init__.py").exists(), "__init__.py should exist");
     assert!(dir.join("pyproject.toml").exists(), "pyproject.toml should exist");
     assert!(dir.join("hello/__main__.py").exists(), "__main__.py should exist");
-    assert!(dir.join("hello/asatsuyu_prelude.py").exists(), "prelude should exist",);
+    assert!(!dir.join("hello/asatsuyu_prelude.py").exists(), "unused prelude should be omitted",);
 
     // Clean up.
     let _ = std::fs::remove_dir_all(&dir);

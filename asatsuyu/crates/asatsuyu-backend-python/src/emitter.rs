@@ -283,6 +283,9 @@ impl<'a> Emitter<'a> {
         }
         self.write_indent();
         self.emit_expr(expr);
+        if matches!(expr, ThirExpr::Let { .. }) {
+            self.write_source_comment(expr.span());
+        }
         self.output.push('\n');
     }
 

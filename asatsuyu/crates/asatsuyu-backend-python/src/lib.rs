@@ -101,11 +101,13 @@ pub fn emit_package(
     files
         .push(GeneratedFile { path: PathBuf::from(format!("{pkg}/{pkg}.py")), content: module_py });
 
-    // Prelude (always included for now — lightweight)
-    files.push(GeneratedFile {
-        path: PathBuf::from(format!("{pkg}/asatsuyu_prelude.py")),
-        content: prelude::PRELUDE_PY.to_string(),
-    });
+    // Prelude is emitted only when the generated package explicitly depends on it.
+    if package_needs_prelude(module) {
+        files.push(GeneratedFile {
+            path: PathBuf::from(format!("{pkg}/asatsuyu_prelude.py")),
+            content: prelude::PRELUDE_PY.to_string(),
+        });
+    }
 
     // __main__.py if a `main` function exists
     let has_main =
@@ -129,6 +131,12 @@ pub fn emit_package(
     });
 
     GeneratedPackage { files }
+}
+
+fn package_needs_prelude(_module: &ThirModule) -> bool {
+    // Prelude-backed builtins are not wired into the language surface yet.
+    // Keep package output minimal until the compiler can reference them.
+    false
 }
 
 #[cfg(test)]
@@ -545,9 +553,18 @@ mod tests {
         let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
         assert!(paths.contains(&"hello/__init__.py".to_string()), "init: {paths:?}");
         assert!(paths.contains(&"hello/hello.py".to_string()), "module: {paths:?}");
-        assert!(paths.contains(&"hello/asatsuyu_prelude.py".to_string()), "prelude: {paths:?}",);
         assert!(paths.contains(&"hello/__main__.py".to_string()), "main: {paths:?}");
         assert!(paths.contains(&"pyproject.toml".to_string()), "pyproject: {paths:?}");
+    }
+
+    #[test]
+    fn package_omits_prelude_when_unused() {
+        let pkg = package_from_source("pub fn main() { 42 }", "hello");
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(
+            !paths.contains(&"hello/asatsuyu_prelude.py".to_string()),
+            "prelude should be omitted when unused: {paths:?}",
+        );
     }
 
     #[test]
@@ -636,5 +653,12 @@ mod tests {
         let py = python_from_source_with_sourcemap(source);
         // `def main()` maps to line 1
         assert!(py.contains("# asty:L1"), "fn def at L1: {py}");
+    }
+
+    #[test]
+    fn sourcemap_annotates_let_bindings() {
+        let source = "pub fn main() -> Int {\n  let x = 42\n  x\n}";
+        let py = python_from_source_with_sourcemap(source);
+        assert!(py.contains("x = 42  # asty:L2"), "let binding should carry source-map: {py}");
     }
 }

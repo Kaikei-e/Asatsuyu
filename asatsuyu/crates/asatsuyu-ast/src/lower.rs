@@ -442,7 +442,7 @@ impl LowerCtx {
         // Value: the first child expression
         let value = node.children().find_map(|c| self.lower_expr(&c))?;
 
-        Some(Expr::Let { name, value: Box::new(value), span: span_of(node, self.file_id) })
+        Some(Expr::Let { name, value: Box::new(value), span: span_of_nontrivia(node, self.file_id) })
     }
 
     // ── LambdaExpr ──────────────────────────────────────────────────
