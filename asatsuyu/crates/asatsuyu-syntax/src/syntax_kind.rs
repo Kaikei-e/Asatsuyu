@@ -64,6 +64,10 @@ pub enum SyntaxKind {
     Ampersand,
     /// `|`
     PipeSingle,
+    /// `&&`
+    AmpAmp,
+    /// `||`
+    PipePipe,
     /// `|>`
     Pipe,
     /// `=>`
@@ -153,6 +157,8 @@ pub enum SyntaxKind {
     TupleExpr,
     /// Record literal: `Name { field: value }`
     RecordExpr,
+    /// Parenthesized expression: `(expr)`
+    ParenExpr,
 
     // === Nodes: Patterns ===
     /// Wildcard pattern: `_`
@@ -330,6 +336,8 @@ mod tests {
         assert!(SyntaxKind::LParen.is_token());
         assert!(SyntaxKind::Plus.is_token());
         assert!(SyntaxKind::Pipe.is_token());
+        assert!(SyntaxKind::AmpAmp.is_token());
+        assert!(SyntaxKind::PipePipe.is_token());
         assert!(SyntaxKind::FloatLit.is_token());
         assert!(SyntaxKind::Eof.is_token());
         assert!(SyntaxKind::Error.is_token());
@@ -343,6 +351,7 @@ mod tests {
         assert!(SyntaxKind::BlockExpr.is_node());
         assert!(SyntaxKind::WildcardPat.is_node());
         assert!(SyntaxKind::MatchArm.is_node());
+        assert!(SyntaxKind::ParenExpr.is_node());
         assert!(SyntaxKind::NodeError.is_node());
         assert!(!SyntaxKind::SourceFile.is_token());
 

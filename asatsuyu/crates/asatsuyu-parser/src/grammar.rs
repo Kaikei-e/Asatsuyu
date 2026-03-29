@@ -146,19 +146,210 @@ fn parse_block_expr(p: &mut Parser<'_>) {
     p.finish_node();
 }
 
+// ── Expression parsing (Pratt parser) ───────────────────────────
+
 /// ```text
-/// Expr = LiteralExpr | IdentExpr
+/// Expr = Atom | PrefixExpr | InfixExpr | PostfixExpr | IfExpr
 /// ```
 fn parse_expr(p: &mut Parser<'_>) {
+    parse_expr_bp(p, 0);
+}
+
+/// Binding power for infix binary operators.
+///
+/// Returns `Some((left_bp, right_bp))` for infix operators, `None` otherwise.
+/// Left-associative operators have `right_bp = left_bp + 1`.
+fn infix_binding_power(op: SyntaxKind) -> Option<(u8, u8)> {
+    match op {
+        SyntaxKind::PipePipe => Some((1, 2)),
+        SyntaxKind::AmpAmp => Some((3, 4)),
+        SyntaxKind::EqEq
+        | SyntaxKind::BangEq
+        | SyntaxKind::Lt
+        | SyntaxKind::LtEq
+        | SyntaxKind::Gt
+        | SyntaxKind::GtEq => Some((5, 6)),
+        SyntaxKind::Plus | SyntaxKind::Minus => Some((7, 8)),
+        SyntaxKind::Star | SyntaxKind::Slash | SyntaxKind::Percent => Some((9, 10)),
+        _ => None,
+    }
+}
+
+/// Binding power for prefix unary operators.
+///
+/// Returns `Some(right_bp)` for prefix operators, `None` otherwise.
+fn prefix_binding_power(op: SyntaxKind) -> Option<u8> {
+    match op {
+        SyntaxKind::Minus | SyntaxKind::Bang => Some(11),
+        _ => None,
+    }
+}
+
+/// Binding power for postfix operators (call expressions).
+///
+/// Returns `Some(left_bp)` for postfix operators, `None` otherwise.
+fn postfix_binding_power(op: SyntaxKind) -> Option<u8> {
+    match op {
+        SyntaxKind::LParen => Some(13),
+        _ => None,
+    }
+}
+
+/// Parse an expression with a minimum binding power.
+///
+/// This is the heart of the Pratt parser. It first parses an atom (primary)
+/// or prefix expression, then loops consuming infix and postfix operators
+/// as long as their binding power exceeds `min_bp`.
+fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
+    let checkpoint = p.checkpoint();
+
+    // ── Prefix / Atom ──
     match p.current() {
-        SyntaxKind::IntLit | SyntaxKind::StringLit => parse_literal_expr(p),
-        SyntaxKind::Ident => parse_ident_expr(p),
-        _ => p.error_and_bump("expected expression"),
+        // Prefix unary operators: `-expr`, `!expr`
+        kind if prefix_binding_power(kind).is_some() => {
+            let right_bp = prefix_binding_power(kind).expect("checked above");
+            p.start_node(SyntaxKind::UnaryExpr);
+            p.bump(); // consume operator
+            parse_expr_bp(p, right_bp);
+            p.finish_node();
+        }
+
+        // Parenthesized expression: `(expr)`
+        SyntaxKind::LParen => {
+            p.start_node(SyntaxKind::ParenExpr);
+            p.bump(); // consume `(`
+            parse_expr_bp(p, 0); // reset binding power inside parens
+            p.expect(SyntaxKind::RParen);
+            p.finish_node();
+        }
+
+        // If expression
+        SyntaxKind::IfKw => {
+            parse_if_expr(p);
+        }
+
+        // Literal atoms
+        SyntaxKind::IntLit
+        | SyntaxKind::FloatLit
+        | SyntaxKind::StringLit
+        | SyntaxKind::TrueKw
+        | SyntaxKind::FalseKw => {
+            parse_literal_expr(p);
+        }
+
+        // Identifier atom
+        SyntaxKind::Ident => {
+            parse_ident_expr(p);
+        }
+
+        // Error: not a valid expression start
+        _ => {
+            p.error_and_bump("expected expression");
+            return;
+        }
+    }
+
+    // ── Postfix and Infix loop ──
+    loop {
+        let op = p.current();
+
+        // Postfix: call expression `expr(args)`
+        if let Some(left_bp) = postfix_binding_power(op) {
+            if left_bp < min_bp {
+                break;
+            }
+            p.start_node_at(checkpoint, SyntaxKind::CallExpr);
+            parse_arg_list(p);
+            p.finish_node();
+            continue;
+        }
+
+        // Infix: binary expression `expr op expr`
+        if let Some((left_bp, right_bp)) = infix_binding_power(op) {
+            if left_bp < min_bp {
+                break;
+            }
+            p.start_node_at(checkpoint, SyntaxKind::BinaryExpr);
+            p.bump(); // consume the operator token
+            parse_expr_bp(p, right_bp);
+            p.finish_node();
+            continue;
+        }
+
+        // Not a postfix or infix operator — stop
+        break;
     }
 }
 
 /// ```text
-/// LiteralExpr = INT_LIT | STRING_LIT
+/// ArgList = '(' (Expr (',' Expr)* ','?)? ')'
+/// ```
+fn parse_arg_list(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::ArgList);
+    p.bump(); // consume `(`
+
+    if !p.at(SyntaxKind::RParen) && !p.at_eof() {
+        parse_expr_bp(p, 0);
+        while p.at(SyntaxKind::Comma) {
+            p.bump(); // consume `,`
+            // Allow trailing comma: stop if `)` follows
+            if p.at(SyntaxKind::RParen) {
+                break;
+            }
+            parse_expr_bp(p, 0);
+        }
+    }
+
+    p.expect(SyntaxKind::RParen);
+    p.finish_node();
+}
+
+/// ```text
+/// IfExpr = 'if' Expr BlockExpr ('else' (IfExpr | BlockExpr))?
+/// ```
+fn parse_if_expr(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::IfExpr);
+    p.bump(); // consume `if`
+
+    // Condition: any expression (LBrace has no bp, so Pratt loop stops naturally)
+    parse_expr_bp(p, 0);
+
+    // Then-body: must be a block
+    if p.at(SyntaxKind::LBrace) {
+        parse_block_expr(p);
+    } else {
+        let span = p.current_span();
+        p.diagnostics_mut().push(
+            asatsuyu_syntax::Diagnostic::error("expected block after `if` condition", span)
+                .with_label(span, "expected `{`"),
+        );
+    }
+
+    // Optional else clause
+    if p.at(SyntaxKind::ElseKw) {
+        p.bump(); // consume `else`
+        if p.at(SyntaxKind::IfKw) {
+            // else-if chain
+            parse_if_expr(p);
+        } else if p.at(SyntaxKind::LBrace) {
+            parse_block_expr(p);
+        } else {
+            let span = p.current_span();
+            p.diagnostics_mut().push(
+                asatsuyu_syntax::Diagnostic::error(
+                    "expected block or `if` after `else`",
+                    span,
+                )
+                .with_label(span, "expected `{` or `if`"),
+            );
+        }
+    }
+
+    p.finish_node();
+}
+
+/// ```text
+/// LiteralExpr = INT_LIT | FLOAT_LIT | STRING_LIT | TRUE | FALSE
 /// ```
 fn parse_literal_expr(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::LiteralExpr);

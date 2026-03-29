@@ -100,6 +100,10 @@ enum LexToken {
     Ampersand,
     #[token("|")]
     PipeSingle,
+    #[token("&&")]
+    AmpAmp,
+    #[token("||")]
+    PipePipe,
 
     // === Delimiters & Punctuation ===
     #[token("(")]
@@ -172,6 +176,8 @@ impl From<LexToken> for SyntaxKind {
             LexToken::Bang => SyntaxKind::Bang,
             LexToken::Ampersand => SyntaxKind::Ampersand,
             LexToken::PipeSingle => SyntaxKind::PipeSingle,
+            LexToken::AmpAmp => SyntaxKind::AmpAmp,
+            LexToken::PipePipe => SyntaxKind::PipePipe,
             LexToken::Pipe => SyntaxKind::Pipe,
             LexToken::FatArrow => SyntaxKind::FatArrow,
             LexToken::StringConcat => SyntaxKind::StringConcat,
@@ -1004,6 +1010,38 @@ mod tests {
         Whitespace " " 30..31
         RBrace "}" 31..32
         Eof "" 32..32
+        "#);
+    }
+
+    #[test]
+    fn snap_logical_operators() {
+        insta::assert_snapshot!(snapshot_tokens("&& ||"), @r#"
+        AmpAmp "&&" 0..2
+        Whitespace " " 2..3
+        PipePipe "||" 3..5
+        Eof "" 5..5
+        "#);
+    }
+
+    #[test]
+    fn snap_ampamp_vs_ampersand() {
+        insta::assert_snapshot!(snapshot_tokens("&& &"), @r#"
+        AmpAmp "&&" 0..2
+        Whitespace " " 2..3
+        Ampersand "&" 3..4
+        Eof "" 4..4
+        "#);
+    }
+
+    #[test]
+    fn snap_pipepipe_vs_pipe() {
+        insta::assert_snapshot!(snapshot_tokens("|| | |>"), @r#"
+        PipePipe "||" 0..2
+        Whitespace " " 2..3
+        PipeSingle "|" 3..4
+        Whitespace " " 4..5
+        Pipe "|>" 5..7
+        Eof "" 7..7
         "#);
     }
 }

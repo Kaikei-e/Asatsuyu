@@ -203,6 +203,11 @@ mod tests {
             "  \n  pub fn main() { 42 }  \n  ",
             r#"fn greet() { "hello" }"#,
             "fn f(x: Int,) { 1 }",
+            "fn f() { a + b * c }",
+            "fn f() { g(1, 2) }",
+            "fn f() { if x { 1 } else { 2 } }",
+            "fn f() { (a + b) }",
+            "fn f() { -x }",
         ];
         for &source in sources {
             let result = parse(FID, source);
@@ -213,6 +218,281 @@ mod tests {
             );
         }
     }
+
+    // ── 10. Binary addition ───────────────────────────────────────
+
+    #[test]
+    fn parse_binary_addition() {
+        let source = "fn f() { a + b }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("BinaryExpr"), "tree should contain BinaryExpr:\n{tree}");
+    }
+
+    // ── 11. Binary precedence ───────────────────────────────────
+
+    #[test]
+    fn parse_binary_precedence() {
+        let source = "fn f() { a + b * c }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        // Should have nested BinaryExpr: outer (+) wrapping inner (*)
+        let binary_count = tree.matches("BinaryExpr@").count();
+        assert!(binary_count >= 2, "expected 2+ BinaryExpr for precedence, got {binary_count}:\n{tree}");
+    }
+
+    // ── 12. Comparison ──────────────────────────────────────────
+
+    #[test]
+    fn parse_comparison() {
+        let source = "fn f() { x == y }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("BinaryExpr"), "tree should contain BinaryExpr:\n{tree}");
+        assert!(tree.contains("EqEq"), "tree should contain EqEq:\n{tree}");
+    }
+
+    // ── 13. Call expression (no args) ───────────────────────────
+
+    #[test]
+    fn parse_call_no_args() {
+        let source = "fn f() { g() }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("CallExpr"), "tree should contain CallExpr:\n{tree}");
+        assert!(tree.contains("ArgList"), "tree should contain ArgList:\n{tree}");
+    }
+
+    // ── 14. Call expression (with args) ─────────────────────────
+
+    #[test]
+    fn parse_call_with_args() {
+        let source = "fn f() { g(1, 2) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("CallExpr"), "tree should contain CallExpr:\n{tree}");
+        assert!(tree.contains("ArgList"), "tree should contain ArgList:\n{tree}");
+    }
+
+    // ── 15. Call expression (trailing comma) ────────────────────
+
+    #[test]
+    fn parse_call_trailing_comma() {
+        let source = "fn f() { g(1,) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+    }
+
+    // ── 16. Unary minus ─────────────────────────────────────────
+
+    #[test]
+    fn parse_unary_minus() {
+        let source = "fn f() { -x }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("UnaryExpr"), "tree should contain UnaryExpr:\n{tree}");
+    }
+
+    // ── 17. Unary not ───────────────────────────────────────────
+
+    #[test]
+    fn parse_unary_not() {
+        let source = "fn f() { !x }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("UnaryExpr"), "tree should contain UnaryExpr:\n{tree}");
+    }
+
+    // ── 18. Parenthesized expression ────────────────────────────
+
+    #[test]
+    fn parse_paren_expr() {
+        let source = "fn f() { (a + b) * c }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("ParenExpr"), "tree should contain ParenExpr:\n{tree}");
+    }
+
+    // ── 19. Float literal ───────────────────────────────────────
+
+    #[test]
+    fn parse_float_literal() {
+        let source = "fn f() { 3.14 }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("FloatLit"), "tree should contain FloatLit:\n{tree}");
+    }
+
+    // ── 20. Bool literal ────────────────────────────────────────
+
+    #[test]
+    fn parse_bool_literal() {
+        let source = "fn f() { True }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("TrueKw"), "tree should contain TrueKw:\n{tree}");
+    }
+
+    // ── 21. Chained calls ───────────────────────────────────────
+
+    #[test]
+    fn parse_chained_calls() {
+        let source = "fn f() { g(1)(2) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let call_count = tree.matches("CallExpr@").count();
+        assert!(call_count >= 2, "expected 2+ CallExpr, got {call_count}:\n{tree}");
+    }
+
+    // ── 22. Complex expression ──────────────────────────────────
+
+    #[test]
+    fn parse_complex_expr() {
+        let source = "fn f() { f(a + b, c * d) }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+    }
+
+    // ── 23. If expression (simple) ──────────────────────────────
+
+    #[test]
+    fn parse_if_simple() {
+        let source = "fn f() { if x { 1 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("IfExpr"), "tree should contain IfExpr:\n{tree}");
+    }
+
+    // ── 24. If-else expression ──────────────────────────────────
+
+    #[test]
+    fn parse_if_else() {
+        let source = "fn f() { if x { 1 } else { 2 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("IfExpr"), "tree should contain IfExpr:\n{tree}");
+        assert!(tree.contains("ElseKw"), "tree should contain ElseKw:\n{tree}");
+    }
+
+    // ── 25. If-else-if chain ────────────────────────────────────
+
+    #[test]
+    fn parse_if_else_if() {
+        let source = "fn f() { if x { 1 } else if y { 2 } else { 3 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        let if_count = tree.matches("IfExpr@").count();
+        assert!(if_count >= 2, "expected 2+ IfExpr for else-if chain, got {if_count}:\n{tree}");
+    }
+
+    // ── 26. If with comparison condition ────────────────────────
+
+    #[test]
+    fn parse_if_with_condition() {
+        let source = "fn f() { if x == 1 { True } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("IfExpr"), "tree should contain IfExpr:\n{tree}");
+        assert!(tree.contains("BinaryExpr"), "tree should contain BinaryExpr:\n{tree}");
+    }
+
+    // ── 27. If with logical && ──────────────────────────────────
+
+    #[test]
+    fn parse_if_logical_and() {
+        let source = "fn f() { if a && b { 1 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("AmpAmp"), "tree should contain AmpAmp:\n{tree}");
+    }
+
+    // ── 28. If with logical || ──────────────────────────────────
+
+    #[test]
+    fn parse_if_logical_or() {
+        let source = "fn f() { if a || b { 1 } }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+
+        let tree = debug_tree(source);
+        assert!(tree.contains("PipePipe"), "tree should contain PipePipe:\n{tree}");
+    }
+
+    // ── 29. Error: missing call RParen ──────────────────────────
+
+    #[test]
+    fn error_missing_call_rparen() {
+        let source = "fn f() { g(1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics().iter().any(|d| d.message.contains("RParen")),
+            "should report missing `)`: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    // ── 30. Error: malformed if (no block) ──────────────────────
+
+    #[test]
+    fn error_malformed_if_no_block() {
+        let source = "fn f() { if x 1 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics().iter().any(|d| d.message.contains("expected block")),
+            "should report expected block: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    // ── 31. Error: missing else block ───────────────────────────
+
+    #[test]
+    fn error_missing_else_block() {
+        let source = "fn f() { if x { 1 } else 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics().iter().any(|d| d.message.contains("expected block or `if`")),
+            "should report expected block or if: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    // ── Error tests (original) ──────────────────────────────────
 
     // ── 10. Error: unexpected top-level token ────────────────────────
 

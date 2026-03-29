@@ -182,4 +182,24 @@ impl<'a> Parser<'a> {
     pub(crate) fn finish(self) -> (GreenNode, Vec<Diagnostic>) {
         (self.builder.finish(), self.diagnostics)
     }
+
+    // ── Checkpoint ──────────────────────────────────────────────────
+
+    /// Save the current position in the green tree builder.
+    ///
+    /// Returns a checkpoint that can later be passed to
+    /// [`start_node_at()`](Self::start_node_at) to retroactively wrap
+    /// previously emitted tokens/nodes in a new parent node. Essential
+    /// for Pratt parsing where the left-hand side is parsed before the
+    /// operator is known.
+    pub(crate) fn checkpoint(&self) -> rowan::Checkpoint {
+        self.builder.checkpoint()
+    }
+
+    /// Start a new CST node at the given checkpoint, retroactively
+    /// wrapping everything emitted since the checkpoint under a node
+    /// of the given `kind`.
+    pub(crate) fn start_node_at(&mut self, checkpoint: rowan::Checkpoint, kind: SyntaxKind) {
+        self.builder.start_node_at(checkpoint, raw(kind));
+    }
 }
