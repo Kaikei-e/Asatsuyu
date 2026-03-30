@@ -1350,4 +1350,45 @@ pub fn f() -> Result(Bool, PyExc) {
         let pathlib_mod = &result.module.ffi_modules["pathlib"];
         assert_eq!(pathlib_mod.trust_level, asatsuyu_hir::ffi::FfiTrustLevel::Verified,);
     }
+
+    // ── Issue 47: Opaque escape hatch ─────────────────────────────────
+
+    #[test]
+    fn opaque_pass_through_allowed() {
+        // Opaque values can be bound to variables and returned.
+        let src = "from python import json\nfn f(data: String) { let x = json.loads(data)\n x }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn opaque_field_access_rejected() {
+        let src =
+            "from python import json\nfn f(data: String) { let x = json.loads(data)\n x.foo }";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0209)),
+            "should emit E0209 for field access on opaque: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn opaque_match_rejected() {
+        let src = "from python import json\nfn f(data: String) -> Int { let x = json.loads(data)\n match x { _ -> 1 } }";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0214)),
+            "should emit E0214 for match on opaque: {:?}",
+            result.diagnostics,
+        );
+    }
 }

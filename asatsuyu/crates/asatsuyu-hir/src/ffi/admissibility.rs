@@ -75,8 +75,24 @@ fn return_refers_to_any_bearing_class(return_ty: &FfiType, symbols: &[FfiSymbol]
 /// that is the minimum across all symbols.
 #[must_use]
 pub fn check_module(module: &FfiModule) -> AdmissibilityReport {
-    let symbols: Vec<SymbolAdmissibility> =
-        module.symbols.iter().map(|s| check_symbol(s, &module.symbols)).collect();
+    // If the module itself is declared Unsafe, all symbols inherit Unsafe
+    // regardless of their type surface. This supports opaque isolation of
+    // entirely untyped or dynamic Python surfaces.
+    let force_unsafe = module.trust_level == FfiTrustLevel::Unsafe;
+
+    let symbols: Vec<SymbolAdmissibility> = if force_unsafe {
+        module
+            .symbols
+            .iter()
+            .map(|s| SymbolAdmissibility {
+                name: s.name.clone(),
+                trust_level: FfiTrustLevel::Unsafe,
+                reason: AdmissibilityReason::Untyped,
+            })
+            .collect()
+    } else {
+        module.symbols.iter().map(|s| check_symbol(s, &module.symbols)).collect()
+    };
 
     let module_trust =
         symbols.iter().map(|s| s.trust_level).min().unwrap_or(FfiTrustLevel::Verified);
@@ -294,5 +310,41 @@ mod tests {
         for sym in &report.symbols {
             assert_eq!(sym.trust_level, FfiTrustLevel::Verified);
         }
+    }
+
+    // ── Issue 47: Unsafe / Opaque ────────────────────────────────────
+
+    #[test]
+    fn unsafe_module_forces_all_symbols_unsafe() {
+        let module = FfiModule {
+            name: SmolStr::from("dynamic"),
+            source: crate::ffi::model::FfiSource::Builtin,
+            trust_level: FfiTrustLevel::Unsafe,
+            symbols: vec![
+                // Even a fully-typed symbol becomes Unsafe when the module is Unsafe.
+                make_func_symbol("do_stuff", vec![FfiType::Str], FfiType::Str),
+                make_const_symbol("version", FfiType::Str),
+            ],
+        };
+        let report = check_module(&module);
+        assert_eq!(report.module_trust, FfiTrustLevel::Unsafe);
+        for sym in &report.symbols {
+            assert_eq!(sym.trust_level, FfiTrustLevel::Unsafe);
+            assert_eq!(sym.reason, AdmissibilityReason::Untyped);
+        }
+    }
+
+    #[test]
+    fn non_unsafe_module_is_not_forced() {
+        // Verified module with clean symbols should remain Verified.
+        let module = FfiModule {
+            name: SmolStr::from("clean"),
+            source: crate::ffi::model::FfiSource::Builtin,
+            trust_level: FfiTrustLevel::Verified,
+            symbols: vec![make_func_symbol("f", vec![FfiType::Str], FfiType::Int)],
+        };
+        let report = check_module(&module);
+        assert_eq!(report.module_trust, FfiTrustLevel::Verified);
+        assert_eq!(report.symbols[0].trust_level, FfiTrustLevel::Verified);
     }
 }

@@ -41,6 +41,8 @@ pub enum DiagnosticCode {
     E0212,
     /// `try` expression in a position the backend cannot lower safely.
     E0213,
+    /// `match` subject is an opaque FFI type.
+    E0214,
 
     // ── Match / pattern ────────────────────────────────────────────
     /// Non-exhaustive match.
@@ -72,6 +74,7 @@ impl fmt::Display for DiagnosticCode {
             Self::E0211 => write!(f, "E0211"),
             Self::E0212 => write!(f, "E0212"),
             Self::E0213 => write!(f, "E0213"),
+            Self::E0214 => write!(f, "E0214"),
             Self::E0300 => write!(f, "E0300"),
             Self::E0301 => write!(f, "E0301"),
             Self::E0302 => write!(f, "E0302"),

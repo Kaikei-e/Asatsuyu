@@ -718,7 +718,10 @@ impl TyCheckCtx {
                         span,
                     )
                     .with_code(DiagnosticCode::E0209)
-                    .with_label(span, "opaque types do not allow field access"),
+                    .with_label(span, "opaque types do not allow field access")
+                    .with_note(
+                        "opaque values can only be passed to foreign calls that accept the same type",
+                    ),
                 );
                 Ty::Error
             }
@@ -1127,6 +1130,21 @@ impl TyCheckCtx {
         let checked_subject = self.check_expr(subject);
         let subject_ty = self.infer.resolve(checked_subject.ty());
 
+        // Reject match on Opaque types — they cannot be destructured.
+        if matches!(&subject_ty, Ty::Opaque { .. }) {
+            self.push_diagnostic(
+                Diagnostic::error(
+                    format!("cannot match on opaque type `{subject_ty}`"),
+                    span,
+                )
+                .with_code(DiagnosticCode::E0214)
+                .with_label(span, "opaque types cannot be destructured")
+                .with_note(
+                    "opaque values can only be passed to foreign calls that accept the same type",
+                ),
+            );
+        }
+
         let mut checked_arms = Vec::with_capacity(arms.len());
         let mut result_ty: Option<Ty> = None;
         let mut first_arm_span: Option<Span> = None;
@@ -1469,5 +1487,73 @@ impl TyCheckCtx {
             }
             None => Ty::Error,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use asatsuyu_hir::ffi::{FfiModule, FfiSource, FfiSymbol, FfiSymbolKind, FfiTrustLevel, FfiType};
+    use asatsuyu_syntax::Span;
+    use smol_str::SmolStr;
+
+    use super::TyCheckCtx;
+    use crate::Ty;
+
+    #[test]
+    fn unsafe_symbol_resolves_to_symbol_scoped_opaque() {
+        let mut ctx = TyCheckCtx::new();
+        ctx.ffi_modules.insert(
+            SmolStr::from("dynamic"),
+            FfiModule {
+                name: SmolStr::from("dynamic"),
+                source: FfiSource::Builtin,
+                trust_level: FfiTrustLevel::Unsafe,
+                symbols: vec![FfiSymbol {
+                    name: SmolStr::from("do_stuff"),
+                    kind: FfiSymbolKind::Constant(FfiType::Str),
+                    trust_level: Some(FfiTrustLevel::Unsafe),
+                }],
+            },
+        );
+
+        let ty = ctx.resolve_ffi_module_field(
+            &SmolStr::from("dynamic"),
+            &SmolStr::from("do_stuff"),
+            Span::dummy(),
+        );
+
+        assert_eq!(
+            ty,
+            Ty::Opaque { module: SmolStr::from("dynamic"), symbol: SmolStr::from("do_stuff") }
+        );
+    }
+
+    #[test]
+    fn checked_any_still_resolves_to_python_any_opaque() {
+        let mut ctx = TyCheckCtx::new();
+        ctx.ffi_modules.insert(
+            SmolStr::from("checked"),
+            FfiModule {
+                name: SmolStr::from("checked"),
+                source: FfiSource::Builtin,
+                trust_level: FfiTrustLevel::Checked,
+                symbols: vec![FfiSymbol {
+                    name: SmolStr::from("decode"),
+                    kind: FfiSymbolKind::Constant(FfiType::Any),
+                    trust_level: Some(FfiTrustLevel::Checked),
+                }],
+            },
+        );
+
+        let ty = ctx.resolve_ffi_module_field(
+            &SmolStr::from("checked"),
+            &SmolStr::from("decode"),
+            Span::dummy(),
+        );
+
+        assert_eq!(
+            ty,
+            Ty::Opaque { module: SmolStr::from("python"), symbol: SmolStr::from("Any") }
+        );
     }
 }

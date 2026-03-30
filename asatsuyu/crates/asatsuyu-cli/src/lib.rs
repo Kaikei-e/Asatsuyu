@@ -305,9 +305,10 @@ fn materialize_runtime_crate_path(content: &str, output_dir: &Path) -> Result<St
         return Ok(content.to_string());
     }
 
-    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().map_err(
-        |e| format!("cannot resolve Asatsuyu workspace root for generated Cargo.toml: {e}"),
-    )?;
+    let workspace_root =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().map_err(|e| {
+            format!("cannot resolve Asatsuyu workspace root for generated Cargo.toml: {e}")
+        })?;
     let runtime_crate = workspace_root.join("crates/asatsuyu-runtime-python");
     if !runtime_crate.exists() {
         return Err(format!(
@@ -318,12 +319,7 @@ fn materialize_runtime_crate_path(content: &str, output_dir: &Path) -> Result<St
 
     let output_root = output_dir
         .canonicalize()
-        .or_else(|_| {
-            output_dir.parent().map_or_else(
-                || std::env::current_dir(),
-                |parent| parent.canonicalize(),
-            )
-        })
+        .or_else(|_| output_dir.parent().map_or_else(std::env::current_dir, Path::canonicalize))
         .map_err(|e| format!("cannot resolve output directory for generated Cargo.toml: {e}"))?;
     let relative = diff_paths(&runtime_crate, &output_root).ok_or_else(|| {
         format!(
@@ -341,11 +337,7 @@ fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
     let path_components: Vec<Component<'_>> = path.components().collect();
     let base_components: Vec<Component<'_>> = base.components().collect();
 
-    if path_components
-        .first()
-        .zip(base_components.first())
-        .is_some_and(|(lhs, rhs)| lhs != rhs)
-    {
+    if path_components.first().zip(base_components.first()).is_some_and(|(lhs, rhs)| lhs != rhs) {
         return None;
     }
 
