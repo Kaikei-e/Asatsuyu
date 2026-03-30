@@ -43,3 +43,27 @@ jobs:
           rust-src-dir: asatsuyu
       - run: cargo test --workspace
         working-directory: asatsuyu
+
+  verify-ffi:
+    name: verify-ffi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rust-src-dir: asatsuyu
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install FFI verification tools
+        run: python -m pip install --upgrade pip pyright mypy
+
+      - name: Emit trust report
+        run: cargo run -p asatsuyu-cli -- verify-ffi
+        working-directory: asatsuyu
+
+      - name: Verify typed Python surfaces
+        run: python scripts/verify_ffi.py
