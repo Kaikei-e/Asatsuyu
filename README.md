@@ -339,3 +339,35 @@ follows this strategy for Python.
 The Python ecosystem — and the communities that maintain
 [typeshed](https://github.com/python/typeshed), CPython, and thousands of
 libraries — makes this project possible.
+
+## Acknowledgments
+
+Asatsuyu is built on the work of many open-source projects. We are grateful to
+their authors and maintainers.
+
+### Rust Crates
+
+| Crate | Role in Asatsuyu |
+|---|---|
+| [logos](https://github.com/maciejhirsz/logos) | Compile-time DFA generation for the lexer |
+| [rowan](https://github.com/rust-analyzer/rowan) | Lossless concrete syntax tree representation |
+| [smol_str](https://github.com/rust-analyzer/smol_str) | Small string interning for identifiers |
+| [la-arena](https://github.com/rust-analyzer/la-arena) | Arena allocation for HIR collections |
+| [clap](https://github.com/clap-rs/clap) | CLI argument parsing |
+| [miette](https://github.com/zkat/miette) | Rich terminal diagnostic display |
+| [thiserror](https://github.com/dtolnay/thiserror) | Error type derive macros |
+| [insta](https://github.com/mitsuhiko/insta) | Snapshot testing |
+| [tracing](https://github.com/tokio-rs/tracing) | Instrumentation and structured logging |
+| [PyO3](https://github.com/PyO3/pyo3) | Python/Rust interop for the runtime boundary layer |
+| [serde](https://github.com/serde-rs/serde) | Serialization framework |
+
+### Python Ecosystem
+
+| Project | How Asatsuyu uses it |
+|---|---|
+| [typeshed](https://github.com/python/typeshed) | Standard library type stubs — the foundation of our FFI type resolution |
+| [Pyright](https://github.com/microsoft/pyright) | Type completeness verification via `--verifytypes` |
+| [mypy](https://github.com/python/mypy) | Stub/runtime divergence checking via `stubtest` |
+| [CPython](https://github.com/python/cpython) | The runtime target — Asatsuyu generates Python 3.12+ source code |
+
+Thank you to everyone who builds and maintains these projects.
