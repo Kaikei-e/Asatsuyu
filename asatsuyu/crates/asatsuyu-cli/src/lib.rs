@@ -29,7 +29,7 @@ struct Cli {
 /// FFI runtime inclusion mode.
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
 enum FfiRuntime {
-    /// Always include the PyO3 runtime extension
+    /// Always include the `PyO3` runtime extension
     On,
     /// Never include the runtime (pure Python prelude shim only)
     Off,
@@ -234,12 +234,8 @@ fn cmd_build(
         return ExitCode::SUCCESS;
     }
 
-    let config = PackageConfig {
-        name: stem.to_string(),
-        version: "0.1.0".into(),
-        source_map,
-        ffi_runtime,
-    };
+    let config =
+        PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map, ffi_runtime };
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
@@ -287,12 +283,8 @@ fn cmd_run(
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     let output_dir = PathBuf::from("target/run");
-    let config = PackageConfig {
-        name: stem.to_string(),
-        version: "0.1.0".into(),
-        source_map,
-        ffi_runtime,
-    };
+    let config =
+        PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map, ffi_runtime };
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 

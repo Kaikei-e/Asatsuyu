@@ -494,10 +494,7 @@ fn help_shows_ffi_flags() {
         stdout.contains("--ffi-stdlib-only"),
         "help should mention --ffi-stdlib-only: {stdout}"
     );
-    assert!(
-        stdout.contains("--ffi-stub-path"),
-        "help should mention --ffi-stub-path: {stdout}"
-    );
+    assert!(stdout.contains("--ffi-stub-path"), "help should mention --ffi-stub-path: {stdout}");
     assert!(
         stdout.contains("--no-emit-package"),
         "help should mention --no-emit-package: {stdout}"

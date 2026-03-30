@@ -42,7 +42,7 @@ pub fn emit_module(module: &ThirModule) -> String {
 
 // ── Package generation (Issue 32–33) ──────────────────────────────
 
-/// Controls whether the PyO3 runtime extension is included in the generated package.
+/// Controls whether the `PyO3` runtime extension is included in the generated package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FfiRuntimeMode {
     /// Always include the runtime extension files (maturin layout).
@@ -62,7 +62,7 @@ pub struct PackageConfig {
     pub version: String,
     /// Whether to include source-map comments (`# asty:L<n>`).
     pub source_map: bool,
-    /// Controls whether the PyO3 runtime extension is emitted.
+    /// Controls whether the `PyO3` runtime extension is emitted.
     pub ffi_runtime: FfiRuntimeMode,
 }
 

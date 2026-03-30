@@ -28,8 +28,8 @@ pub use types::{
     TyVarId,
 };
 
-use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_hir::HirModule;
+use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_syntax::{Diagnostic, Severity};
 
 /// The result of type-checking an HIR module.
