@@ -89,7 +89,8 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           working-directory: asatsuyu/crates/asatsuyu-runtime-python
-          args: --release --out dist
+          command: build
+          args: --release --out dist -i python3.12
           manylinux: "2014"
 
       - name: Upload wheel artifact

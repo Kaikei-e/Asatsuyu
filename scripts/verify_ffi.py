@@ -19,7 +19,7 @@ import subprocess
 import sys
 from typing import Any
 
-VERIFIED_MODULES: list[str] = ["pathlib", "json", "os", "sys"]
+STDLIB_VERIFIED_MODULES: list[str] = ["pathlib", "json", "os", "sys"]
 CHECKED_MODULES: list[str] = ["requests"]
 
 # pyright completeness threshold for Verified modules.
@@ -74,6 +74,14 @@ def run_stubtest(module: str) -> dict[str, Any]:
     lines = [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
     # Filter out "Success" messages
     issues = [line for line in lines if not line.startswith("Success")]
+    stderr = result.stderr.strip()
+    if result.returncode != 0 and not issues:
+        return {
+            "pass": False,
+            "issues": [],
+            "total_issues": 0,
+            "error": stderr or f"stubtest exited with status {result.returncode}",
+        }
     return {
         "pass": result.returncode == 0,
         "issues": issues[:10],
@@ -88,17 +96,9 @@ def main() -> None:
     print("Asatsuyu FFI Verification Report")
     print("=" * 60)
 
-    for module in VERIFIED_MODULES:
+    for module in STDLIB_VERIFIED_MODULES:
         print(f"\n--- {module} (Verified candidate) ---")
-
-        vt = run_verifytypes(module)
-        if "error" in vt:
-            print(f"  verifytypes: SKIP ({vt['error']})")
-        else:
-            status = "PASS" if vt["score"] >= COMPLETENESS_THRESHOLD else "FAIL"
-            print(f"  verifytypes: {status} (completeness: {vt['score']:.1%})")
-            if status == "FAIL":
-                failed = True
+        print("  verifytypes: SKIP (stdlib/typeshed modules are not supported by pyright --verifytypes)")
 
         st = run_stubtest(module)
         if "error" in st:
