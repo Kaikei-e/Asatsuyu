@@ -122,7 +122,13 @@ pub fn run() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Commands::Check { paths, ffi_stdlib_only, ffi_stub_path } => {
-            let ffi_config = build_ffi_config(ffi_stdlib_only, &ffi_stub_path);
+            let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
+                Ok(config) => config,
+                Err(err) => {
+                    eprintln!("error: {err}");
+                    return ExitCode::FAILURE;
+                }
+            };
             cmd_check(&paths, &ffi_config)
         }
         Commands::Build {
@@ -134,12 +140,24 @@ pub fn run() -> ExitCode {
             ffi_stdlib_only,
             ffi_stub_path,
         } => {
-            let ffi_config = build_ffi_config(ffi_stdlib_only, &ffi_stub_path);
+            let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
+                Ok(config) => config,
+                Err(err) => {
+                    eprintln!("error: {err}");
+                    return ExitCode::FAILURE;
+                }
+            };
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
             cmd_build(&path, &output, source_map, no_emit_package, runtime_mode, &ffi_config)
         }
         Commands::Run { path, source_map, ffi_runtime, ffi_stdlib_only, ffi_stub_path } => {
-            let ffi_config = build_ffi_config(ffi_stdlib_only, &ffi_stub_path);
+            let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
+                Ok(config) => config,
+                Err(err) => {
+                    eprintln!("error: {err}");
+                    return ExitCode::FAILURE;
+                }
+            };
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
             cmd_run(&path, source_map, runtime_mode, &ffi_config)
         }
@@ -150,8 +168,26 @@ pub fn run() -> ExitCode {
 
 // ── FFI config helpers ────────────────────────────────────────────
 
-fn build_ffi_config(ffi_stdlib_only: bool, ffi_stub_path: &[PathBuf]) -> FfiResolverConfig {
-    FfiResolverConfig { stdlib_only: ffi_stdlib_only, stub_paths: ffi_stub_path.to_vec() }
+fn build_ffi_config(
+    ffi_stdlib_only: bool,
+    ffi_stub_path: &[PathBuf],
+) -> Result<FfiResolverConfig, CliError> {
+    for path in ffi_stub_path {
+        if !path.exists() {
+            return Err(CliError::InvalidFfiStubPath {
+                path: path.clone(),
+                reason: "directory does not exist",
+            });
+        }
+        if !path.is_dir() {
+            return Err(CliError::InvalidFfiStubPath {
+                path: path.clone(),
+                reason: "path is not a directory",
+            });
+        }
+    }
+
+    Ok(FfiResolverConfig { stdlib_only: ffi_stdlib_only, stub_paths: ffi_stub_path.to_vec() })
 }
 
 fn convert_ffi_runtime(runtime: FfiRuntime) -> FfiRuntimeMode {
@@ -592,6 +628,7 @@ fn compile_with_source(
 enum CliError {
     Io(std::io::Error),
     CompileErrors { diagnostics: Vec<Diagnostic>, source: String },
+    InvalidFfiStubPath { path: PathBuf, reason: &'static str },
 }
 
 impl std::fmt::Display for CliError {
@@ -603,6 +640,13 @@ impl std::fmt::Display for CliError {
                     writeln!(f, "{}", d.message)?;
                 }
                 Ok(())
+            }
+            Self::InvalidFfiStubPath { path, reason } => {
+                write!(
+                    f,
+                    "invalid --ffi-stub-path `{}`: {reason}",
+                    path.display()
+                )
             }
         }
     }

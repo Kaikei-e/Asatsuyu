@@ -500,3 +500,30 @@ fn help_shows_ffi_flags() {
         "help should mention --no-emit-package: {stdout}"
     );
 }
+
+// ── 17. --ffi-stub-path must point at an existing directory ─────
+
+#[test]
+fn check_rejects_missing_ffi_stub_path() {
+    let missing = workspace_root().join("target/does-not-exist-stubs");
+    let _ = std::fs::remove_dir_all(&missing);
+
+    let output = asatsuyu()
+        .args([
+            "check",
+            &example("hello.asty"),
+            "--ffi-stub-path",
+            &missing.display().to_string(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "should fail with missing --ffi-stub-path");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("invalid --ffi-stub-path"),
+        "stderr should mention invalid stub path: {stderr}"
+    );
+    assert!(stderr.contains("does not exist"), "stderr should explain failure: {stderr}");
+}
