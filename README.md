@@ -234,16 +234,44 @@ numpy = ">=1.26"
 requests = ">=2.31"
 ```
 
-## CLI (Planned)
+## Usage
 
 ```sh
-asatsuyu check   # Type-check only (fastest feedback loop)
-asatsuyu build   # Generate Python package
-asatsuyu run     # Build and execute
-asatsuyu fmt     # Format source code (opinionated, zero config)
-asatsuyu test    # Run tests
-asatsuyu new     # Create a new project
+asatsuyu new my-app           # Create a new project
+asatsuyu check src/main.asty  # Type-check only (fastest feedback loop)
+asatsuyu build src/main.asty  # Generate Python package to dist/
+asatsuyu run src/main.asty    # Build and execute with python3
 ```
+
+### FFI Flags
+
+```sh
+# Restrict to stdlib modules only (pathlib, json, os, sys)
+asatsuyu build --ffi-stdlib-only src/main.asty
+
+# Control runtime extension: on, off, or auto (default)
+asatsuyu build --ffi-runtime off src/main.asty
+
+# Emit only the .py file without package structure
+asatsuyu build --no-emit-package src/main.asty
+
+# Show FFI trust levels for all known modules
+asatsuyu verify-ffi
+```
+
+See [docs/guides/ffi.md](docs/guides/ffi.md) for the full FFI guide.
+
+### Package Output
+
+`asatsuyu build` generates a Python package under `dist/`. The layout depends
+on FFI usage:
+
+- **Pure Python** (setuptools) — when only Verified FFI is used
+- **Mixed Rust/Python** (maturin) — when Checked FFI triggers runtime inclusion
+
+For the mixed layout, install with `cd dist && maturin develop && python -m my_app`.
+A pure-Python fallback is always included so the package works without building
+the native extension.
 
 ## How It Compares
 
@@ -278,8 +306,9 @@ producing readable Python 3.12+ output.
 - [x] Verified FFI (`pathlib`, `json`, `os`) via typeshed stubs
 - [x] Checked FFI (`requests`) with runtime validation via PyO3
 - [x] `try` expression — Python exceptions to `Result` at the boundary
+- [x] CI pipeline (fmt, clippy, test, verify-ffi, maturin-build, pytest)
+- [x] FFI compiler flags (`--ffi-stdlib-only`, `--ffi-runtime`, `--no-emit-package`)
 - [ ] MVP sample application (in progress)
-- [ ] CI pipeline
 - [ ] Formatter and LSP (post-MVP)
 
 ## Contributing
