@@ -77,6 +77,15 @@ fn check_hello_asty() {
     assert!(output.stdout.is_empty(), "stdout should be empty on success");
 }
 
+#[test]
+fn check_multiple_files() {
+    let output = asatsuyu()
+        .args(["check", &example("hello.asty"), &example("greet.asty")])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+}
+
 // ── 4. check with type error ───────────────────────────────────────
 
 #[test]

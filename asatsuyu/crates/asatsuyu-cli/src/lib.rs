@@ -28,8 +28,9 @@ struct Cli {
 enum Commands {
     /// Type-check without code generation
     Check {
-        /// Path to the .asty source file
-        path: PathBuf,
+        /// Paths to `.asty` source files
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
     },
     /// Compile .asty to Python
     Build {
@@ -76,7 +77,7 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { path } => cmd_check(&path),
+        Commands::Check { paths } => cmd_check(&paths),
         Commands::Build { path, output, source_map } => cmd_build(&path, &output, source_map),
         Commands::Run { path, source_map } => cmd_run(&path, source_map),
         Commands::New { name } => cmd_new(&name),
@@ -85,25 +86,30 @@ pub fn run() -> ExitCode {
 
 // ── Command handlers ───────────────────────────────────────────────
 
-fn cmd_check(path: &Path) -> ExitCode {
-    let filename = path.display().to_string();
-    match compile_with_source(path) {
-        Ok(result) => {
-            if !result.warnings.is_empty() {
-                report_diagnostics(&result.warnings, &result.source, &filename);
+fn cmd_check(paths: &[PathBuf]) -> ExitCode {
+    let mut failed = false;
+
+    for path in paths {
+        let filename = path.display().to_string();
+        match compile_with_source(path) {
+            Ok(result) => {
+                if !result.warnings.is_empty() {
+                    report_diagnostics(&result.warnings, &result.source, &filename);
+                }
             }
-            ExitCode::SUCCESS
-        }
-        Err(CliError::CompileErrors { diagnostics, source }) => {
-            report_diagnostics(&diagnostics, &source, &filename);
-            report_error_summary(&diagnostics);
-            ExitCode::FAILURE
-        }
-        Err(err) => {
-            eprintln!("error: {err}");
-            ExitCode::FAILURE
+            Err(CliError::CompileErrors { diagnostics, source }) => {
+                report_diagnostics(&diagnostics, &source, &filename);
+                report_error_summary(&diagnostics);
+                failed = true;
+            }
+            Err(err) => {
+                eprintln!("error: {err}");
+                failed = true;
+            }
         }
     }
+
+    if failed { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
 
 fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
@@ -203,8 +209,10 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
             if status.success() {
                 ExitCode::SUCCESS
             } else {
-                // Propagate python's exit code.
-                ExitCode::from(status.code().unwrap_or(1) as u8)
+                // Propagate python's exit code (clamped to u8 range).
+                let code = status.code().unwrap_or(1).clamp(1, 255);
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                ExitCode::from(code as u8)
             }
         }
         Err(e) => {
@@ -239,7 +247,7 @@ fn cmd_new(name: &str) -> ExitCode {
     }
 
     // src/main.asty
-    let main_asty = format!("pub fn main() {{\n  42\n}}\n",);
+    let main_asty = "pub fn main() {\n  42\n}\n";
     if let Err(e) = std::fs::write(src_dir.join("main.asty"), main_asty) {
         eprintln!("error: cannot write main.asty: {e}");
         return ExitCode::FAILURE;
