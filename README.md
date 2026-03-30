@@ -266,15 +266,20 @@ The MVP goal is to write a 300–500 line CLI application in Asatsuyu using
 producing readable Python 3.12+ output.
 
 - [x] Language design and compiler architecture
-- [ ] Workspace setup and CI
-- [ ] Lexer and parser
-- [ ] AST and HIR (name resolution, desugaring)
-- [ ] Hindley-Milner type inference
-- [ ] ADT typing and match exhaustiveness
-- [ ] Python backend (dataclass, match/case, prelude)
-- [ ] CLI (`check`, `build`, `run`)
-- [ ] FFI via typeshed (`pathlib`, `json`, `os`, `sys`, then `requests`)
-- [ ] MVP sample application
+- [x] Workspace setup with 9 crates
+- [x] Lexer (`logos`-based, 38+ snapshot tests)
+- [x] Parser (hand-written recursive descent, lossless CST, 40+ snapshot tests)
+- [x] AST lowering from CST
+- [x] HIR — name resolution, pipeline/string-concat desugaring, scope management
+- [x] Hindley-Milner type inference (unification, occurs check, let-polymorphism)
+- [x] ADT typing and match exhaustiveness checking
+- [x] Python backend (dataclass, match/case, prelude, source map comments)
+- [x] CLI (`check`, `build`, `run`, `new`)
+- [x] Verified FFI (`pathlib`, `json`, `os`) via typeshed stubs
+- [x] Checked FFI (`requests`) with runtime validation via PyO3
+- [x] `try` expression — Python exceptions to `Result` at the boundary
+- [ ] MVP sample application (in progress)
+- [ ] CI pipeline
 - [ ] Formatter and LSP (post-MVP)
 
 ## Contributing
