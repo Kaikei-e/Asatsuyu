@@ -55,15 +55,22 @@ def test_package(cli_path: Path, example_name: str, tmp_dir: Path) -> None:
     # 2. Create venv
     venv_dir = tmp_dir / f"venv-{stem}"
     subprocess.run(
-        [sys.executable, "-m", "venv", str(venv_dir)],
+        [
+            sys.executable,
+            "-m",
+            "venv",
+            "--system-site-packages",
+            str(venv_dir),
+        ],
         check=True,
     )
     pip = venv_dir / "bin" / "pip"
     python = venv_dir / "bin" / "python"
 
-    # 3. Install package
+    # 3. Install package without build isolation so local verification does not
+    # depend on network access to re-download setuptools/maturin.
     result = subprocess.run(
-        [str(pip), "install", str(out_dir)],
+        [str(pip), "install", "--no-build-isolation", "--no-deps", str(out_dir)],
         capture_output=True,
         text=True,
     )
