@@ -28,6 +28,7 @@ pub use types::{
     TyVarId,
 };
 
+use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_hir::HirModule;
 use asatsuyu_syntax::{Diagnostic, Severity};
 
@@ -55,8 +56,20 @@ impl TyCheckResult {
 /// 2. Check each function body against its declared return type.
 #[must_use]
 pub fn check_types(hir: &HirModule) -> TyCheckResult {
+    check_types_with_ffi_config(hir, &FfiResolverConfig::default())
+}
+
+/// Type-check an HIR module with custom FFI resolver configuration.
+///
+/// Like [`check_types`], but accepts an [`FfiResolverConfig`] to control
+/// which Python modules are resolvable (e.g. `--ffi-stdlib-only`).
+#[must_use]
+pub fn check_types_with_ffi_config(
+    hir: &HirModule,
+    ffi_config: &FfiResolverConfig,
+) -> TyCheckResult {
     let mut ctx = check::TyCheckCtx::new();
-    ctx.collect_signatures(hir);
+    ctx.collect_signatures_with_config(hir, ffi_config);
     let module = ctx.check_module(hir);
     let diagnostics = ctx.into_diagnostics();
     TyCheckResult { module, diagnostics }

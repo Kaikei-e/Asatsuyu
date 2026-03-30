@@ -379,3 +379,127 @@ fn verify_ffi_outputs_trust_report() {
     assert!(stdout.contains("Checked"), "should show Checked: {stdout}");
     assert!(stdout.contains("Summary"), "should show summary: {stdout}");
 }
+
+// ── 13. --ffi-stdlib-only blocks third-party imports ─────────────
+
+#[test]
+fn check_ffi_stdlib_only_rejects_requests() {
+    // Write a temporary .asty file that imports requests.
+    let dir = workspace_root().join("target/test-stdlib-only");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("requests_import.asty");
+    std::fs::write(&src, "from python import requests\npub fn main() { 42 }\n").unwrap();
+
+    let output = asatsuyu()
+        .args(["check", "--ffi-stdlib-only", &src.display().to_string()])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "should fail with --ffi-stdlib-only");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E0208"), "should contain E0208: {stderr}");
+    assert!(stderr.contains("requests"), "should mention requests: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_ffi_stdlib_only_allows_stdlib() {
+    let output = asatsuyu()
+        .args(["check", "--ffi-stdlib-only", &example("ffi_pathlib.asty")])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stdlib imports should pass with --ffi-stdlib-only\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+// ── 14. --no-emit-package emits module only ──────────────────────
+
+#[test]
+fn build_no_emit_package_emits_module_only() {
+    let dir = workspace_root().join("target/test-no-pkg");
+    let dir_str = dir.display().to_string();
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let output = asatsuyu()
+        .args(["build", &example("hello.asty"), "-o", &dir_str, "--no-emit-package"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    // Should have a single .py file, no pyproject.toml.
+    let py_path = dir.join("hello.py");
+    assert!(py_path.exists(), "hello.py should exist");
+    let content = std::fs::read_to_string(&py_path).unwrap();
+    assert!(content.contains("def main()"), "output: {content}");
+
+    let pyproject = dir.join("pyproject.toml");
+    assert!(!pyproject.exists(), "pyproject.toml should NOT exist with --no-emit-package");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 15. --ffi-runtime off suppresses Cargo.toml ─────────────────
+
+#[test]
+fn build_ffi_runtime_off_no_cargo_toml() {
+    // Write a source that would normally trigger Checked FFI.
+    let dir = workspace_root().join("target/test-ffi-rt-off");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("checked.asty");
+    std::fs::write(
+        &src,
+        "from python import requests\npub fn main() -> Int {\n  let response = requests.get(\"https://example.test\")\n  response.status_code\n}\n",
+    )
+    .unwrap();
+    let out_dir = dir.join("out");
+
+    let output = asatsuyu()
+        .args([
+            "build",
+            &src.display().to_string(),
+            "-o",
+            &out_dir.display().to_string(),
+            "--ffi-runtime",
+            "off",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    // Cargo.toml should NOT be present with --ffi-runtime off.
+    let cargo_toml = out_dir.join("Cargo.toml");
+    assert!(!cargo_toml.exists(), "Cargo.toml should NOT exist with --ffi-runtime off");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 16. help text shows FFI flags ────────────────────────────────
+
+#[test]
+fn help_shows_ffi_flags() {
+    let output = asatsuyu().args(["build", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(stdout.contains("--ffi-runtime"), "help should mention --ffi-runtime: {stdout}");
+    assert!(
+        stdout.contains("--ffi-stdlib-only"),
+        "help should mention --ffi-stdlib-only: {stdout}"
+    );
+    assert!(
+        stdout.contains("--ffi-stub-path"),
+        "help should mention --ffi-stub-path: {stdout}"
+    );
+    assert!(
+        stdout.contains("--no-emit-package"),
+        "help should mention --no-emit-package: {stdout}"
+    );
+}

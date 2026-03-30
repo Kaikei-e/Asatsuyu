@@ -9,10 +9,11 @@ use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-use asatsuyu_backend_python::{GeneratedPackage, PackageConfig};
+use asatsuyu_backend_python::{FfiRuntimeMode, GeneratedPackage, PackageConfig};
+use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_syntax::{Diagnostic, FileId, Severity};
 use asatsuyu_ty::ThirModule;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::diagnostic_report::SourceDiagnostic;
 
@@ -25,6 +26,18 @@ struct Cli {
     command: Commands,
 }
 
+/// FFI runtime inclusion mode.
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+enum FfiRuntime {
+    /// Always include the PyO3 runtime extension
+    On,
+    /// Never include the runtime (pure Python prelude shim only)
+    Off,
+    /// Auto-detect from code (include when Checked FFI is used)
+    #[default]
+    Auto,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Type-check without code generation
@@ -32,6 +45,12 @@ enum Commands {
         /// Paths to `.asty` source files
         #[arg(required = true)]
         paths: Vec<PathBuf>,
+        /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
+        #[arg(long)]
+        ffi_stdlib_only: bool,
+        /// Additional directories for .pyi stub files
+        #[arg(long)]
+        ffi_stub_path: Vec<PathBuf>,
     },
     /// Compile .asty to Python
     Build {
@@ -43,6 +62,18 @@ enum Commands {
         /// Add source-map comments (# asty:L<n>) to generated Python
         #[arg(long)]
         source_map: bool,
+        /// Skip full package generation; emit only the .py module file
+        #[arg(long)]
+        no_emit_package: bool,
+        /// Control FFI runtime inclusion: on, off, or auto
+        #[arg(long, value_enum, default_value_t = FfiRuntime::Auto)]
+        ffi_runtime: FfiRuntime,
+        /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
+        #[arg(long)]
+        ffi_stdlib_only: bool,
+        /// Additional directories for .pyi stub files
+        #[arg(long)]
+        ffi_stub_path: Vec<PathBuf>,
     },
     /// Compile and execute with python3
     Run {
@@ -51,6 +82,15 @@ enum Commands {
         /// Add source-map comments (# asty:L<n>) to generated Python
         #[arg(long)]
         source_map: bool,
+        /// Control FFI runtime inclusion: on, off, or auto
+        #[arg(long, value_enum, default_value_t = FfiRuntime::Auto)]
+        ffi_runtime: FfiRuntime,
+        /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
+        #[arg(long)]
+        ffi_stdlib_only: bool,
+        /// Additional directories for .pyi stub files
+        #[arg(long)]
+        ffi_stub_path: Vec<PathBuf>,
     },
     /// Create a new Asatsuyu project
     New {
@@ -81,22 +121,55 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { paths } => cmd_check(&paths),
-        Commands::Build { path, output, source_map } => cmd_build(&path, &output, source_map),
-        Commands::Run { path, source_map } => cmd_run(&path, source_map),
+        Commands::Check { paths, ffi_stdlib_only, ffi_stub_path } => {
+            let ffi_config = build_ffi_config(ffi_stdlib_only, &ffi_stub_path);
+            cmd_check(&paths, &ffi_config)
+        }
+        Commands::Build {
+            path,
+            output,
+            source_map,
+            no_emit_package,
+            ffi_runtime,
+            ffi_stdlib_only,
+            ffi_stub_path,
+        } => {
+            let ffi_config = build_ffi_config(ffi_stdlib_only, &ffi_stub_path);
+            let runtime_mode = convert_ffi_runtime(ffi_runtime);
+            cmd_build(&path, &output, source_map, no_emit_package, runtime_mode, &ffi_config)
+        }
+        Commands::Run { path, source_map, ffi_runtime, ffi_stdlib_only, ffi_stub_path } => {
+            let ffi_config = build_ffi_config(ffi_stdlib_only, &ffi_stub_path);
+            let runtime_mode = convert_ffi_runtime(ffi_runtime);
+            cmd_run(&path, source_map, runtime_mode, &ffi_config)
+        }
         Commands::New { name } => cmd_new(&name),
         Commands::VerifyFfi => cmd_verify_ffi(),
     }
 }
 
+// ── FFI config helpers ────────────────────────────────────────────
+
+fn build_ffi_config(ffi_stdlib_only: bool, ffi_stub_path: &[PathBuf]) -> FfiResolverConfig {
+    FfiResolverConfig { stdlib_only: ffi_stdlib_only, stub_paths: ffi_stub_path.to_vec() }
+}
+
+fn convert_ffi_runtime(runtime: FfiRuntime) -> FfiRuntimeMode {
+    match runtime {
+        FfiRuntime::On => FfiRuntimeMode::On,
+        FfiRuntime::Off => FfiRuntimeMode::Off,
+        FfiRuntime::Auto => FfiRuntimeMode::Auto,
+    }
+}
+
 // ── Command handlers ───────────────────────────────────────────────
 
-fn cmd_check(paths: &[PathBuf]) -> ExitCode {
+fn cmd_check(paths: &[PathBuf], ffi_config: &FfiResolverConfig) -> ExitCode {
     let mut failed = false;
 
     for path in paths {
         let filename = path.display().to_string();
-        match compile_with_source(path) {
+        match compile_with_source(path, ffi_config) {
             Ok(result) => {
                 if !result.warnings.is_empty() {
                     report_diagnostics(&result.warnings, &result.source, &filename);
@@ -117,9 +190,16 @@ fn cmd_check(paths: &[PathBuf]) -> ExitCode {
     if failed { ExitCode::FAILURE } else { ExitCode::SUCCESS }
 }
 
-fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
+fn cmd_build(
+    path: &Path,
+    output_dir: &Path,
+    source_map: bool,
+    no_emit_package: bool,
+    ffi_runtime: FfiRuntimeMode,
+    ffi_config: &FfiResolverConfig,
+) -> ExitCode {
     let filename = path.display().to_string();
-    let result = match compile_with_source(path) {
+    let result = match compile_with_source(path, ffi_config) {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename);
@@ -137,7 +217,29 @@ fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
     }
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let config = PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map };
+
+    // --no-emit-package: emit only the .py module file, no package structure.
+    if no_emit_package {
+        let py = asatsuyu_backend_python::emit_module(&result.module);
+        let out_path = output_dir.join(format!("{stem}.py"));
+        if let Some(parent) = out_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Err(e) = std::fs::write(&out_path, &py) {
+            eprintln!("error: cannot write {}: {e}", out_path.display());
+            return ExitCode::FAILURE;
+        }
+        println!("{}", out_path.display());
+        eprintln!("  Compiled {stem} (module only) → {}", out_path.display());
+        return ExitCode::SUCCESS;
+    }
+
+    let config = PackageConfig {
+        name: stem.to_string(),
+        version: "0.1.0".into(),
+        source_map,
+        ffi_runtime,
+    };
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
@@ -159,9 +261,14 @@ fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
+fn cmd_run(
+    path: &Path,
+    source_map: bool,
+    ffi_runtime: FfiRuntimeMode,
+    ffi_config: &FfiResolverConfig,
+) -> ExitCode {
     let filename = path.display().to_string();
-    let result = match compile_with_source(path) {
+    let result = match compile_with_source(path, ffi_config) {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename);
@@ -180,7 +287,12 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     let output_dir = PathBuf::from("target/run");
-    let config = PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map };
+    let config = PackageConfig {
+        name: stem.to_string(),
+        version: "0.1.0".into(),
+        source_map,
+        ffi_runtime,
+    };
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
@@ -441,7 +553,10 @@ struct CompileOutput {
 }
 
 /// Compile a `.asty` file, returning the typed module, source, and warnings.
-fn compile_with_source(path: &Path) -> Result<CompileOutput, CliError> {
+fn compile_with_source(
+    path: &Path,
+    ffi_config: &FfiResolverConfig,
+) -> Result<CompileOutput, CliError> {
     let source = std::fs::read_to_string(path).map_err(CliError::Io)?;
 
     let mut all_diagnostics = Vec::new();
@@ -468,7 +583,7 @@ fn compile_with_source(path: &Path) -> Result<CompileOutput, CliError> {
     }
 
     // Type check
-    let thir = asatsuyu_ty::check_types(&hir.module);
+    let thir = asatsuyu_ty::check_types_with_ffi_config(&hir.module, ffi_config);
     all_diagnostics.extend(thir.diagnostics.iter().cloned());
     if thir.has_errors() {
         return Err(CliError::CompileErrors { diagnostics: all_diagnostics, source });

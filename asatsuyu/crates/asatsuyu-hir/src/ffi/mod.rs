@@ -18,4 +18,4 @@ pub use model::{
     AdmissibilityReason, AdmissibilityReport, FfiClass, FfiModule, FfiParam, FfiSignature,
     FfiSource, FfiSymbol, FfiSymbolKind, FfiTrustLevel, FfiType, SymbolAdmissibility,
 };
-pub use resolver::{BuiltinResolver, ChainResolver, FfiModuleResolver};
+pub use resolver::{BuiltinResolver, ChainResolver, FfiModuleResolver, FfiResolverConfig};

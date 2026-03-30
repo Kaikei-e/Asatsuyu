@@ -9,8 +9,8 @@ use std::collections::{HashMap, HashSet};
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp};
 use asatsuyu_hir::ffi::{
-    ChainResolver, FfiClass, FfiModule, FfiModuleResolver as _, FfiSignature, FfiSymbolKind,
-    FfiTrustLevel, FfiType,
+    ChainResolver, FfiClass, FfiModule, FfiModuleResolver as _, FfiResolverConfig, FfiSignature,
+    FfiSymbolKind, FfiTrustLevel, FfiType,
 };
 use asatsuyu_hir::{
     DefData, DefId, DefKind, HirExpr, HirFnDef, HirImportKind, HirModule, SymbolTable,
@@ -274,8 +274,11 @@ impl TyCheckCtx {
 // ── Pass 1: Collect signatures ─────────────────────────────────────
 
 impl TyCheckCtx {
-    /// Register all function and constructor signatures in the type environment.
-    pub(crate) fn collect_signatures(&mut self, module: &HirModule) {
+    pub(crate) fn collect_signatures_with_config(
+        &mut self,
+        module: &HirModule,
+        ffi_config: &FfiResolverConfig,
+    ) {
         // Register custom types and constructor signatures first,
         // so function signatures can reference ADT types.
         for ct in &module.custom_types {
@@ -286,7 +289,7 @@ impl TyCheckCtx {
         }
 
         // Register FFI module types for Python imports.
-        let ffi_resolver = ChainResolver::new();
+        let ffi_resolver = ChainResolver::with_config(ffi_config.clone());
         for import in &module.imports {
             if let HirImportKind::Python { module_name } = &import.kind {
                 if let Some(ffi_module) = ffi_resolver.resolve(module_name.as_str()) {

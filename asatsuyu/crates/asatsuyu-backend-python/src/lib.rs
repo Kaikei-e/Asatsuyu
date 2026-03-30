@@ -42,6 +42,18 @@ pub fn emit_module(module: &ThirModule) -> String {
 
 // ── Package generation (Issue 32–33) ──────────────────────────────
 
+/// Controls whether the PyO3 runtime extension is included in the generated package.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FfiRuntimeMode {
+    /// Always include the runtime extension files (maturin layout).
+    On,
+    /// Never include the runtime extension (pure Python prelude shim only).
+    Off,
+    /// Auto-detect from code: include only when Checked FFI calls are present.
+    #[default]
+    Auto,
+}
+
 /// Configuration for Python package generation.
 pub struct PackageConfig {
     /// Package name (used in directory name and `pyproject.toml`).
@@ -50,6 +62,8 @@ pub struct PackageConfig {
     pub version: String,
     /// Whether to include source-map comments (`# asty:L<n>`).
     pub source_map: bool,
+    /// Controls whether the PyO3 runtime extension is emitted.
+    pub ffi_runtime: FfiRuntimeMode,
 }
 
 /// A single file in the generated Python package.
@@ -87,8 +101,12 @@ pub fn emit_package(
         emitter::Emitter::new(module)
     };
     em.emit();
-    let needs_prelude = em.has_try || em.has_checked_ffi;
-    let needs_runtime_shim = em.has_checked_ffi;
+    let needs_runtime_shim = match config.ffi_runtime {
+        FfiRuntimeMode::On => true,
+        FfiRuntimeMode::Off => false,
+        FfiRuntimeMode::Auto => em.has_checked_ffi,
+    };
+    let needs_prelude = em.has_try || needs_runtime_shim;
     let module_py = em.into_output();
 
     let pkg = &config.name;
@@ -587,6 +605,7 @@ mod tests {
             name: name.to_string(),
             version: "0.1.0".into(),
             source_map: false,
+            ffi_runtime: super::FfiRuntimeMode::Auto,
         };
         super::emit_package(&thir.module, &config, None)
     }
@@ -741,6 +760,7 @@ mod tests {
             name: "test".to_string(),
             version: "0.1.0".into(),
             source_map: true,
+            ffi_runtime: super::FfiRuntimeMode::Auto,
         };
         let pkg = super::emit_package(&thir.module, &config, Some(source));
         pkg.files

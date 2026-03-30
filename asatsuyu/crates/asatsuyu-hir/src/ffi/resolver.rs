@@ -6,9 +6,29 @@
 //! 3. Typeshed (bundled)
 //! 4. Builtin (hand-crafted, MVP only)
 
+use std::path::PathBuf;
+
 use super::admissibility;
 use super::builtins;
 use super::model::FfiModule;
+
+// ── Configuration ─────────────────────────────────────────────────
+
+/// Configuration for FFI module resolution.
+///
+/// Controls which modules are resolvable and where to search for stub files.
+#[derive(Debug, Clone, Default)]
+pub struct FfiResolverConfig {
+    /// When `true`, only stdlib modules (`pathlib`, `json`, `os`, `sys`) are
+    /// resolvable. Third-party modules (e.g. `requests`) are rejected.
+    pub stdlib_only: bool,
+    /// Additional directories to search for `.pyi` stub files.
+    /// Reserved for future use — no stub-file resolver is implemented yet.
+    pub stub_paths: Vec<PathBuf>,
+}
+
+/// Standard library modules that are always allowed when `stdlib_only` is set.
+const STDLIB_MODULES: &[&str] = &["pathlib", "json", "os", "sys"];
 
 /// Trait for resolving Python module type information.
 ///
@@ -28,6 +48,7 @@ pub trait FfiModuleResolver {
 /// precedence over typeshed, which takes precedence over builtins.
 pub struct ChainResolver {
     resolvers: Vec<Box<dyn FfiModuleResolver>>,
+    config: FfiResolverConfig,
 }
 
 /// Known module names for the builtin resolver.
@@ -40,7 +61,16 @@ impl ChainResolver {
     /// Future resolvers (typeshed, stub packages) will be prepended.
     #[must_use]
     pub fn new() -> Self {
-        Self { resolvers: vec![Box::new(BuiltinResolver)] }
+        Self::with_config(FfiResolverConfig::default())
+    }
+
+    /// Create a `ChainResolver` with the given configuration.
+    ///
+    /// `config.stdlib_only` restricts resolution to stdlib modules only.
+    /// `config.stub_paths` is reserved for future stub-file resolvers.
+    #[must_use]
+    pub fn with_config(config: FfiResolverConfig) -> Self {
+        Self { resolvers: vec![Box::new(BuiltinResolver)], config }
     }
 
     /// Resolve all known builtin modules and return them with trust levels applied.
@@ -60,6 +90,9 @@ impl Default for ChainResolver {
 
 impl FfiModuleResolver for ChainResolver {
     fn resolve(&self, module_name: &str) -> Option<FfiModule> {
+        if self.config.stdlib_only && !STDLIB_MODULES.contains(&module_name) {
+            return None;
+        }
         let mut module = self.resolvers.iter().find_map(|r| r.resolve(module_name))?;
         let report = admissibility::check_module(&module);
         module.trust_level = report.module_trust;
@@ -196,5 +229,38 @@ mod tests {
         assert!(names.contains(&"sys"), "should contain sys: {names:?}");
         assert!(names.contains(&"requests"), "should contain requests: {names:?}");
         assert_eq!(modules.len(), 5);
+    }
+
+    // ── FfiResolverConfig tests ───────────────────────────────────
+
+    #[test]
+    fn stdlib_only_blocks_requests() {
+        let config = FfiResolverConfig { stdlib_only: true, ..Default::default() };
+        let chain = ChainResolver::with_config(config);
+        assert!(chain.resolve("requests").is_none(), "requests should be blocked");
+    }
+
+    #[test]
+    fn stdlib_only_allows_pathlib() {
+        let config = FfiResolverConfig { stdlib_only: true, ..Default::default() };
+        let chain = ChainResolver::with_config(config);
+        let module = chain.resolve("pathlib").expect("pathlib should resolve with stdlib_only");
+        assert_eq!(module.name.as_str(), "pathlib");
+    }
+
+    #[test]
+    fn stdlib_only_allows_all_stdlib() {
+        let config = FfiResolverConfig { stdlib_only: true, ..Default::default() };
+        let chain = ChainResolver::with_config(config);
+        for name in &["pathlib", "json", "os", "sys"] {
+            assert!(chain.resolve(name).is_some(), "{name} should resolve with stdlib_only");
+        }
+    }
+
+    #[test]
+    fn default_config_allows_all() {
+        let chain = ChainResolver::with_config(FfiResolverConfig::default());
+        assert!(chain.resolve("pathlib").is_some());
+        assert!(chain.resolve("requests").is_some());
     }
 }
