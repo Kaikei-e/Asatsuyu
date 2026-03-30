@@ -67,7 +67,22 @@ def test_package(cli_path: Path, example_name: str, tmp_dir: Path) -> None:
     pip = venv_dir / "bin" / "pip"
     python = venv_dir / "bin" / "python"
 
-    # 3. Install package without build isolation so local verification does not
+    # 3. Ensure the local backend is importable inside the venv. On some CI
+    # images setuptools is absent even with --system-site-packages.
+    backend_check = subprocess.run(
+        [str(python), "-c", "import setuptools.build_meta"],
+        capture_output=True,
+        text=True,
+    )
+    if backend_check.returncode != 0:
+        subprocess.run(
+            [str(pip), "install", "setuptools"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    # 4. Install package without build isolation so local verification does not
     # depend on network access to re-download setuptools/maturin.
     result = subprocess.run(
         [str(pip), "install", "--no-build-isolation", "--no-deps", str(out_dir)],
@@ -76,7 +91,7 @@ def test_package(cli_path: Path, example_name: str, tmp_dir: Path) -> None:
     )
     assert result.returncode == 0, f"pip install failed for {stem}: {result.stderr}"
 
-    # 4. Import test
+    # 5. Import test
     result = subprocess.run(
         [str(python), "-c", f"import {stem}; print('OK: {stem}')"],
         capture_output=True,

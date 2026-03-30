@@ -29,10 +29,16 @@ COMPLETENESS_THRESHOLD: float = 0.80
 # These are filtered from stubtest output before checking pass/fail.
 # Key: module name, Value: set of symbol prefixes to ignore.
 STUBTEST_ALLOWLIST: dict[str, set[str]] = {
+    "json": {
+        # Python 3.14 exposes json.__main__ at runtime, but stub coverage
+        # can lag behind mypy/typeshed releases.
+        "json.__main__ failed to find stubs",
+    },
     "os": {
         "os.PathLike.__class_getitem__",
         "os._wrap_close.",
         "os.path.join",
+        "os.__all__ names exported from the stub do not correspond to the names exported at runtime.",
         # Python 3.14 stdlib additions can temporarily diverge across
         # runtime/typeshed/mypy release cadences.
         "os.reload_environ",
