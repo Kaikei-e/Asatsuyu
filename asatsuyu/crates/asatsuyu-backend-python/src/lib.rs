@@ -94,27 +94,52 @@ pub fn emit_package(
     let pkg = &config.name;
     let mut files = Vec::new();
 
+    // All Python source lives under python/{pkg}/ (maturin best practice).
     // __init__.py
     files.push(GeneratedFile {
-        path: PathBuf::from(format!("{pkg}/__init__.py")),
+        path: PathBuf::from(format!("python/{pkg}/__init__.py")),
         content: String::new(),
     });
 
     // Main module
-    files
-        .push(GeneratedFile { path: PathBuf::from(format!("{pkg}/{pkg}.py")), content: module_py });
+    files.push(GeneratedFile {
+        path: PathBuf::from(format!("python/{pkg}/{pkg}.py")),
+        content: module_py,
+    });
+
+    // py.typed marker (PEP 561) — always emitted.
+    files.push(GeneratedFile {
+        path: PathBuf::from(format!("python/{pkg}/py.typed")),
+        content: String::new(),
+    });
 
     // Prelude is emitted when the generated code uses `try` expressions.
     if needs_prelude {
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("{pkg}/asatsuyu_prelude.py")),
+            path: PathBuf::from(format!("python/{pkg}/asatsuyu_prelude.py")),
             content: prelude::PRELUDE_PY.to_string(),
         });
     }
+
+    // Pure-Python runtime shim (fallback when native extension is not built).
     if needs_runtime_shim {
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("{pkg}/_asatsuyu_runtime.py")),
+            path: PathBuf::from(format!("python/{pkg}/_asatsuyu_runtime.py")),
             content: runtime_shim::RUNTIME_SHIM_PY.to_string(),
+        });
+        // Type stubs for the native extension (IDE support).
+        files.push(GeneratedFile {
+            path: PathBuf::from(format!("python/{pkg}/_asatsuyu_runtime.pyi")),
+            content: runtime_shim::RUNTIME_STUB_PYI.to_string(),
+        });
+        // Maturin wrapper crate files.
+        files.push(GeneratedFile {
+            path: PathBuf::from("src/lib.rs"),
+            content: runtime_shim::MATURIN_LIB_RS.to_string(),
+        });
+        files.push(GeneratedFile {
+            path: PathBuf::from("Cargo.toml"),
+            content: runtime_shim::maturin_cargo_toml(pkg),
         });
     }
 
@@ -123,21 +148,30 @@ pub fn emit_package(
         module.functions.iter().any(|f| module.symbol_table.get(f.def_id).name.as_str() == "main");
     if has_main {
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("{pkg}/__main__.py")),
+            path: PathBuf::from(format!("python/{pkg}/__main__.py")),
             content: format!(
                 "from .{pkg} import main\n\nif __name__ == \"__main__\":\n    main()\n"
             ),
         });
     }
 
-    // pyproject.toml
-    files.push(GeneratedFile {
-        path: PathBuf::from("pyproject.toml"),
-        content: format!(
-            "[build-system]\nrequires = [\"setuptools\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"{}\"\nversion = \"{}\"\nrequires-python = \">=3.12\"\n",
-            config.name, config.version,
-        ),
-    });
+    // pyproject.toml — maturin for Checked FFI, setuptools otherwise.
+    let pyproject = if needs_runtime_shim {
+        format!(
+            "[build-system]\nrequires = [\"maturin>=1.9,<2\"]\nbuild-backend = \"maturin\"\n\n\
+             [project]\nname = \"{pkg}\"\nversion = \"{ver}\"\nrequires-python = \">=3.12\"\n\n\
+             [tool.maturin]\npython-source = \"python\"\nmodule-name = \"{pkg}._asatsuyu_runtime\"\n",
+            ver = config.version,
+        )
+    } else {
+        format!(
+            "[build-system]\nrequires = [\"setuptools\"]\nbuild-backend = \"setuptools.build_meta\"\n\n\
+             [project]\nname = \"{pkg}\"\nversion = \"{ver}\"\nrequires-python = \">=3.12\"\n\n\
+             [tool.setuptools.packages.find]\nwhere = [\"python\"]\n",
+            ver = config.version,
+        )
+    };
+    files.push(GeneratedFile { path: PathBuf::from("pyproject.toml"), content: pyproject });
 
     GeneratedPackage { files }
 }
@@ -561,9 +595,9 @@ mod tests {
     fn package_contains_expected_files() {
         let pkg = package_from_source("pub fn main() { 42 }", "hello");
         let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
-        assert!(paths.contains(&"hello/__init__.py".to_string()), "init: {paths:?}");
-        assert!(paths.contains(&"hello/hello.py".to_string()), "module: {paths:?}");
-        assert!(paths.contains(&"hello/__main__.py".to_string()), "main: {paths:?}");
+        assert!(paths.contains(&"python/hello/__init__.py".to_string()), "init: {paths:?}");
+        assert!(paths.contains(&"python/hello/hello.py".to_string()), "module: {paths:?}");
+        assert!(paths.contains(&"python/hello/__main__.py".to_string()), "main: {paths:?}");
         assert!(paths.contains(&"pyproject.toml".to_string()), "pyproject: {paths:?}");
     }
 
@@ -572,7 +606,7 @@ mod tests {
         let pkg = package_from_source("pub fn main() { 42 }", "hello");
         let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
         assert!(
-            !paths.contains(&"hello/asatsuyu_prelude.py".to_string()),
+            !paths.contains(&"python/hello/asatsuyu_prelude.py".to_string()),
             "prelude should be omitted when unused: {paths:?}",
         );
     }
@@ -585,7 +619,7 @@ mod tests {
         );
         let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
         assert!(
-            paths.contains(&"hello/_asatsuyu_runtime.py".to_string()),
+            paths.contains(&"python/hello/_asatsuyu_runtime.py".to_string()),
             "runtime shim should be emitted for Checked FFI: {paths:?}",
         );
     }
@@ -594,7 +628,7 @@ mod tests {
     fn package_no_main_without_main_fn() {
         let pkg = package_from_source("fn add(x: Int, y: Int) -> Int { x }", "lib");
         let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
-        assert!(!paths.contains(&"lib/__main__.py".to_string()), "no __main__: {paths:?}");
+        assert!(!paths.contains(&"python/lib/__main__.py".to_string()), "no __main__: {paths:?}");
     }
 
     #[test]
@@ -624,7 +658,7 @@ mod tests {
         let main_py = pkg
             .files
             .iter()
-            .find(|f| f.path.display().to_string() == "hello/__main__.py")
+            .find(|f| f.path.display().to_string() == "python/hello/__main__.py")
             .expect("__main__.py");
         assert!(
             main_py.content.contains("from .hello import main"),
@@ -635,6 +669,64 @@ mod tests {
             main_py.content.contains("if __name__ == \"__main__\":"),
             "guard: {}",
             main_py.content,
+        );
+    }
+
+    // ── Issue 46: Mixed layout tests ────────────────────────────────────
+
+    #[test]
+    fn package_contains_py_typed() {
+        let pkg = package_from_source("fn f() { 1 }", "mylib");
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(
+            paths.contains(&"python/mylib/py.typed".to_string()),
+            "py.typed should always be emitted: {paths:?}",
+        );
+    }
+
+    #[test]
+    fn package_maturin_layout_for_checked_ffi() {
+        let pkg = package_from_source(
+            "from python import json\npub fn main(data: String) { json.loads(data) }",
+            "myapp",
+        );
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(paths.contains(&"Cargo.toml".to_string()), "Cargo.toml: {paths:?}");
+        assert!(paths.contains(&"src/lib.rs".to_string()), "src/lib.rs: {paths:?}");
+        assert!(
+            paths.contains(&"python/myapp/_asatsuyu_runtime.pyi".to_string()),
+            ".pyi stub: {paths:?}",
+        );
+
+        let pyproject =
+            pkg.files.iter().find(|f| f.path.display().to_string() == "pyproject.toml").unwrap();
+        assert!(pyproject.content.contains("maturin"), "should use maturin: {}", pyproject.content);
+        assert!(
+            pyproject.content.contains("module-name = \"myapp._asatsuyu_runtime\""),
+            "module-name: {}",
+            pyproject.content,
+        );
+        assert!(
+            pyproject.content.contains("python-source = \"python\""),
+            "python-source: {}",
+            pyproject.content,
+        );
+    }
+
+    #[test]
+    fn package_setuptools_for_non_ffi() {
+        let pkg = package_from_source("pub fn main() { 42 }", "hello");
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(!paths.contains(&"Cargo.toml".to_string()), "no Cargo.toml: {paths:?}");
+        assert!(!paths.contains(&"src/lib.rs".to_string()), "no src/lib.rs: {paths:?}");
+
+        let pyproject =
+            pkg.files.iter().find(|f| f.path.display().to_string() == "pyproject.toml").unwrap();
+        assert!(pyproject.content.contains("setuptools"), "should use setuptools");
+        assert!(
+            pyproject.content.contains("where = [\"python\"]"),
+            "setuptools package find: {}",
+            pyproject.content,
         );
     }
 
@@ -653,7 +745,7 @@ mod tests {
         let pkg = super::emit_package(&thir.module, &config, Some(source));
         pkg.files
             .into_iter()
-            .find(|f| f.path.display().to_string() == "test/test.py")
+            .find(|f| f.path.display().to_string() == "python/test/test.py")
             .expect("module file")
             .content
     }

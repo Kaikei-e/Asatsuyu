@@ -5,7 +5,8 @@
 
 mod diagnostic_report;
 
-use std::path::{Path, PathBuf};
+use std::ffi::OsStr;
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use asatsuyu_backend_python::{GeneratedPackage, PackageConfig};
@@ -137,7 +138,7 @@ fn cmd_build(path: &Path, output_dir: &Path, source_map: bool) -> ExitCode {
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
     // Clean the package subdirectory before writing.
-    let pkg_dir = output_dir.join(stem.as_ref());
+    let pkg_dir = output_dir.join("python").join(stem.as_ref());
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
     }
@@ -180,7 +181,7 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
     // Always clean run output to avoid stale files.
-    let pkg_dir = output_dir.join(stem.as_ref());
+    let pkg_dir = output_dir.join("python").join(stem.as_ref());
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
     }
@@ -197,10 +198,12 @@ fn cmd_run(path: &Path, source_map: bool) -> ExitCode {
         .iter()
         .any(|f| result.module.symbol_table.get(f.def_id).name.as_str() == "main");
 
+    // Python source lives under python/ in the new layout.
+    let python_dir = output_dir.join("python");
     let status_result = if has_main {
-        Command::new("python3").arg("-m").arg(stem.as_ref()).current_dir(&output_dir).status()
+        Command::new("python3").arg("-m").arg(stem.as_ref()).current_dir(&python_dir).status()
     } else {
-        let py_path = output_dir.join(format!("{stem}/{stem}.py"));
+        let py_path = python_dir.join(format!("{stem}/{stem}.py"));
         Command::new("python3").arg(&py_path).status()
     };
 
@@ -284,11 +287,91 @@ fn write_package(package: &GeneratedPackage, output_dir: &Path) -> Result<(), St
         {
             return Err(format!("cannot create directory: {e}"));
         }
-        if let Err(e) = std::fs::write(&out_path, &file.content) {
+        let content = if file.path == Path::new("Cargo.toml") {
+            materialize_runtime_crate_path(&file.content, output_dir)?
+        } else {
+            file.content.clone()
+        };
+        if let Err(e) = std::fs::write(&out_path, content) {
             return Err(format!("cannot write {}: {e}", out_path.display()));
         }
     }
     Ok(())
+}
+
+fn materialize_runtime_crate_path(content: &str, output_dir: &Path) -> Result<String, String> {
+    const PLACEHOLDER: &str = "PATH_TO_RUNTIME";
+    if !content.contains(PLACEHOLDER) {
+        return Ok(content.to_string());
+    }
+
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().map_err(
+        |e| format!("cannot resolve Asatsuyu workspace root for generated Cargo.toml: {e}"),
+    )?;
+    let runtime_crate = workspace_root.join("crates/asatsuyu-runtime-python");
+    if !runtime_crate.exists() {
+        return Err(format!(
+            "cannot find runtime crate required for mixed layout: {}",
+            runtime_crate.display()
+        ));
+    }
+
+    let output_root = output_dir
+        .canonicalize()
+        .or_else(|_| {
+            output_dir.parent().map_or_else(
+                || std::env::current_dir(),
+                |parent| parent.canonicalize(),
+            )
+        })
+        .map_err(|e| format!("cannot resolve output directory for generated Cargo.toml: {e}"))?;
+    let relative = diff_paths(&runtime_crate, &output_root).ok_or_else(|| {
+        format!(
+            "cannot compute relative path from {} to {}",
+            output_root.display(),
+            runtime_crate.display()
+        )
+    })?;
+    let relative = relative.to_string_lossy().replace('\\', "/");
+
+    Ok(content.replace(PLACEHOLDER, &relative))
+}
+
+fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
+    let path_components: Vec<Component<'_>> = path.components().collect();
+    let base_components: Vec<Component<'_>> = base.components().collect();
+
+    if path_components
+        .first()
+        .zip(base_components.first())
+        .is_some_and(|(lhs, rhs)| lhs != rhs)
+    {
+        return None;
+    }
+
+    let mut shared = 0;
+    while shared < path_components.len()
+        && shared < base_components.len()
+        && path_components[shared] == base_components[shared]
+    {
+        shared += 1;
+    }
+
+    let mut relative = PathBuf::new();
+    for component in &base_components[shared..] {
+        if matches!(component, Component::Normal(_)) {
+            relative.push("..");
+        }
+    }
+    for component in &path_components[shared..] {
+        relative.push(component.as_os_str());
+    }
+
+    if relative.as_os_str().is_empty() {
+        relative.push(OsStr::new("."));
+    }
+
+    Some(relative)
 }
 
 // ── Compilation pipeline ───────────────────────────────────────────

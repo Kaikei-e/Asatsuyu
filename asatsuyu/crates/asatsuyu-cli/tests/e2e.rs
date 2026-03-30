@@ -51,17 +51,21 @@ fn build_hello_asty() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("test-dist-hello"), "stdout should contain output dir: {stdout}",);
 
-    // Verify the package tree was created.
-    let py_path = dir.join("hello/hello.py");
+    // Verify the package tree was created (python/ layout).
+    let py_path = dir.join("python/hello/hello.py");
     let content = std::fs::read_to_string(&py_path).expect("generated .py should exist");
     assert!(content.contains("def main()"), "generated Python: {content}");
     assert!(content.contains("return 42"), "generated Python: {content}");
 
-    // Verify __init__.py and pyproject.toml exist.
-    assert!(dir.join("hello/__init__.py").exists(), "__init__.py should exist");
+    // Verify __init__.py, py.typed, and pyproject.toml exist.
+    assert!(dir.join("python/hello/__init__.py").exists(), "__init__.py should exist");
+    assert!(dir.join("python/hello/py.typed").exists(), "py.typed should exist");
     assert!(dir.join("pyproject.toml").exists(), "pyproject.toml should exist");
-    assert!(dir.join("hello/__main__.py").exists(), "__main__.py should exist");
-    assert!(!dir.join("hello/asatsuyu_prelude.py").exists(), "unused prelude should be omitted",);
+    assert!(dir.join("python/hello/__main__.py").exists(), "__main__.py should exist");
+    assert!(
+        !dir.join("python/hello/asatsuyu_prelude.py").exists(),
+        "unused prelude should be omitted",
+    );
 
     // Clean up.
     let _ = std::fs::remove_dir_all(&dir);
@@ -153,8 +157,8 @@ fn build_greet_asty() {
 
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-    let content =
-        std::fs::read_to_string(dir.join("greet/greet.py")).expect("generated .py should exist");
+    let content = std::fs::read_to_string(dir.join("python/greet/greet.py"))
+        .expect("generated .py should exist");
     assert!(content.contains("def greet(name: str) -> str:"), "content: {content}");
     assert!(content.contains("def add(x: int, y: int) -> int:"), "content: {content}");
 
@@ -182,15 +186,35 @@ fn build_requests_checked_ffi_emits_runtime_files() {
 
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
     assert!(
-        dir.join("requests_sample/asatsuyu_prelude.py").exists(),
+        dir.join("python/requests_sample/asatsuyu_prelude.py").exists(),
         "Checked FFI should emit prelude",
     );
     assert!(
-        dir.join("requests_sample/_asatsuyu_runtime.py").exists(),
+        dir.join("python/requests_sample/_asatsuyu_runtime.py").exists(),
         "Checked FFI should emit runtime shim",
     );
+    assert!(
+        dir.join("python/requests_sample/_asatsuyu_runtime.pyi").exists(),
+        "Checked FFI should emit type stubs",
+    );
+    assert!(dir.join("python/requests_sample/py.typed").exists(), "py.typed should exist");
+    assert!(dir.join("Cargo.toml").exists(), "maturin Cargo.toml should exist");
+    assert!(dir.join("src/lib.rs").exists(), "maturin src/lib.rs should exist");
 
-    let py = std::fs::read_to_string(dir.join("requests_sample/requests_sample.py")).unwrap();
+    let cargo_toml =
+        std::fs::read_to_string(dir.join("Cargo.toml")).expect("Cargo.toml should exist");
+    assert!(!cargo_toml.contains("PATH_TO_RUNTIME"), "runtime crate path should be resolved");
+    assert!(
+        cargo_toml.contains("crates/asatsuyu-runtime-python"),
+        "Cargo.toml should point at the runtime crate: {cargo_toml}",
+    );
+
+    let pyproject =
+        std::fs::read_to_string(dir.join("pyproject.toml")).expect("pyproject.toml should exist");
+    assert!(pyproject.contains("maturin"), "should use maturin backend: {pyproject}");
+
+    let py =
+        std::fs::read_to_string(dir.join("python/requests_sample/requests_sample.py")).unwrap();
     assert!(
         py.contains("_asatsuyu_runtime.call_function(_checked_runtime_requests, \"get\""),
         "generated python should use Checked FFI runtime: {py}",
@@ -214,8 +238,11 @@ fn run_requests_checked_ffi_with_local_stub_module() {
         "from python import requests\npub fn main() -> Int {\n  let response = requests.get(\"https://example.test\")\n  response.status_code\n}\n",
     )
     .unwrap();
+    // Stub requests module must be in python/ subdirectory (new layout).
+    let python_run_dir = run_dir.join("python");
+    std::fs::create_dir_all(&python_run_dir).unwrap();
     std::fs::write(
-        run_dir.join("requests.py"),
+        python_run_dir.join("requests.py"),
         "class Response:\n    def __init__(self, status_code: int, text: str):\n        self.status_code = status_code\n        self.text = text\n\n    def json(self):\n        return {\"ok\": True}\n\n\ndef _make_response(url: str):\n    return Response(204, f\"stub:{url}\")\n\n\ndef get(url: str):\n    return _make_response(url)\n\n\ndef post(url: str):\n    return _make_response(url)\n\n\ndef put(url: str):\n    return _make_response(url)\n\n\ndef delete(url: str):\n    return _make_response(url)\n",
     )
     .unwrap();
@@ -224,7 +251,7 @@ fn run_requests_checked_ffi_with_local_stub_module() {
     let output = asatsuyu().args(["run", &sample_str]).output().unwrap();
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-    let _ = std::fs::remove_file(run_dir.join("requests.py"));
+    let _ = std::fs::remove_file(python_run_dir.join("requests.py"));
     let _ = std::fs::remove_dir_all(src_dir);
 }
 

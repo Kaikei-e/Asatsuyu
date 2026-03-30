@@ -31,8 +31,11 @@ pyo3::create_exception!(
 
 // ── Module init ───────────────────────────────────────────────────
 
-#[pymodule]
-fn _asatsuyu_runtime(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+/// Register all runtime functions and exceptions into the given module.
+///
+/// Used by the generated maturin wrapper crate to delegate module
+/// initialization without duplicating function registration.
+pub fn register_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ffi_available, m)?)?;
     m.add_function(wrap_pyfunction!(import_module, m)?)?;
     m.add_function(wrap_pyfunction!(call_function, m)?)?;
@@ -40,6 +43,11 @@ fn _asatsuyu_runtime(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(normalize_exception, m)?)?;
     m.add("AsatsuyuError", py.get_type::<AsatsuyuError>())?;
     Ok(())
+}
+
+#[pymodule]
+fn _asatsuyu_runtime(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_module(py, m)
 }
 
 // ── Capability check ──────────────────────────────────────────────
