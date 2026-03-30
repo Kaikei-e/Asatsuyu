@@ -21,6 +21,7 @@ pub enum SyntaxKind {
     ElseKw,
     ImportKw,
     FromKw,
+    PythonKw,
     AsKw,
     TrueKw,
     FalseKw,
@@ -123,8 +124,10 @@ pub enum SyntaxKind {
     FnDef,
     /// Type definition: `type Name { Variant1, Variant2 }`
     TypeDef,
-    /// Import statement: `import foo from bar`
+    /// Import statement: `import foo.bar`
     ImportStmt,
+    /// Python FFI import: `from python import pathlib`
+    FromPythonImportStmt,
     /// Let binding: `let x = expr`
     LetStmt,
 
@@ -237,6 +240,7 @@ impl SyntaxKind {
                 | Self::ElseKw
                 | Self::ImportKw
                 | Self::FromKw
+                | Self::PythonKw
                 | Self::AsKw
                 | Self::TrueKw
                 | Self::FalseKw
@@ -315,6 +319,7 @@ mod tests {
             SyntaxKind::ElseKw,
             SyntaxKind::ImportKw,
             SyntaxKind::FromKw,
+            SyntaxKind::PythonKw,
             SyntaxKind::AsKw,
             SyntaxKind::TrueKw,
             SyntaxKind::FalseKw,
