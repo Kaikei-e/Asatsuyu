@@ -42,6 +42,8 @@ enum LexToken {
     ImportKw,
     #[token("from")]
     FromKw,
+    #[token("python")]
+    PythonKw,
     #[token("as")]
     AsKw,
     #[token("True")]
@@ -154,6 +156,7 @@ impl From<LexToken> for SyntaxKind {
             LexToken::ElseKw => SyntaxKind::ElseKw,
             LexToken::ImportKw => SyntaxKind::ImportKw,
             LexToken::FromKw => SyntaxKind::FromKw,
+            LexToken::PythonKw => SyntaxKind::PythonKw,
             LexToken::AsKw => SyntaxKind::AsKw,
             LexToken::TrueKw => SyntaxKind::TrueKw,
             LexToken::FalseKw => SyntaxKind::FalseKw,
