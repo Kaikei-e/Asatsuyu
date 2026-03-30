@@ -12,7 +12,9 @@ use asatsuyu_hir::ffi::{
     ChainResolver, FfiClass, FfiModule, FfiModuleResolver as _, FfiSignature, FfiSymbolKind,
     FfiTrustLevel, FfiType,
 };
-use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirImportKind, HirModule, SymbolTable};
+use asatsuyu_hir::{
+    DefData, DefId, DefKind, HirExpr, HirFnDef, HirImportKind, HirModule, SymbolTable,
+};
 use asatsuyu_syntax::{Diagnostic, DiagnosticCode, Span};
 use smol_str::SmolStr;
 
@@ -78,6 +80,8 @@ pub(crate) struct TyCheckCtx {
     unannotated_returns: HashSet<DefId>,
     /// Resolved FFI modules from Python imports.
     ffi_modules: HashMap<SmolStr, FfiModule>,
+    /// Synthetic symbol table used to allocate builtin collection type ids.
+    builtin_types: SymbolTable,
     diagnostics: Vec<Diagnostic>,
     /// Hindley-Milner inference state.
     infer: InferCtx,
@@ -85,16 +89,19 @@ pub(crate) struct TyCheckCtx {
 
 impl TyCheckCtx {
     pub(crate) fn new() -> Self {
-        Self {
+        let mut ctx = Self {
             type_env: HashMap::new(),
             adt_registry: HashMap::new(),
             ctor_to_type: HashMap::new(),
             type_name_to_def_id: HashMap::new(),
             unannotated_returns: HashSet::new(),
             ffi_modules: HashMap::new(),
+            builtin_types: SymbolTable::new(),
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
-        }
+        };
+        ctx.register_builtin_collection_types();
+        ctx
     }
 
     pub(crate) fn into_diagnostics(self) -> Vec<Diagnostic> {
@@ -103,6 +110,29 @@ impl TyCheckCtx {
 
     fn push_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
+    }
+
+    fn register_builtin_collection_types(&mut self) {
+        self.register_builtin_type("Option", &["a"]);
+        self.register_builtin_type("List", &["a"]);
+        self.register_builtin_type("Dict", &["k", "v"]);
+        self.register_builtin_type("Tuple", &[]);
+    }
+
+    fn register_builtin_type(&mut self, name: &str, type_params: &[&str]) {
+        let def_id = self.builtin_types.alloc(DefData {
+            name: SmolStr::from(name),
+            kind: DefKind::Type,
+            span: Span::dummy(),
+        });
+        self.type_name_to_def_id.insert(SmolStr::from(name), def_id);
+        self.adt_registry.insert(
+            def_id,
+            AdtDef {
+                type_params: type_params.iter().map(|param| SmolStr::from(*param)).collect(),
+                variants: vec![],
+            },
+        );
     }
 
     /// Resolve an HIR type expression to a [`Ty`].
@@ -607,12 +637,9 @@ impl TyCheckCtx {
 
         let Some(symbol) = ffi_module.symbols.iter().find(|s| s.name == *field) else {
             self.push_diagnostic(
-                Diagnostic::error(
-                    format!("module `{module_name}` has no symbol `{field}`"),
-                    span,
-                )
-                .with_code(DiagnosticCode::E0211)
-                .with_label(span, "not found in this module"),
+                Diagnostic::error(format!("module `{module_name}` has no symbol `{field}`"), span)
+                    .with_code(DiagnosticCode::E0211)
+                    .with_label(span, "not found in this module"),
             );
             return Ty::Error;
         };
@@ -623,9 +650,9 @@ impl TyCheckCtx {
         }
 
         match &symbol.kind {
-            FfiSymbolKind::Function(sig) => ffi_signature_to_ty(sig),
-            FfiSymbolKind::Class(cls) => ffi_class_constructor_to_ty(cls, module_name),
-            FfiSymbolKind::Constant(ffi_ty) => ffi_type_to_ty(ffi_ty),
+            FfiSymbolKind::Function(sig) => self.ffi_signature_to_ty(sig),
+            FfiSymbolKind::Class(cls) => self.ffi_class_constructor_to_ty(cls, module_name),
+            FfiSymbolKind::Constant(ffi_ty) => self.ffi_type_to_ty(ffi_ty),
         }
     }
 
@@ -654,12 +681,12 @@ impl TyCheckCtx {
 
         // Check properties first
         if let Some((_, prop_ty)) = cls.properties.iter().find(|(name, _)| name == field) {
-            return ffi_type_to_ty(prop_ty);
+            return self.ffi_type_to_ty(prop_ty);
         }
 
         // Then check methods
         if let Some((_, method_sig)) = cls.methods.iter().find(|(name, _)| name == field) {
-            return ffi_signature_to_ty(method_sig);
+            return self.ffi_signature_to_ty(method_sig);
         }
 
         self.push_diagnostic(
@@ -1263,45 +1290,65 @@ fn clone_symbol_table(st: &SymbolTable) -> SymbolTable {
 
 // ── FFI type conversion ──────────────────────────────────────────
 
-/// Convert an [`FfiType`] to an Asatsuyu [`Ty`].
-fn ffi_type_to_ty(ffi_ty: &FfiType) -> Ty {
-    match ffi_ty {
-        FfiType::Int => Ty::Primitive(PrimTy::Int),
-        FfiType::Float => Ty::Primitive(PrimTy::Float),
-        FfiType::Str => Ty::Primitive(PrimTy::String),
-        FfiType::Bool => Ty::Primitive(PrimTy::Bool),
-        FfiType::NoneType => Ty::Primitive(PrimTy::None),
-        FfiType::Named { module, name } => {
-            Ty::FfiInstance { module: module.clone(), class: name.clone() }
+impl TyCheckCtx {
+    /// Convert an [`FfiType`] to an Asatsuyu [`Ty`].
+    fn ffi_type_to_ty(&self, ffi_ty: &FfiType) -> Ty {
+        match ffi_ty {
+            FfiType::Int => Ty::Primitive(PrimTy::Int),
+            FfiType::Float => Ty::Primitive(PrimTy::Float),
+            FfiType::Str => Ty::Primitive(PrimTy::String),
+            FfiType::Bool => Ty::Primitive(PrimTy::Bool),
+            FfiType::NoneType => Ty::Primitive(PrimTy::None),
+            FfiType::Named { module, name } => {
+                Ty::FfiInstance { module: module.clone(), class: name.clone() }
+            }
+            FfiType::Any => {
+                Ty::Opaque { module: SmolStr::from("python"), symbol: SmolStr::from("Any") }
+            }
+            FfiType::List(inner) => self.builtin_named_ty("List", vec![self.ffi_type_to_ty(inner)]),
+            FfiType::Dict(key, value) => self.builtin_named_ty(
+                "Dict",
+                vec![self.ffi_type_to_ty(key), self.ffi_type_to_ty(value)],
+            ),
+            FfiType::Tuple(items) => self.builtin_named_ty(
+                "Tuple",
+                items.iter().map(|item| self.ffi_type_to_ty(item)).collect(),
+            ),
+            FfiType::Optional(inner) => {
+                self.builtin_named_ty("Option", vec![self.ffi_type_to_ty(inner)])
+            }
+            // Deferred FFI surface: keep these explicit until the type system grows
+            // a first-class representation for them.
+            FfiType::Bytes | FfiType::Union(_) => Ty::Error,
         }
-        FfiType::Any => {
-            Ty::Opaque { module: SmolStr::from("python"), symbol: SmolStr::from("Any") }
-        }
-        // Container types not yet in the Asatsuyu type system — map to Error.
-        FfiType::Bytes
-        | FfiType::List(_)
-        | FfiType::Dict(_, _)
-        | FfiType::Tuple(_)
-        | FfiType::Optional(_)
-        | FfiType::Union(_) => Ty::Error,
     }
-}
 
-/// Convert an [`FfiSignature`] to a `Ty::Function`.
-fn ffi_signature_to_ty(sig: &FfiSignature) -> Ty {
-    let params: Vec<Ty> = sig.params.iter().map(|p| ffi_type_to_ty(&p.ty)).collect();
-    let ret = Box::new(ffi_type_to_ty(&sig.return_ty));
-    Ty::Function { params, ret }
-}
+    fn builtin_named_ty(&self, name: &str, args: Vec<Ty>) -> Ty {
+        let def_id = *self
+            .type_name_to_def_id
+            .get(name)
+            .expect("builtin collection type should be registered");
+        Ty::Named { def_id, name: name.into(), args }
+    }
 
-/// Convert an [`FfiClass`] constructor to a `Ty::Function` returning `FfiInstance`.
-fn ffi_class_constructor_to_ty(cls: &FfiClass, module: &SmolStr) -> Ty {
-    match &cls.constructor {
-        Some(sig) => {
-            let params: Vec<Ty> = sig.params.iter().map(|p| ffi_type_to_ty(&p.ty)).collect();
-            let ret = Box::new(Ty::FfiInstance { module: module.clone(), class: cls.name.clone() });
-            Ty::Function { params, ret }
+    /// Convert an [`FfiSignature`] to a `Ty::Function`.
+    fn ffi_signature_to_ty(&self, sig: &FfiSignature) -> Ty {
+        let params: Vec<Ty> = sig.params.iter().map(|p| self.ffi_type_to_ty(&p.ty)).collect();
+        let ret = Box::new(self.ffi_type_to_ty(&sig.return_ty));
+        Ty::Function { params, ret }
+    }
+
+    /// Convert an [`FfiClass`] constructor to a `Ty::Function` returning `FfiInstance`.
+    fn ffi_class_constructor_to_ty(&self, cls: &FfiClass, module: &SmolStr) -> Ty {
+        match &cls.constructor {
+            Some(sig) => {
+                let params: Vec<Ty> =
+                    sig.params.iter().map(|p| self.ffi_type_to_ty(&p.ty)).collect();
+                let ret =
+                    Box::new(Ty::FfiInstance { module: module.clone(), class: cls.name.clone() });
+                Ty::Function { params, ret }
+            }
+            None => Ty::Error,
         }
-        None => Ty::Error,
     }
 }

@@ -1084,10 +1084,58 @@ mod tests {
     }
 
     #[test]
+    fn ffi_os_getenv_returns_option() {
+        let src = "from python import os\npub fn f() { os.getenv(\"HOME\") }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Named { name, args, .. } if name == "Option" && args.len() == 1),
+            "expected Option(String), got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
+    fn ffi_os_environ_is_typed_dict() {
+        let src = "from python import os\npub fn f() { os.environ }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Named { name, args, .. } if name == "Dict" && args.len() == 2),
+            "expected Dict(String, String), got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
     fn ffi_sys_exit() {
         let src = "from python import sys\npub fn f() { sys.exit(1) }";
         let result = thir_from_source(src);
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_sys_argv_is_typed_list() {
+        let src = "from python import sys\npub fn f() { sys.argv }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Named { name, args, .. } if name == "List" && args.len() == 1),
+            "expected List(String), got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
+    fn ffi_pathlib_parts_is_typed_tuple() {
+        let src = "from python import pathlib\npub fn f() { pathlib.Path(\".\").parts }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Named { name, args, .. } if name == "Tuple" && args.len() == 1),
+            "expected Tuple(String), got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
     }
 
     #[test]
