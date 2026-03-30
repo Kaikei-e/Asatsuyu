@@ -17,6 +17,7 @@ asatsuyu-ast            = { path = "crates/asatsuyu-ast" }
 asatsuyu-hir            = { path = "crates/asatsuyu-hir" }
 asatsuyu-ty             = { path = "crates/asatsuyu-ty" }
 asatsuyu-backend-python = { path = "crates/asatsuyu-backend-python" }
+asatsuyu-runtime-python = { path = "crates/asatsuyu-runtime-python" }
 
 # Lexer
 logos = "0.16"
@@ -35,6 +36,9 @@ smol_str = "0.3"
 
 # Arena allocation
 la-arena = "0.3"
+
+# PyO3 (runtime crate only)
+pyo3 = { version = "0.28" }
 
 # Testing
 insta = { version = "1.47", features = ["glob"] }

@@ -86,7 +86,7 @@ pub fn emit_package(
         emitter::Emitter::new(module)
     };
     em.emit();
-    let needs_prelude = em.has_try;
+    let needs_prelude = em.has_try || em.has_checked_ffi;
     let module_py = em.into_output();
 
     let pkg = &config.name;

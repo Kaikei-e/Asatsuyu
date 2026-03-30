@@ -406,7 +406,15 @@ impl TyCheckCtx {
         let custom_types = module.custom_types.clone();
         let imports = module.imports.clone();
         let symbol_table = clone_symbol_table(&module.symbol_table);
-        ThirModule { functions, custom_types, imports, symbol_table, span: module.span }
+        let ffi_modules = self.ffi_modules.clone();
+        ThirModule {
+            functions,
+            custom_types,
+            imports,
+            symbol_table,
+            ffi_modules,
+            span: module.span,
+        }
     }
 
     fn check_fn_def(&mut self, fn_def: &HirFnDef) -> ThirFnDef {

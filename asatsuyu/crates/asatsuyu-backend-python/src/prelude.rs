@@ -14,6 +14,11 @@ from dataclasses import dataclass
 import traceback as _tb
 
 
+class AsatsuyuError(RuntimeError):
+    """Runtime error raised by Asatsuyu Checked FFI validation."""
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class Ok[T]:
     value: T

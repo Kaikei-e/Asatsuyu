@@ -5,6 +5,7 @@
 use std::fmt::Write;
 
 use asatsuyu_ast::{BinOp, UnOp};
+use asatsuyu_hir::ffi::{FfiSymbolKind, FfiTrustLevel, FfiType};
 use asatsuyu_hir::{DefId, DefKind, HirCustomType, HirFieldType, HirTypeExpr, HirVariant};
 use asatsuyu_syntax::Span;
 use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirMatchArm, ThirModule, ThirPattern, Ty};
@@ -52,6 +53,17 @@ pub(crate) struct Emitter<'a> {
     try_counter: usize,
     /// Whether any `try` expression was emitted (to decide prelude import).
     pub(crate) has_try: bool,
+    /// Counter for generating unique Checked FFI temporary variable names.
+    checked_counter: usize,
+    /// Whether any Checked FFI wrapper was emitted (to decide prelude import).
+    pub(crate) has_checked_ffi: bool,
+}
+
+/// Metadata for a Checked FFI call target.
+struct CheckedFfiInfo {
+    module_name: SmolStr,
+    symbol_name: SmolStr,
+    return_ty: Option<FfiType>,
 }
 
 impl<'a> Emitter<'a> {
@@ -63,6 +75,8 @@ impl<'a> Emitter<'a> {
             line_offsets: None,
             try_counter: 0,
             has_try: false,
+            checked_counter: 0,
+            has_checked_ffi: false,
         }
     }
 
@@ -75,12 +89,19 @@ impl<'a> Emitter<'a> {
             line_offsets: Some(LineOffsets::from_source(source)),
             try_counter: 0,
             has_try: false,
+            checked_counter: 0,
+            has_checked_ffi: false,
         }
     }
 
     pub(crate) fn emit(&mut self) {
         // Pre-scan for try expressions to decide prelude imports.
         self.has_try = self.module.functions.iter().any(|f| expr_contains_try(&f.body));
+        // Pre-scan for Checked FFI calls.
+        self.has_checked_ffi = self.scan_for_checked_ffi();
+        if self.has_checked_ffi {
+            self.has_try = true; // Checked FFI wrappers use PyException
+        }
         self.emit_module();
     }
 
@@ -152,14 +173,20 @@ impl<'a> Emitter<'a> {
                     } else {
                         let _ = writeln!(self.output, "import {module_name} as {bound_name}");
                     }
+                    // Emit hasattr guards for Checked FFI symbols.
+                    self.emit_hasattr_guards(module_name, bound_name);
                 }
             }
         }
         if has_custom_types {
             self.output.push_str("from dataclasses import dataclass\n");
         }
-        if self.has_try {
-            self.output.push_str("from .asatsuyu_prelude import PyException\n");
+        if self.has_try || self.has_checked_ffi {
+            if self.has_checked_ffi {
+                self.output.push_str("from .asatsuyu_prelude import PyException, AsatsuyuError\n");
+            } else {
+                self.output.push_str("from .asatsuyu_prelude import PyException\n");
+            }
         }
 
         // 3. ADT definitions.
@@ -316,9 +343,24 @@ impl<'a> Emitter<'a> {
             self.emit_try_let_stmt(*binding, inner, expr.span());
             return;
         }
+        // `let x = <checked_ffi_call>` → try/except + validator
+        if let ThirExpr::Let { binding, value, .. } = expr
+            && let ThirExpr::Call { func, args, .. } = value.as_ref()
+            && let Some(info) = self.checked_ffi_target(func)
+        {
+            self.emit_checked_ffi_let_stmt(*binding, func, args, &info, expr.span());
+            return;
+        }
         // bare `try expr` as a statement
         if let ThirExpr::Try { expr: inner, .. } = expr {
             self.emit_try_bare_stmt(inner, expr.span());
+            return;
+        }
+        // bare `<checked_ffi_call>` as a statement
+        if let ThirExpr::Call { func, args, .. } = expr
+            && let Some(info) = self.checked_ffi_target(func)
+        {
+            self.emit_checked_ffi_bare_stmt(func, args, &info, expr.span());
             return;
         }
         self.write_indent();
@@ -337,6 +379,13 @@ impl<'a> Emitter<'a> {
         // `try expr` in return position → try/except, then return Ok(value)
         if let ThirExpr::Try { expr: inner, .. } = expr {
             self.emit_try_return_stmt(inner, expr.span());
+            return;
+        }
+        // Checked FFI call in return position → try/except + validator + return
+        if let ThirExpr::Call { func, args, .. } = expr
+            && let Some(info) = self.checked_ffi_target(func)
+        {
+            self.emit_checked_ffi_return_stmt(func, args, &info, expr.span());
             return;
         }
         self.write_indent();
@@ -546,6 +595,211 @@ impl<'a> Emitter<'a> {
         self.write_indent();
         self.output.push_str("return Error(PyException.from_exception(_e))\n");
         self.pop_indent();
+    }
+
+    // ── Checked FFI wrapper generation ─────────────────────────────
+
+    /// Determine whether a call targets a Checked FFI symbol.
+    fn checked_ffi_target(&self, func: &ThirExpr) -> Option<CheckedFfiInfo> {
+        let ThirExpr::FieldAccess { receiver, field, .. } = func else {
+            return None;
+        };
+        let Ty::FfiModule { module_name } = receiver.ty() else {
+            return None;
+        };
+        let ffi_mod = self.module.ffi_modules.get(module_name)?;
+        let sym = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
+        if sym.trust_level != Some(FfiTrustLevel::Checked) {
+            return None;
+        }
+        let return_ty = match &sym.kind {
+            FfiSymbolKind::Function(sig) => Some(sig.return_ty.clone()),
+            _ => None,
+        };
+        Some(CheckedFfiInfo {
+            module_name: module_name.clone(),
+            symbol_name: field.clone(),
+            return_ty,
+        })
+    }
+
+    /// Pre-scan: does the module contain any Checked FFI calls?
+    fn scan_for_checked_ffi(&self) -> bool {
+        self.module.functions.iter().any(|f| self.expr_contains_checked_ffi(&f.body))
+    }
+
+    fn expr_contains_checked_ffi(&self, expr: &ThirExpr) -> bool {
+        match expr {
+            ThirExpr::Call { func, args, .. } => {
+                if self.checked_ffi_target(func).is_some() {
+                    return true;
+                }
+                self.expr_contains_checked_ffi(func)
+                    || args.iter().any(|a| self.expr_contains_checked_ffi(a))
+            }
+            ThirExpr::Block { exprs, .. } => {
+                exprs.iter().any(|e| self.expr_contains_checked_ffi(e))
+            }
+            ThirExpr::Let { value, .. } => self.expr_contains_checked_ffi(value),
+            ThirExpr::If { condition, then_body, else_body, .. } => {
+                self.expr_contains_checked_ffi(condition)
+                    || self.expr_contains_checked_ffi(then_body)
+                    || else_body.as_ref().is_some_and(|e| self.expr_contains_checked_ffi(e))
+            }
+            ThirExpr::Match { subject, arms, .. } => {
+                self.expr_contains_checked_ffi(subject)
+                    || arms.iter().any(|a| self.expr_contains_checked_ffi(&a.body))
+            }
+            ThirExpr::BinaryOp { lhs, rhs, .. } => {
+                self.expr_contains_checked_ffi(lhs) || self.expr_contains_checked_ffi(rhs)
+            }
+            ThirExpr::UnaryOp { expr, .. } | ThirExpr::Lambda { body: expr, .. } => {
+                self.expr_contains_checked_ffi(expr)
+            }
+            ThirExpr::FieldAccess { receiver, .. } => self.expr_contains_checked_ffi(receiver),
+            ThirExpr::Try { expr, .. } => self.expr_contains_checked_ffi(expr),
+            ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
+        }
+    }
+
+    /// Emit `let x = <checked_ffi_call>` as try/except + validator + assignment.
+    fn emit_checked_ffi_let_stmt(
+        &mut self,
+        binding: DefId,
+        func: &ThirExpr,
+        args: &[ThirExpr],
+        info: &CheckedFfiInfo,
+        span: Span,
+    ) {
+        self.has_checked_ffi = true;
+        let tmp = format!("_checked_{}", self.checked_counter);
+        self.checked_counter += 1;
+        let name = self.module.symbol_table.get(binding).name.clone();
+
+        // try:
+        //     _checked_N = module.func(args)
+        self.write_indent();
+        self.output.push_str("try:");
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{tmp} = ");
+        self.emit_expr(func);
+        self.output.push('(');
+        self.emit_call_args(args);
+        self.output.push_str(")\n");
+        self.pop_indent();
+        self.emit_except_block();
+        self.emit_validator(&tmp, info);
+        // x = _checked_N
+        self.write_indent();
+        let _ = writeln!(self.output, "{name} = {tmp}");
+    }
+
+    /// Emit bare `<checked_ffi_call>` as a statement.
+    fn emit_checked_ffi_bare_stmt(
+        &mut self,
+        func: &ThirExpr,
+        args: &[ThirExpr],
+        info: &CheckedFfiInfo,
+        span: Span,
+    ) {
+        self.has_checked_ffi = true;
+        let tmp = format!("_checked_{}", self.checked_counter);
+        self.checked_counter += 1;
+
+        self.write_indent();
+        self.output.push_str("try:");
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{tmp} = ");
+        self.emit_expr(func);
+        self.output.push('(');
+        self.emit_call_args(args);
+        self.output.push_str(")\n");
+        self.pop_indent();
+        self.emit_except_block();
+        self.emit_validator(&tmp, info);
+    }
+
+    /// Emit Checked FFI call in return position.
+    fn emit_checked_ffi_return_stmt(
+        &mut self,
+        func: &ThirExpr,
+        args: &[ThirExpr],
+        info: &CheckedFfiInfo,
+        span: Span,
+    ) {
+        self.has_checked_ffi = true;
+        let tmp = format!("_checked_{}", self.checked_counter);
+        self.checked_counter += 1;
+
+        self.write_indent();
+        self.output.push_str("try:");
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{tmp} = ");
+        self.emit_expr(func);
+        self.output.push('(');
+        self.emit_call_args(args);
+        self.output.push_str(")\n");
+        self.pop_indent();
+        self.emit_except_block();
+        self.emit_validator(&tmp, info);
+        self.write_indent();
+        let _ = writeln!(self.output, "return {tmp}");
+    }
+
+    /// Emit isinstance validator for a Checked FFI return value.
+    fn emit_validator(&mut self, tmp: &str, info: &CheckedFfiInfo) {
+        let Some(ref return_ty) = info.return_ty else {
+            return;
+        };
+        let Some(check) = ffi_type_to_isinstance(return_ty) else {
+            return;
+        };
+        let qual = format!("{}.{}", info.module_name, info.symbol_name);
+        self.write_indent();
+        let _ = writeln!(self.output, "if not isinstance({tmp}, {check}):");
+        self.push_indent();
+        self.write_indent();
+        let _ = writeln!(
+            self.output,
+            "raise AsatsuyuError(f\"{qual} returned unexpected type: {{type({tmp}).__name__}}\")"
+        );
+        self.pop_indent();
+    }
+
+    /// Emit hasattr guards for Checked FFI symbols after a module import.
+    fn emit_hasattr_guards(&mut self, module_name: &SmolStr, bound_name: &SmolStr) {
+        let Some(ffi_mod) = self.module.ffi_modules.get(module_name.as_str()) else {
+            return;
+        };
+        for sym in &ffi_mod.symbols {
+            if sym.trust_level == Some(FfiTrustLevel::Checked) {
+                let sym_name = &sym.name;
+                let _ = writeln!(self.output, "if not hasattr({bound_name}, '{sym_name}'):");
+                let _ = writeln!(
+                    self.output,
+                    "    raise AsatsuyuError(\"{module_name}.{sym_name}: symbol not available at runtime (stub/runtime mismatch)\")"
+                );
+            }
+        }
+    }
+
+    /// Emit call arguments (comma-separated).
+    fn emit_call_args(&mut self, args: &[ThirExpr]) {
+        for (i, arg) in args.iter().enumerate() {
+            if i > 0 {
+                self.output.push_str(", ");
+            }
+            self.emit_expr(arg);
+        }
     }
 
     fn emit_match_stmt(&mut self, subject: &ThirExpr, arms: &[ThirMatchArm], is_return: bool) {
@@ -791,5 +1045,24 @@ fn expr_contains_try(expr: &ThirExpr) -> bool {
         ThirExpr::Lambda { body, .. } => expr_contains_try(body),
         ThirExpr::FieldAccess { receiver, .. } => expr_contains_try(receiver),
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
+    }
+}
+
+/// Map an [`FfiType`] to its Python `isinstance` check expression.
+///
+/// Returns `None` for complex types where MVP skips validation.
+fn ffi_type_to_isinstance(ty: &FfiType) -> Option<&'static str> {
+    match ty {
+        FfiType::Any => Some("(dict, list, str, int, float, bool, type(None))"),
+        FfiType::Int => Some("int"),
+        FfiType::Float => Some("(int, float)"),
+        FfiType::Str => Some("str"),
+        FfiType::Bool => Some("bool"),
+        FfiType::NoneType => Some("type(None)"),
+        FfiType::Bytes => Some("bytes"),
+        FfiType::List(_) => Some("list"),
+        FfiType::Dict(_, _) => Some("dict"),
+        FfiType::Tuple(_) => Some("tuple"),
+        FfiType::Optional(_) | FfiType::Union(_) | FfiType::Named { .. } => None,
     }
 }

@@ -3,9 +3,11 @@
 //! Every [`ThirExpr`] carries a resolved [`Ty`], enabling type-directed code
 //! generation in the Python backend.
 
+use std::collections::HashMap;
 use std::fmt;
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp, Visibility};
+use asatsuyu_hir::ffi::FfiModule;
 use asatsuyu_hir::{DefId, HirCustomType, HirImport, SymbolTable};
 use asatsuyu_syntax::Span;
 use smol_str::SmolStr;
@@ -141,6 +143,9 @@ pub struct ThirModule {
     pub imports: Vec<HirImport>,
     /// Re-exported from HIR for downstream convenience.
     pub symbol_table: SymbolTable,
+    /// FFI module metadata (trust levels, signatures) for backend code generation.
+    /// Populated by the type checker from resolved Python imports.
+    pub ffi_modules: HashMap<SmolStr, FfiModule>,
     pub span: Span,
 }
 

@@ -1,0 +1,24 @@
+[package]
+name = "asatsuyu-runtime-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Thin PyO3 runtime boundary for Asatsuyu Checked FFI"
+
+[lib]
+name = "_asatsuyu_runtime"
+crate-type = ["cdylib", "rlib"]
+
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+
+[dependencies]
+pyo3 = { workspace = true }
