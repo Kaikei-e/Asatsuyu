@@ -29,6 +29,14 @@ pub enum DiagnosticCode {
     E0206,
     /// Logical operator requires Bool.
     E0207,
+    /// Unknown Python module in FFI import.
+    E0208,
+    /// Field access on opaque FFI type.
+    E0209,
+    /// Field access on type that does not support it.
+    E0210,
+    /// Unknown member on FFI module or class.
+    E0211,
 
     // ── Match / pattern ────────────────────────────────────────────
     /// Non-exhaustive match.
@@ -54,6 +62,10 @@ impl fmt::Display for DiagnosticCode {
             Self::E0205 => write!(f, "E0205"),
             Self::E0206 => write!(f, "E0206"),
             Self::E0207 => write!(f, "E0207"),
+            Self::E0208 => write!(f, "E0208"),
+            Self::E0209 => write!(f, "E0209"),
+            Self::E0210 => write!(f, "E0210"),
+            Self::E0211 => write!(f, "E0211"),
             Self::E0300 => write!(f, "E0300"),
             Self::E0301 => write!(f, "E0301"),
             Self::E0302 => write!(f, "E0302"),

@@ -549,12 +549,15 @@ fn prefix_binding_power(op: SyntaxKind) -> Option<u8> {
     }
 }
 
-/// Binding power for postfix operators (call expressions).
+/// Binding power for postfix operators (call and field access).
 ///
 /// Returns `Some(left_bp)` for postfix operators, `None` otherwise.
+/// Dot (field access) binds tighter than `LParen` (call) so that
+/// `pathlib.Path("x")` parses as `Call(FieldAccess(pathlib, Path), args)`.
 fn postfix_binding_power(op: SyntaxKind) -> Option<u8> {
     match op {
         SyntaxKind::LParen => Some(13),
+        SyntaxKind::Dot => Some(15),
         _ => None,
     }
 }
@@ -627,14 +630,25 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
     loop {
         let op = p.current();
 
-        // Postfix: call expression `expr(args)`
+        // Postfix: call expression `expr(args)` or field access `expr.field`
         if let Some(left_bp) = postfix_binding_power(op) {
             if left_bp < min_bp {
                 break;
             }
-            p.start_node_at(checkpoint, SyntaxKind::CallExpr);
-            parse_arg_list(p);
-            p.finish_node();
+            match op {
+                SyntaxKind::Dot => {
+                    p.start_node_at(checkpoint, SyntaxKind::FieldAccessExpr);
+                    p.bump(); // consume `.`
+                    p.expect(SyntaxKind::Ident);
+                    p.finish_node();
+                }
+                SyntaxKind::LParen => {
+                    p.start_node_at(checkpoint, SyntaxKind::CallExpr);
+                    parse_arg_list(p);
+                    p.finish_node();
+                }
+                _ => break,
+            }
             continue;
         }
 

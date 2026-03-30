@@ -51,6 +51,15 @@ pub enum Ty {
     Function { params: Vec<Ty>, ret: Box<Ty> },
     /// A named (ADT) type: `Option(Int)`, `Result(String, Error)`.
     Named { def_id: DefId, name: SmolStr, args: Vec<Ty> },
+    /// An FFI module namespace (e.g., `pathlib`, `os`).
+    ///
+    /// Only field access is permitted on this type — it represents the
+    /// module itself, not a value within it.
+    FfiModule { module_name: SmolStr },
+    /// An instance of an FFI class (e.g., a `pathlib.Path` value).
+    ///
+    /// Field access resolves to class properties and methods via the FFI model.
+    FfiInstance { module: SmolStr, class: SmolStr },
     /// An opaque FFI type from an `Unsafe` symbol.
     ///
     /// Cannot be destructured, pattern-matched, or field-accessed.
@@ -90,6 +99,8 @@ impl fmt::Display for Ty {
                 }
                 Ok(())
             }
+            Self::FfiModule { module_name } => write!(f, "module({module_name})"),
+            Self::FfiInstance { module, class } => write!(f, "{module}.{class}"),
             Self::Opaque { module, symbol } => write!(f, "PyOpaque[{module}.{symbol}]"),
             Self::Var(id) => write!(f, "?{}", id.0),
             Self::Error => f.write_str("<error>"),
@@ -245,6 +256,8 @@ pub enum ThirExpr {
     Let { binding: DefId, value: Box<ThirExpr>, ty: Ty, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda { params: Vec<ThirParam>, body: Box<ThirExpr>, ty: Ty, span: Span },
+    /// A field access: `expr.field`.
+    FieldAccess { receiver: Box<ThirExpr>, field: SmolStr, ty: Ty, span: Span },
 }
 
 impl ThirExpr {
@@ -261,7 +274,8 @@ impl ThirExpr {
             | Self::If { ty, .. }
             | Self::Match { ty, .. }
             | Self::Let { ty, .. }
-            | Self::Lambda { ty, .. } => ty,
+            | Self::Lambda { ty, .. }
+            | Self::FieldAccess { ty, .. } => ty,
         }
     }
 
@@ -278,7 +292,8 @@ impl ThirExpr {
             | Self::If { span, .. }
             | Self::Match { span, .. }
             | Self::Let { span, .. }
-            | Self::Lambda { span, .. } => *span,
+            | Self::Lambda { span, .. }
+            | Self::FieldAccess { span, .. } => *span,
         }
     }
 }

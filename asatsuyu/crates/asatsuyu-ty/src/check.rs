@@ -8,7 +8,11 @@
 use std::collections::{HashMap, HashSet};
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp};
-use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirModule, SymbolTable};
+use asatsuyu_hir::ffi::{
+    ChainResolver, FfiClass, FfiModule, FfiModuleResolver as _, FfiSignature, FfiSymbolKind,
+    FfiTrustLevel, FfiType,
+};
+use asatsuyu_hir::{DefId, HirExpr, HirFnDef, HirImportKind, HirModule, SymbolTable};
 use asatsuyu_syntax::{Diagnostic, DiagnosticCode, Span};
 use smol_str::SmolStr;
 
@@ -72,6 +76,8 @@ pub(crate) struct TyCheckCtx {
     type_name_to_def_id: HashMap<SmolStr, DefId>,
     /// Functions whose return type was not explicitly annotated.
     unannotated_returns: HashSet<DefId>,
+    /// Resolved FFI modules from Python imports.
+    ffi_modules: HashMap<SmolStr, FfiModule>,
     diagnostics: Vec<Diagnostic>,
     /// Hindley-Milner inference state.
     infer: InferCtx,
@@ -85,6 +91,7 @@ impl TyCheckCtx {
             ctor_to_type: HashMap::new(),
             type_name_to_def_id: HashMap::new(),
             unannotated_returns: HashSet::new(),
+            ffi_modules: HashMap::new(),
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
         }
@@ -236,6 +243,27 @@ impl TyCheckCtx {
         }
         for fn_def in &module.functions {
             self.collect_fn_signature(fn_def);
+        }
+
+        // Register FFI module types for Python imports.
+        let ffi_resolver = ChainResolver::new();
+        for import in &module.imports {
+            if let HirImportKind::Python { module_name } = &import.kind {
+                if let Some(ffi_module) = ffi_resolver.resolve(module_name.as_str()) {
+                    let ty = Ty::FfiModule { module_name: module_name.clone() };
+                    self.type_env.insert(import.def_id, TypeScheme::mono(ty));
+                    self.ffi_modules.insert(module_name.clone(), ffi_module);
+                } else {
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            format!("unknown Python module `{module_name}`"),
+                            import.span,
+                        )
+                        .with_code(DiagnosticCode::E0208)
+                        .with_label(import.span, "not found in FFI registry"),
+                    );
+                }
+            }
         }
     }
 
@@ -466,7 +494,180 @@ impl TyCheckCtx {
             HirExpr::Lambda { params, return_type, body, span } => {
                 self.check_lambda(params, return_type.as_ref(), body, *span)
             }
+
+            HirExpr::FieldAccess { receiver, field, span } => {
+                self.check_field_access(receiver, field, *span)
+            }
         }
+    }
+
+    // ── FFI arity ──────────────────────────────────────────────────
+
+    /// For an FFI call, return the minimum number of required arguments.
+    ///
+    /// Returns `None` for non-FFI calls (standard arity check applies).
+    fn ffi_min_arity(&self, func: &HirExpr) -> Option<usize> {
+        let HirExpr::FieldAccess { receiver, field, .. } = func else {
+            return None;
+        };
+        // Need the receiver's type to determine the FFI module/class.
+        // We check the HIR directly — resolve the receiver DefId if it's a Var.
+        let (module_name, symbol_name) = self.ffi_call_target(receiver, field)?;
+        let ffi_module = self.ffi_modules.get(&module_name)?;
+        let symbol = ffi_module.symbols.iter().find(|s| s.name == *symbol_name)?;
+        match &symbol.kind {
+            FfiSymbolKind::Function(sig) => {
+                Some(sig.params.iter().filter(|p| !p.has_default).count())
+            }
+            FfiSymbolKind::Class(cls) => cls
+                .constructor
+                .as_ref()
+                .map(|sig| sig.params.iter().filter(|p| !p.has_default).count()),
+            FfiSymbolKind::Constant(_) => None,
+        }
+    }
+
+    /// Determine the FFI module name and symbol name for a field access call.
+    fn ffi_call_target<'a>(
+        &self,
+        receiver: &'a HirExpr,
+        field: &'a SmolStr,
+    ) -> Option<(SmolStr, &'a SmolStr)> {
+        // Direct module field access: pathlib.Path or os.getcwd
+        if let HirExpr::Var(def_id, _) = receiver
+            && let Some(scheme) = self.type_env.get(def_id)
+            && let Ty::FfiModule { module_name } = &scheme.ty
+        {
+            return Some((module_name.clone(), field));
+        }
+        // Instance method call: path.exists — need to find the module/class
+        // from the variable's type, which is not yet resolved at this HIR level.
+        // For now, instance method min_arity is handled by letting the function
+        // type include all params (methods already omit self in builtins.rs).
+        // A more thorough approach would trace the receiver's type, but the
+        // method signatures in builtins.rs mostly have 0 required params.
+        None
+    }
+
+    // ── Field access ───────────────────────────────────────────────
+
+    fn check_field_access(&mut self, receiver: &HirExpr, field: &SmolStr, span: Span) -> ThirExpr {
+        let checked_receiver = self.check_expr(receiver);
+        let receiver_ty = self.infer.resolve(checked_receiver.ty());
+
+        let ty = match &receiver_ty {
+            Ty::FfiModule { module_name } => {
+                self.resolve_ffi_module_field(module_name, field, span)
+            }
+            Ty::FfiInstance { module, class } => {
+                self.resolve_ffi_instance_field(module, class, field, span)
+            }
+            Ty::Opaque { .. } => {
+                self.push_diagnostic(
+                    Diagnostic::error(
+                        format!("cannot access field `{field}` on opaque type `{receiver_ty}`"),
+                        span,
+                    )
+                    .with_code(DiagnosticCode::E0209)
+                    .with_label(span, "opaque types do not allow field access"),
+                );
+                Ty::Error
+            }
+            Ty::Error => Ty::Error,
+            _ => {
+                self.push_diagnostic(
+                    Diagnostic::error(
+                        format!("type `{receiver_ty}` does not support field access"),
+                        span,
+                    )
+                    .with_code(DiagnosticCode::E0210)
+                    .with_label(span, "field access not supported"),
+                );
+                Ty::Error
+            }
+        };
+
+        ThirExpr::FieldAccess {
+            receiver: Box::new(checked_receiver),
+            field: field.clone(),
+            ty,
+            span,
+        }
+    }
+
+    fn resolve_ffi_module_field(
+        &mut self,
+        module_name: &SmolStr,
+        field: &SmolStr,
+        span: Span,
+    ) -> Ty {
+        let Some(ffi_module) = self.ffi_modules.get(module_name).cloned() else {
+            return Ty::Error;
+        };
+
+        let Some(symbol) = ffi_module.symbols.iter().find(|s| s.name == *field) else {
+            self.push_diagnostic(
+                Diagnostic::error(
+                    format!("module `{module_name}` has no symbol `{field}`"),
+                    span,
+                )
+                .with_code(DiagnosticCode::E0211)
+                .with_label(span, "not found in this module"),
+            );
+            return Ty::Error;
+        };
+
+        // If symbol is Unsafe trust, return Opaque
+        if symbol.trust_level == Some(FfiTrustLevel::Unsafe) {
+            return Ty::Opaque { module: module_name.clone(), symbol: field.clone() };
+        }
+
+        match &symbol.kind {
+            FfiSymbolKind::Function(sig) => ffi_signature_to_ty(sig),
+            FfiSymbolKind::Class(cls) => ffi_class_constructor_to_ty(cls, module_name),
+            FfiSymbolKind::Constant(ffi_ty) => ffi_type_to_ty(ffi_ty),
+        }
+    }
+
+    fn resolve_ffi_instance_field(
+        &mut self,
+        module: &SmolStr,
+        class: &SmolStr,
+        field: &SmolStr,
+        span: Span,
+    ) -> Ty {
+        let Some(ffi_module) = self.ffi_modules.get(module).cloned() else {
+            return Ty::Error;
+        };
+
+        let Some(cls) = ffi_module.symbols.iter().find_map(|s| {
+            if s.name == *class
+                && let FfiSymbolKind::Class(cls) = &s.kind
+            {
+                Some(cls.clone())
+            } else {
+                None
+            }
+        }) else {
+            return Ty::Error;
+        };
+
+        // Check properties first
+        if let Some((_, prop_ty)) = cls.properties.iter().find(|(name, _)| name == field) {
+            return ffi_type_to_ty(prop_ty);
+        }
+
+        // Then check methods
+        if let Some((_, method_sig)) = cls.methods.iter().find(|(name, _)| name == field) {
+            return ffi_signature_to_ty(method_sig);
+        }
+
+        self.push_diagnostic(
+            Diagnostic::error(format!("`{module}.{class}` has no member `{field}`"), span)
+                .with_code(DiagnosticCode::E0211)
+                .with_label(span, "not found"),
+        );
+        Ty::Error
     }
 
     // ── Lambda ─────────────────────────────────────────────────────
@@ -544,9 +745,16 @@ impl TyCheckCtx {
 
         let checked_args: Vec<ThirExpr> = args.iter().map(|a| self.check_expr(a)).collect();
 
+        // Compute minimum arity for FFI calls with default parameters.
+        let min_arity = self.ffi_min_arity(func);
+
         match func_ty {
             Ty::Function { params, ret } => {
-                if args.len() == params.len() {
+                let max_arity = params.len();
+                let effective_min = min_arity.unwrap_or(max_arity);
+
+                if args.len() >= effective_min && args.len() <= max_arity {
+                    // Unify provided arguments with their corresponding param types.
                     for (i, (arg, param_ty)) in checked_args.iter().zip(params.iter()).enumerate() {
                         let arg_ty = self.infer.resolve(arg.ty());
                         self.unify_or_error(
@@ -558,11 +766,15 @@ impl TyCheckCtx {
                     }
                 } else {
                     // E0203: Argument count mismatch.
+                    let arity_msg = if effective_min == max_arity {
+                        format!("{max_arity}")
+                    } else {
+                        format!("{effective_min}..{max_arity}")
+                    };
                     self.push_diagnostic(
                         Diagnostic::error(
                             format!(
-                                "function expects {} argument(s), but {} were given",
-                                params.len(),
+                                "function expects {arity_msg} argument(s), but {} were given",
                                 args.len(),
                             ),
                             span,
@@ -571,7 +783,7 @@ impl TyCheckCtx {
                         .with_label(span, format!("{} argument(s) given here", args.len()))
                         .with_secondary_label(
                             func.span(),
-                            format!("function expects {} parameter(s)", params.len()),
+                            format!("function expects {arity_msg} parameter(s)"),
                         ),
                     );
                 }
@@ -1047,4 +1259,49 @@ fn clone_symbol_table(st: &SymbolTable) -> SymbolTable {
         new.alloc(data.clone());
     }
     new
+}
+
+// ── FFI type conversion ──────────────────────────────────────────
+
+/// Convert an [`FfiType`] to an Asatsuyu [`Ty`].
+fn ffi_type_to_ty(ffi_ty: &FfiType) -> Ty {
+    match ffi_ty {
+        FfiType::Int => Ty::Primitive(PrimTy::Int),
+        FfiType::Float => Ty::Primitive(PrimTy::Float),
+        FfiType::Str => Ty::Primitive(PrimTy::String),
+        FfiType::Bool => Ty::Primitive(PrimTy::Bool),
+        FfiType::NoneType => Ty::Primitive(PrimTy::None),
+        FfiType::Named { module, name } => {
+            Ty::FfiInstance { module: module.clone(), class: name.clone() }
+        }
+        FfiType::Any => {
+            Ty::Opaque { module: SmolStr::from("python"), symbol: SmolStr::from("Any") }
+        }
+        // Container types not yet in the Asatsuyu type system — map to Error.
+        FfiType::Bytes
+        | FfiType::List(_)
+        | FfiType::Dict(_, _)
+        | FfiType::Tuple(_)
+        | FfiType::Optional(_)
+        | FfiType::Union(_) => Ty::Error,
+    }
+}
+
+/// Convert an [`FfiSignature`] to a `Ty::Function`.
+fn ffi_signature_to_ty(sig: &FfiSignature) -> Ty {
+    let params: Vec<Ty> = sig.params.iter().map(|p| ffi_type_to_ty(&p.ty)).collect();
+    let ret = Box::new(ffi_type_to_ty(&sig.return_ty));
+    Ty::Function { params, ret }
+}
+
+/// Convert an [`FfiClass`] constructor to a `Ty::Function` returning `FfiInstance`.
+fn ffi_class_constructor_to_ty(cls: &FfiClass, module: &SmolStr) -> Ty {
+    match &cls.constructor {
+        Some(sig) => {
+            let params: Vec<Ty> = sig.params.iter().map(|p| ffi_type_to_ty(&p.ty)).collect();
+            let ret = Box::new(Ty::FfiInstance { module: module.clone(), class: cls.name.clone() });
+            Ty::Function { params, ret }
+        }
+        None => Ty::Error,
+    }
 }

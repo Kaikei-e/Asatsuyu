@@ -1018,4 +1018,132 @@ mod tests {
         let ty = Ty::Opaque { module: "json".into(), symbol: "loads".into() };
         assert_eq!(ty.to_string(), "PyOpaque[json.loads]");
     }
+
+    // ── FFI: Issue 40 ──────────────────────────────────────────────
+
+    #[test]
+    fn ffi_pathlib_import_has_ffi_module_type() {
+        let result = thir_from_source("from python import pathlib\npub fn f() { pathlib }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        // The body should reference pathlib with FfiModule type
+        let body_ty = f.body.ty();
+        assert!(
+            matches!(body_ty, Ty::FfiModule { module_name } if module_name == "pathlib"),
+            "expected FfiModule, got: {body_ty:?}",
+        );
+    }
+
+    #[test]
+    fn ffi_pathlib_path_constructor_call() {
+        let src = "from python import pathlib\npub fn f() { pathlib.Path(\".\") }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let f = &result.module.functions[0];
+        let body_ty = f.body.ty();
+        assert!(
+            matches!(body_ty, Ty::FfiInstance { module, class } if module == "pathlib" && class == "Path"),
+            "expected FfiInstance(pathlib.Path), got: {body_ty:?}",
+        );
+    }
+
+    #[test]
+    fn ffi_pathlib_path_no_args() {
+        // Path() with no args should also work (path param has default)
+        let src = "from python import pathlib\npub fn f() { pathlib.Path() }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_pathlib_path_property() {
+        let src = "from python import pathlib\npub fn f() -> String { let p = pathlib.Path(\".\"); p.name }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_pathlib_path_method() {
+        let src = "from python import pathlib\npub fn f() -> Bool { let p = pathlib.Path(\".\"); p.exists() }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_os_getcwd() {
+        let src = "from python import os\npub fn f() -> String { os.getcwd() }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_os_sep_constant() {
+        let src = "from python import os\npub fn f() -> String { os.sep }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_sys_exit() {
+        let src = "from python import sys\npub fn f() { sys.exit(1) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn ffi_unknown_module_error() {
+        let src = "from python import nonexistent\npub fn f() { nonexistent.foo() }";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0208)),
+            "expected E0208, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn ffi_unknown_member_error() {
+        let src = "from python import pathlib\npub fn f() { pathlib.NonExistent }";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0211)),
+            "expected E0211, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn ffi_field_access_on_int_error() {
+        let src = "pub fn f() { 42.foo }";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0210)),
+            "expected E0210, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn display_ffi_module() {
+        let ty = Ty::FfiModule { module_name: "pathlib".into() };
+        assert_eq!(ty.to_string(), "module(pathlib)");
+    }
+
+    #[test]
+    fn display_ffi_instance() {
+        let ty = Ty::FfiInstance { module: "pathlib".into(), class: "Path".into() };
+        assert_eq!(ty.to_string(), "pathlib.Path");
+    }
 }

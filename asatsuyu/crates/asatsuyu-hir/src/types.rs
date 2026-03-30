@@ -289,6 +289,8 @@ pub enum HirExpr {
         body: Box<HirExpr>,
         span: Span,
     },
+    /// A field access: `expr.field`.
+    FieldAccess { receiver: Box<HirExpr>, field: SmolStr, span: Span },
 }
 
 impl HirExpr {
@@ -305,7 +307,8 @@ impl HirExpr {
             | Self::If { span, .. }
             | Self::Match { span, .. }
             | Self::Let { span, .. }
-            | Self::Lambda { span, .. } => *span,
+            | Self::Lambda { span, .. }
+            | Self::FieldAccess { span, .. } => *span,
         }
     }
 }

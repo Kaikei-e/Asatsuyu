@@ -398,6 +398,11 @@ impl<'a> Emitter<'a> {
                 self.output.push_str(": ");
                 self.emit_expr(body);
             }
+            ThirExpr::FieldAccess { receiver, field, .. } => {
+                self.emit_expr(receiver);
+                self.output.push('.');
+                self.output.push_str(field.as_str());
+            }
         }
     }
 
@@ -556,6 +561,8 @@ fn ty_to_python(ty: &Ty) -> String {
                 format!("{name}[{}]", arg_strs.join(", "))
             }
         }
+        Ty::FfiModule { module_name } => module_name.to_string(),
+        Ty::FfiInstance { module, class } => format!("{module}.{class}"),
         Ty::Opaque { module, symbol } => format!("\"{module}.{symbol}\""),
         Ty::Function { .. } | Ty::Var(_) | Ty::Error => "Any".into(),
     }

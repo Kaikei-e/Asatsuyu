@@ -453,6 +453,15 @@ impl HirLowerCtx {
             Expr::Lambda { params, return_type, body, span } => {
                 self.lower_lambda(params, return_type.as_ref(), body, *span)
             }
+
+            Expr::FieldAccess { receiver, field, span } => {
+                let hir_receiver = self.lower_expr(receiver);
+                HirExpr::FieldAccess {
+                    receiver: Box::new(hir_receiver),
+                    field: field.name.clone(),
+                    span: *span,
+                }
+            }
         }
     }
 

@@ -1354,4 +1354,55 @@ _ -> 0 } }"#;
         let fn_count = tree.matches("FnDef@").count();
         assert_eq!(fn_count, 2, "both FnDefs should parse, got {fn_count}:\n{tree}");
     }
+
+    // ── Field access (Issue 40) ────────────────────────────────────
+
+    #[test]
+    fn parse_field_access_simple() {
+        let source = "fn f() { pathlib.Path }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("FieldAccessExpr"), "tree should contain FieldAccessExpr:\n{tree}");
+    }
+
+    #[test]
+    fn parse_field_access_call() {
+        // pathlib.Path("x") should parse as Call(FieldAccess(pathlib, Path), args)
+        let source = r#"fn f() { pathlib.Path("x") }"#;
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("CallExpr"), "tree should contain CallExpr:\n{tree}");
+        assert!(tree.contains("FieldAccessExpr"), "tree should contain FieldAccessExpr:\n{tree}");
+    }
+
+    #[test]
+    fn parse_field_access_chain() {
+        // a.b.c should be left-associative: FieldAccess(FieldAccess(a, b), c)
+        let source = "fn f() { a.b.c }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        let fa_count = tree.matches("FieldAccessExpr@").count();
+        assert_eq!(fa_count, 2, "expected 2 FieldAccessExpr for a.b.c, got {fa_count}:\n{tree}");
+    }
+
+    #[test]
+    fn parse_field_access_method_call() {
+        // path.exists() = Call(FieldAccess(path, exists), ())
+        let source = "fn f() { path.exists() }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("CallExpr"), "tree should contain CallExpr:\n{tree}");
+        assert!(tree.contains("FieldAccessExpr"), "tree should contain FieldAccessExpr:\n{tree}");
+    }
+
+    #[test]
+    fn parse_field_access_lossless() {
+        let source = "fn f() { a.b.c }";
+        let result = parse(FID, source);
+        assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
+    }
 }

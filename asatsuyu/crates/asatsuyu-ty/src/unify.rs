@@ -70,7 +70,11 @@ impl InferCtx {
                 params.iter().any(|p| self.occurs_in(var, p)) || self.occurs_in(var, &ret)
             }
             Ty::Named { args, .. } => args.iter().any(|a| self.occurs_in(var, a)),
-            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => false,
+            Ty::Primitive(_)
+            | Ty::FfiModule { .. }
+            | Ty::FfiInstance { .. }
+            | Ty::Opaque { .. }
+            | Ty::Error => false,
         }
     }
 
@@ -90,7 +94,11 @@ impl InferCtx {
                 let args = args.iter().map(|a| self.resolve(a)).collect();
                 Ty::Named { def_id: *def_id, name: name.clone(), args }
             }
-            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => ty.clone(),
+            Ty::Primitive(_)
+            | Ty::FfiModule { .. }
+            | Ty::FfiInstance { .. }
+            | Ty::Opaque { .. }
+            | Ty::Error => ty.clone(),
         }
     }
 
@@ -119,7 +127,11 @@ impl InferCtx {
                 }
                 s
             }
-            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => HashSet::new(),
+            Ty::Primitive(_)
+            | Ty::FfiModule { .. }
+            | Ty::FfiInstance { .. }
+            | Ty::Opaque { .. }
+            | Ty::Error => HashSet::new(),
         }
     }
 
@@ -155,7 +167,11 @@ impl InferCtx {
                 name: name.clone(),
                 args: args.iter().map(|a| Self::apply_mapping(mapping, a)).collect(),
             },
-            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => ty.clone(),
+            Ty::Primitive(_)
+            | Ty::FfiModule { .. }
+            | Ty::FfiInstance { .. }
+            | Ty::Opaque { .. }
+            | Ty::Error => ty.clone(),
         }
     }
 
@@ -229,6 +245,27 @@ impl InferCtx {
                     self.unify(x, y)?;
                 }
                 Ok(())
+            }
+
+            // FFI module types: match only if module names are identical.
+            (Ty::FfiModule { module_name: m1 }, Ty::FfiModule { module_name: m2 }) => {
+                if m1 == m2 {
+                    Ok(())
+                } else {
+                    Err(UnifyError { kind: UnifyErrorKind::Mismatch { expected: a, found: b } })
+                }
+            }
+
+            // FFI instance types: match only if module and class are identical.
+            (
+                Ty::FfiInstance { module: m1, class: c1 },
+                Ty::FfiInstance { module: m2, class: c2 },
+            ) => {
+                if m1 == m2 && c1 == c2 {
+                    Ok(())
+                } else {
+                    Err(UnifyError { kind: UnifyErrorKind::Mismatch { expected: a, found: b } })
+                }
             }
 
             // Opaque FFI types: match only if module and symbol are identical.
@@ -561,5 +598,83 @@ mod tests {
         let ctx = InferCtx::new();
         let var = TyVarId(99);
         assert!(!ctx.occurs_in(var, &opaque("json", "loads")));
+    }
+
+    // ── FfiModule type tests (Issue 40) ──────────────────────────
+
+    fn ffi_module(name: &str) -> Ty {
+        Ty::FfiModule { module_name: name.into() }
+    }
+
+    fn ffi_instance(module: &str, class: &str) -> Ty {
+        Ty::FfiInstance { module: module.into(), class: class.into() }
+    }
+
+    #[test]
+    fn unify_same_ffi_module() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&ffi_module("pathlib"), &ffi_module("pathlib")).is_ok());
+    }
+
+    #[test]
+    fn unify_different_ffi_module() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&ffi_module("pathlib"), &ffi_module("os")).is_err());
+    }
+
+    #[test]
+    fn unify_ffi_module_with_primitive() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&ffi_module("pathlib"), &int()).is_err());
+    }
+
+    #[test]
+    fn unify_var_with_ffi_module() {
+        let mut ctx = InferCtx::new();
+        let var = ctx.fresh_var();
+        assert!(ctx.unify(&var, &ffi_module("pathlib")).is_ok());
+        assert_eq!(ctx.resolve(&var), ffi_module("pathlib"));
+    }
+
+    #[test]
+    fn unify_same_ffi_instance() {
+        let mut ctx = InferCtx::new();
+        assert!(
+            ctx.unify(&ffi_instance("pathlib", "Path"), &ffi_instance("pathlib", "Path")).is_ok()
+        );
+    }
+
+    #[test]
+    fn unify_different_ffi_instance() {
+        let mut ctx = InferCtx::new();
+        assert!(
+            ctx.unify(&ffi_instance("pathlib", "Path"), &ffi_instance("os", "DirEntry")).is_err()
+        );
+    }
+
+    #[test]
+    fn unify_ffi_instance_with_primitive() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&ffi_instance("pathlib", "Path"), &string()).is_err());
+    }
+
+    #[test]
+    fn unify_var_with_ffi_instance() {
+        let mut ctx = InferCtx::new();
+        let var = ctx.fresh_var();
+        assert!(ctx.unify(&var, &ffi_instance("pathlib", "Path")).is_ok());
+        assert_eq!(ctx.resolve(&var), ffi_instance("pathlib", "Path"));
+    }
+
+    #[test]
+    fn free_vars_ffi_module() {
+        let ctx = InferCtx::new();
+        assert!(ctx.free_vars(&ffi_module("pathlib")).is_empty());
+    }
+
+    #[test]
+    fn free_vars_ffi_instance() {
+        let ctx = InferCtx::new();
+        assert!(ctx.free_vars(&ffi_instance("pathlib", "Path")).is_empty());
     }
 }
