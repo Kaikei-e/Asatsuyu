@@ -1139,6 +1139,54 @@ mod tests {
     }
 
     #[test]
+    fn ffi_requests_get_returns_response_instance() {
+        let src = "from python import requests\npub fn f(url: String) { requests.get(url) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::FfiInstance { module, class } if module == "requests" && class == "Response"),
+            "expected FfiInstance(requests.Response), got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
+    fn ffi_requests_response_text_is_string() {
+        let src = "from python import requests\npub fn f(url: String) -> String { let response = requests.get(url); response.text }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Primitive(PrimTy::String)),
+            "expected String, got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
+    fn ffi_requests_response_status_code_is_int() {
+        let src = "from python import requests\npub fn f(url: String) -> Int { let response = requests.get(url); response.status_code }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Primitive(PrimTy::Int)),
+            "expected Int, got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
+    fn ffi_requests_response_json_is_opaque() {
+        let src = "from python import requests\npub fn f(url: String) { let response = requests.get(url); response.json() }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            matches!(result.module.functions[0].body.ty(), Ty::Opaque { module, symbol } if module == "python" && symbol == "Any"),
+            "expected Opaque(python.Any), got: {:?}",
+            result.module.functions[0].body.ty(),
+        );
+    }
+
+    #[test]
     fn ffi_unknown_module_error() {
         let src = "from python import nonexistent\npub fn f() { nonexistent.foo() }";
         let result = thir_from_source(src);

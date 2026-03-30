@@ -161,6 +161,73 @@ fn build_greet_asty() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+#[test]
+fn build_requests_checked_ffi_emits_runtime_files() {
+    let dir = workspace_root().join("target/test-dist-requests");
+    let src_dir = workspace_root().join("target/test-src-requests");
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&src_dir);
+    std::fs::create_dir_all(&src_dir).unwrap();
+
+    let sample = src_dir.join("requests_sample.asty");
+    std::fs::write(
+        &sample,
+        "from python import requests\npub fn main() -> Int {\n  let response = requests.get(\"https://example.test\")\n  response.status_code\n}\n",
+    )
+    .unwrap();
+
+    let sample_str = sample.display().to_string();
+    let dir_str = dir.display().to_string();
+    let output = asatsuyu().args(["build", &sample_str, "-o", &dir_str]).output().unwrap();
+
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        dir.join("requests_sample/asatsuyu_prelude.py").exists(),
+        "Checked FFI should emit prelude",
+    );
+    assert!(
+        dir.join("requests_sample/_asatsuyu_runtime.py").exists(),
+        "Checked FFI should emit runtime shim",
+    );
+
+    let py = std::fs::read_to_string(dir.join("requests_sample/requests_sample.py")).unwrap();
+    assert!(
+        py.contains("_asatsuyu_runtime.call_function(_checked_runtime_requests, \"get\""),
+        "generated python should use Checked FFI runtime: {py}",
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&src_dir);
+}
+
+#[test]
+fn run_requests_checked_ffi_with_local_stub_module() {
+    let src_dir = workspace_root().join("target/test-run-requests");
+    let run_dir = workspace_root().join("target/run");
+    let _ = std::fs::remove_dir_all(&src_dir);
+    std::fs::create_dir_all(&src_dir).unwrap();
+    std::fs::create_dir_all(&run_dir).unwrap();
+
+    let sample = src_dir.join("requests_run.asty");
+    std::fs::write(
+        &sample,
+        "from python import requests\npub fn main() -> Int {\n  let response = requests.get(\"https://example.test\")\n  response.status_code\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        run_dir.join("requests.py"),
+        "class Response:\n    def __init__(self, status_code: int, text: str):\n        self.status_code = status_code\n        self.text = text\n\n    def json(self):\n        return {\"ok\": True}\n\n\ndef _make_response(url: str):\n    return Response(204, f\"stub:{url}\")\n\n\ndef get(url: str):\n    return _make_response(url)\n\n\ndef post(url: str):\n    return _make_response(url)\n\n\ndef put(url: str):\n    return _make_response(url)\n\n\ndef delete(url: str):\n    return _make_response(url)\n",
+    )
+    .unwrap();
+
+    let sample_str = sample.display().to_string();
+    let output = asatsuyu().args(["run", &sample_str]).output().unwrap();
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    let _ = std::fs::remove_file(run_dir.join("requests.py"));
+    let _ = std::fs::remove_dir_all(src_dir);
+}
+
 // ── 7. build shows summary on stderr ──────────────────────────────
 
 #[test]
