@@ -46,6 +46,7 @@ pub(crate) const TOP_LEVEL_RECOVERY: TokenSet = TokenSet::new(&[
     SyntaxKind::TypeKw,
     SyntaxKind::LetKw,
     SyntaxKind::ImportKw,
+    SyntaxKind::FromKw,
 ]);
 
 /// Closing delimiters — **never** consumed during error recovery.

@@ -30,6 +30,7 @@ fn parse_top_level(p: &mut Parser<'_>) {
             _ => parse_fn_def(p),
         },
         SyntaxKind::ImportKw => parse_import(p),
+        SyntaxKind::FromKw => parse_from_python_import(p),
         SyntaxKind::LetKw => {
             p.error_recover("not yet implemented");
         }
@@ -297,6 +298,48 @@ fn parse_import(p: &mut Parser<'_>) {
             p.finish_node();
             return;
         }
+    }
+
+    // Optional alias: `as name`
+    if p.at(SyntaxKind::AsKw) {
+        p.bump(); // consume `as`
+        if !p.expect(SyntaxKind::Ident) {
+            p.error_recover_until("expected alias name after `as`", TokenSet::EMPTY);
+        }
+    }
+
+    p.finish_node();
+}
+
+// ── Python FFI import parsing ──────────────────────────────────
+
+/// ```text
+/// FromPythonImportStmt = 'from' 'python' 'import' IDENT ('as' IDENT)?
+/// ```
+fn parse_from_python_import(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::FromPythonImportStmt);
+    p.bump(); // consume `from`
+
+    // Expect `python` keyword
+    if !p.at(SyntaxKind::PythonKw) {
+        p.error_recover_until("expected `python` after `from`", TokenSet::EMPTY);
+        p.finish_node();
+        return;
+    }
+    p.bump(); // consume `python`
+
+    // Expect `import` keyword
+    if !p.expect(SyntaxKind::ImportKw) {
+        p.error_recover_until("expected `import` after `from python`", TokenSet::EMPTY);
+        p.finish_node();
+        return;
+    }
+
+    // Module name: a single identifier
+    if !p.expect(SyntaxKind::Ident) {
+        p.error_recover_until("expected module name after `import`", TokenSet::EMPTY);
+        p.finish_node();
+        return;
     }
 
     // Optional alias: `as name`

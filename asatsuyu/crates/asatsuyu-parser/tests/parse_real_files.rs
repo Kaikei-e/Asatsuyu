@@ -97,3 +97,50 @@ fn parse_match_basic_asty_lossless_roundtrip() {
     let result = parse(FileId(0), MATCH_BASIC);
     assert_eq!(result.syntax().to_string(), MATCH_BASIC, "roundtrip mismatch for match_basic.asty");
 }
+
+// ── from python import ──────────────────────────────────────────
+
+#[test]
+fn parse_from_python_import_basic() {
+    let src = "from python import pathlib";
+    let result = parse(FileId(0), src);
+    assert!(!result.has_errors(), "errors: {:?}", result.diagnostics());
+    let tree = format!("{:#?}", result.syntax());
+    assert!(tree.contains("FromPythonImportStmt"), "missing FromPythonImportStmt node");
+    assert_eq!(result.syntax().to_string(), src, "lossless roundtrip");
+}
+
+#[test]
+fn parse_from_python_import_with_alias() {
+    let src = "from python import pathlib as pl";
+    let result = parse(FileId(0), src);
+    assert!(!result.has_errors(), "errors: {:?}", result.diagnostics());
+    let tree = format!("{:#?}", result.syntax());
+    assert!(tree.contains("FromPythonImportStmt"), "missing FromPythonImportStmt node");
+    assert_eq!(result.syntax().to_string(), src, "lossless roundtrip");
+}
+
+#[test]
+fn parse_from_python_import_with_fn() {
+    let src = "from python import json\n\npub fn main() { 42 }";
+    let result = parse(FileId(0), src);
+    assert!(!result.has_errors(), "errors: {:?}", result.diagnostics());
+    let tree = format!("{:#?}", result.syntax());
+    assert!(tree.contains("FromPythonImportStmt"), "missing FromPythonImportStmt");
+    assert!(tree.contains("FnDef"), "missing FnDef");
+    assert_eq!(result.syntax().to_string(), src, "lossless roundtrip");
+}
+
+#[test]
+fn parse_from_without_python_is_error() {
+    let src = "from something import pathlib";
+    let result = parse(FileId(0), src);
+    assert!(result.has_errors(), "expected parse error for `from something`");
+}
+
+#[test]
+fn parse_from_python_missing_module_is_error() {
+    let src = "from python import";
+    let result = parse(FileId(0), src);
+    assert!(result.has_errors(), "expected parse error for missing module name");
+}
