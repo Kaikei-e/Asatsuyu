@@ -51,6 +51,11 @@ pub enum Ty {
     Function { params: Vec<Ty>, ret: Box<Ty> },
     /// A named (ADT) type: `Option(Int)`, `Result(String, Error)`.
     Named { def_id: DefId, name: SmolStr, args: Vec<Ty> },
+    /// An opaque FFI type from an `Unsafe` symbol.
+    ///
+    /// Cannot be destructured, pattern-matched, or field-accessed.
+    /// Can only be passed to other FFI calls that accept the same opaque type.
+    Opaque { module: SmolStr, symbol: SmolStr },
     /// An inference variable.
     Var(TyVarId),
     /// A type that failed to resolve. Allows checking to continue.
@@ -85,6 +90,7 @@ impl fmt::Display for Ty {
                 }
                 Ok(())
             }
+            Self::Opaque { module, symbol } => write!(f, "PyOpaque[{module}.{symbol}]"),
             Self::Var(id) => write!(f, "?{}", id.0),
             Self::Error => f.write_str("<error>"),
         }

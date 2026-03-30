@@ -1010,4 +1010,12 @@ mod tests {
             diag.labels,
         );
     }
+
+    // ── Display: Opaque type (Issue 39) ────────────────────────────
+
+    #[test]
+    fn display_opaque() {
+        let ty = Ty::Opaque { module: "json".into(), symbol: "loads".into() };
+        assert_eq!(ty.to_string(), "PyOpaque[json.loads]");
+    }
 }

@@ -70,7 +70,7 @@ impl InferCtx {
                 params.iter().any(|p| self.occurs_in(var, p)) || self.occurs_in(var, &ret)
             }
             Ty::Named { args, .. } => args.iter().any(|a| self.occurs_in(var, a)),
-            Ty::Primitive(_) | Ty::Error => false,
+            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => false,
         }
     }
 
@@ -90,7 +90,7 @@ impl InferCtx {
                 let args = args.iter().map(|a| self.resolve(a)).collect();
                 Ty::Named { def_id: *def_id, name: name.clone(), args }
             }
-            Ty::Primitive(_) | Ty::Error => ty.clone(),
+            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => ty.clone(),
         }
     }
 
@@ -119,7 +119,7 @@ impl InferCtx {
                 }
                 s
             }
-            Ty::Primitive(_) | Ty::Error => HashSet::new(),
+            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => HashSet::new(),
         }
     }
 
@@ -155,7 +155,7 @@ impl InferCtx {
                 name: name.clone(),
                 args: args.iter().map(|a| Self::apply_mapping(mapping, a)).collect(),
             },
-            Ty::Primitive(_) | Ty::Error => ty.clone(),
+            Ty::Primitive(_) | Ty::Opaque { .. } | Ty::Error => ty.clone(),
         }
     }
 
@@ -229,6 +229,15 @@ impl InferCtx {
                     self.unify(x, y)?;
                 }
                 Ok(())
+            }
+
+            // Opaque FFI types: match only if module and symbol are identical.
+            (Ty::Opaque { module: m1, symbol: s1 }, Ty::Opaque { module: m2, symbol: s2 }) => {
+                if m1 == m2 && s1 == s2 {
+                    Ok(())
+                } else {
+                    Err(UnifyError { kind: UnifyErrorKind::Mismatch { expected: a, found: b } })
+                }
             }
 
             // All other combinations are incompatible.
@@ -499,5 +508,58 @@ mod tests {
             _ => unreachable!(),
         }
         let _ = st; // keep alive
+    }
+
+    // ── Opaque type tests (Issue 39) ─────────────────────────────
+
+    fn opaque(module: &str, symbol: &str) -> Ty {
+        Ty::Opaque { module: module.into(), symbol: symbol.into() }
+    }
+
+    #[test]
+    fn unify_same_opaque() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&opaque("json", "loads"), &opaque("json", "loads")).is_ok());
+    }
+
+    #[test]
+    fn unify_different_opaque() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&opaque("json", "loads"), &opaque("os", "getenv")).is_err());
+    }
+
+    #[test]
+    fn unify_opaque_with_primitive() {
+        let mut ctx = InferCtx::new();
+        assert!(ctx.unify(&opaque("json", "loads"), &int()).is_err());
+    }
+
+    #[test]
+    fn unify_var_with_opaque() {
+        let mut ctx = InferCtx::new();
+        let var = ctx.fresh_var();
+        assert!(ctx.unify(&var, &opaque("json", "loads")).is_ok());
+        assert_eq!(ctx.resolve(&var), opaque("json", "loads"));
+    }
+
+    #[test]
+    fn resolve_opaque() {
+        let ctx = InferCtx::new();
+        let o = opaque("json", "loads");
+        assert_eq!(ctx.resolve(&o), o);
+    }
+
+    #[test]
+    fn free_vars_opaque() {
+        let ctx = InferCtx::new();
+        let fvs = ctx.free_vars(&opaque("json", "loads"));
+        assert!(fvs.is_empty());
+    }
+
+    #[test]
+    fn occurs_check_opaque() {
+        let ctx = InferCtx::new();
+        let var = TyVarId(99);
+        assert!(!ctx.occurs_in(var, &opaque("json", "loads")));
     }
 }
