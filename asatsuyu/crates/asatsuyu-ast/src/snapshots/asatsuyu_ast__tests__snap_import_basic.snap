@@ -1,11 +1,10 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 347
 expression: "snapshot(\"import io\")"
 ---
 Module {
     imports: [
-        Import {
+        Module {
             module: [
                 Ident {
                     name: "io",

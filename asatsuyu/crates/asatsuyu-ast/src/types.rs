@@ -75,14 +75,35 @@ pub struct Module {
 
 // ── Import ──────────────────────────────────────────────────────────
 
-/// An import statement: `import io`, `import gleam.io as io`.
+/// An import statement, either an internal module import or a Python FFI import.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Import {
-    /// Module path segments: `["gleam", "io"]` for `import gleam.io`.
-    pub module: Vec<Ident>,
-    /// Optional alias: `as alias`.
-    pub alias: Option<Ident>,
-    pub span: Span,
+pub enum Import {
+    /// Internal module import: `import io`, `import gleam.io as io`.
+    Module {
+        /// Module path segments: `["gleam", "io"]` for `import gleam.io`.
+        module: Vec<Ident>,
+        /// Optional alias: `as alias`.
+        alias: Option<Ident>,
+        span: Span,
+    },
+    /// Python FFI import: `from python import pathlib`, `from python import pathlib as pl`.
+    Python {
+        /// The Python module name (e.g., `pathlib`, `json`).
+        module_name: Ident,
+        /// Optional alias: `as alias`.
+        alias: Option<Ident>,
+        span: Span,
+    },
+}
+
+impl Import {
+    /// Returns the span of this import.
+    #[must_use]
+    pub fn span(&self) -> Span {
+        match self {
+            Self::Module { span, .. } | Self::Python { span, .. } => *span,
+        }
+    }
 }
 
 // ── Definition ──────────────────────────────────────────────────────

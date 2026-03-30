@@ -108,6 +108,11 @@ impl LowerCtx {
                         imports.push(imp);
                     }
                 }
+                SyntaxKind::FromPythonImportStmt => {
+                    if let Some(imp) = self.lower_from_python_import(&child) {
+                        imports.push(imp);
+                    }
+                }
                 SyntaxKind::NodeError => {
                     let span = span_of(&child, self.file_id);
                     self.push_error("unexpected syntax", span);
@@ -159,7 +164,45 @@ impl LowerCtx {
             .map(|t| Ident { name: SmolStr::from(t.text()), span: span_of_token(t, self.file_id) })
             .collect();
 
-        Some(Import { module, alias, span: span_of(node, self.file_id) })
+        Some(Import::Module { module, alias, span: span_of(node, self.file_id) })
+    }
+
+    // ── FromPythonImportStmt → Import::Python ──────────────────────
+
+    fn lower_from_python_import(&mut self, node: &SyntaxNode) -> Option<Import> {
+        debug_assert_eq!(node.kind(), SyntaxKind::FromPythonImportStmt);
+
+        // Collect Ident tokens: first is the module name, second (if `as` present) is alias.
+        let has_as = first_token_of_kind(node, SyntaxKind::AsKw).is_some();
+
+        let idents: Vec<SyntaxToken> = node
+            .children_with_tokens()
+            .filter_map(|el| el.into_token())
+            .filter(|t| t.kind() == SyntaxKind::Ident)
+            .collect();
+
+        if idents.is_empty() {
+            let span = span_of(node, self.file_id);
+            self.push_error("missing module name in Python import", span);
+            return None;
+        }
+
+        let module_name = Ident {
+            name: SmolStr::from(idents[0].text()),
+            span: span_of_token(&idents[0], self.file_id),
+        };
+
+        let alias = if has_as && idents.len() >= 2 {
+            let alias_token = &idents[1];
+            Some(Ident {
+                name: SmolStr::from(alias_token.text()),
+                span: span_of_token(alias_token, self.file_id),
+            })
+        } else {
+            None
+        };
+
+        Some(Import::Python { module_name, alias, span: span_of(node, self.file_id) })
     }
 
     // ── FnDef ───────────────────────────────────────────────────────

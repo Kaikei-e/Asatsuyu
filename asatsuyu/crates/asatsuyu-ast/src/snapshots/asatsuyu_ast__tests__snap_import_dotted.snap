@@ -1,11 +1,10 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 352
 expression: "snapshot(\"import gleam.io\")"
 ---
 Module {
     imports: [
-        Import {
+        Module {
             module: [
                 Ident {
                     name: "gleam",
