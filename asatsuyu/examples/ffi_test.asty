@@ -1,0 +1,8 @@
+from python import pathlib
+from python import json
+from python import os
+from python import sys
+
+pub fn main() {
+  42
+}

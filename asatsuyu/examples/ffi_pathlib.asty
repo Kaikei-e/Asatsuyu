@@ -1,0 +1,6 @@
+from python import pathlib
+from python import os
+
+pub fn main() {
+  42
+}
