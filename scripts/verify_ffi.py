@@ -25,6 +25,29 @@ CHECKED_MODULES: list[str] = ["requests"]
 # pyright completeness threshold for Verified modules.
 COMPLETENESS_THRESHOLD: float = 0.80
 
+# Known typeshed <-> CPython mismatches that are NOT Asatsuyu bugs.
+# These are filtered from stubtest output before checking pass/fail.
+# Key: module name, Value: set of symbol prefixes to ignore.
+STUBTEST_ALLOWLIST: dict[str, set[str]] = {
+    "os": {
+        "os.PathLike.__class_getitem__",
+        "os._wrap_close.",
+        "os.path.join",
+    },
+    "sys": {
+        "sys.gettotalrefcount",
+        "sys.ps1",
+        "sys.ps2",
+        "sys.last_exc",
+        "sys.last_type",
+        "sys.last_value",
+        "sys.last_traceback",
+        "sys.tracebacklimit",
+        "sys._monitoring",
+        "sys.implementation",
+    },
+}
+
 
 def run_verifytypes(module: str) -> dict[str, Any]:
     """Run pyright --verifytypes and return parsed result."""
@@ -82,10 +105,21 @@ def run_stubtest(module: str) -> dict[str, Any]:
             "total_issues": 0,
             "error": stderr or f"stubtest exited with status {result.returncode}",
         }
+
+    # Filter known typeshed <-> CPython mismatches.
+    allowed = STUBTEST_ALLOWLIST.get(module, set())
+    raw_count = len(issues)
+    issues = [
+        line for line in issues
+        if not any(line.startswith(prefix) for prefix in allowed)
+    ]
+    allowed_count = raw_count - len(issues)
+
     return {
-        "pass": result.returncode == 0,
+        "pass": len(issues) == 0,
         "issues": issues[:10],
         "total_issues": len(issues),
+        "allowed_count": allowed_count,
     }
 
 
@@ -104,7 +138,10 @@ def main() -> None:
         if "error" in st:
             print(f"  stubtest:    SKIP ({st['error']})")
         elif st["pass"]:
-            print(f"  stubtest:    PASS (0 issues)")
+            allowed_msg = ""
+            if st.get("allowed_count", 0) > 0:
+                allowed_msg = f", {st['allowed_count']} known mismatches allowlisted"
+            print(f"  stubtest:    PASS (0 actionable issues{allowed_msg})")
         else:
             print(f"  stubtest:    FAIL ({st['total_issues']} issues)")
             for issue in st["issues"]:

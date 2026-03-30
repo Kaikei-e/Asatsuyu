@@ -1,0 +1,16 @@
+from python import pathlib
+
+type Result(a, e) {
+  Ok(a)
+  Error(e)
+}
+
+type PyException {
+  PyExc(kind: String, exception_type: String, message: String, module: String, traceback_summary: String)
+}
+
+pub fn safe_exists(path: String) -> Result(Bool, PyException) {
+  let p = pathlib.Path(path)
+  let result = try p.exists()
+  Ok(result)
+}

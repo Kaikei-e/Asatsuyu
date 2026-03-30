@@ -1,4 +1,4 @@
-.PHONY: dev dev-release build-wheel test check fmt verify-ffi ci
+.PHONY: dev dev-release build-wheel test check fmt verify-ffi pytest ci
 
 # Rust workspace directory
 CARGO_DIR := asatsuyu
@@ -39,7 +39,11 @@ verify-ffi:
 	cd $(CARGO_DIR) && cargo run -p asatsuyu-cli -- verify-ffi
 	@if [ -f scripts/verify_ffi.py ]; then python scripts/verify_ffi.py; fi
 
+## Run Python tests (requires maturin develop first)
+pytest:
+	pytest tests/ -v
+
 # ── CI equivalent ──────────────────────────────────────────────────
 
-## Run the full CI pipeline locally (fmt → check → test → verify-ffi)
-ci: fmt check test verify-ffi
+## Run the full CI pipeline locally (fmt → check → test → dev → pytest → verify-ffi)
+ci: fmt check test dev pytest verify-ffi

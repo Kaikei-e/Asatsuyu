@@ -995,4 +995,16 @@ pub fn get_data(url: String) -> Int {
         let py = python_from_source(source);
         insta::assert_snapshot!(py);
     }
+
+    // ── Issue 50: golden emission tests (auto-discovered) ─────────
+
+    #[test]
+    fn golden_emission() {
+        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("test-cases");
+        insta::glob!(base, "*/input.asty", |path| {
+            let source = std::fs::read_to_string(path).unwrap();
+            let py = python_from_source(&source);
+            insta::assert_snapshot!(py);
+        });
+    }
 }

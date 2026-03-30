@@ -1,0 +1,5 @@
+from python import json
+
+pub fn main() -> String {
+  json.dumps("hello")
+}

@@ -1,0 +1,13 @@
+type Color {
+  Red
+  Green
+  Blue
+}
+
+pub fn describe(c: Color) -> String {
+  match c {
+    Red -> "red"
+    Green -> "green"
+    Blue -> "blue"
+  }
+}

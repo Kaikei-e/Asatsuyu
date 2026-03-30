@@ -9,6 +9,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # ── Rust-only (no Python matrix) ────────────────────────────────
+
   fmt:
     name: rustfmt
     runs-on: ubuntu-latest
@@ -43,10 +45,18 @@ jobs:
           rust-src-dir: asatsuyu
       - run: cargo test --workspace
         working-directory: asatsuyu
+        env:
+          INSTA_UPDATE: "no"
+
+  # ── Python-dependent (matrix: 3.12 / 3.13 / 3.14) ──────────────
 
   verify-ffi:
-    name: verify-ffi
+    name: verify-ffi (${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +66,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
       - name: Install FFI verification tools
         run: python -m pip install --upgrade pip pyright mypy
@@ -73,63 +83,92 @@ jobs:
             echo "::warning::scripts/verify_ffi.py not found, skipping"
           fi
 
-  # ── maturin wheel build (Linux) ──────────────────────────────────
+  # ── maturin wheel build (per Python version) ────────────────────
 
   maturin-build:
-    name: maturin build (Linux)
+    name: maturin build (${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
       - name: Build wheel
         uses: PyO3/maturin-action@v1
         with:
           working-directory: asatsuyu/crates/asatsuyu-runtime-python
           command: build
-          args: --release --out dist -i python3.12
+          args: --release --out dist -i python${{ matrix.python }}
           manylinux: "2014"
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-linux
+          name: wheel-linux-${{ matrix.python }}
           path: asatsuyu/crates/asatsuyu-runtime-python/dist/*.whl
 
-  # ── smoke test (install wheel and import) ────────────────────────
+  # ── pytest (install wheel + run full test suite) ────────────────
 
-  smoke-test:
-    name: smoke import test
+  pytest:
+    name: pytest (${{ matrix.python }})
     needs: maturin-build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
         with:
-          name: wheel-linux
+          name: wheel-linux-${{ matrix.python }}
           path: dist
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
-      - name: Install wheel
-        run: pip install dist/*.whl
-
-      - name: Smoke test
+      - name: Install wheel and test deps
         run: |
-          python -c "
-          import _asatsuyu_runtime
-          assert _asatsuyu_runtime.ffi_available()
-          print('OK: _asatsuyu_runtime loaded successfully')
-          "
+          pip install dist/*.whl
+          pip install pytest
+
+      - name: Run pytest
+        run: pytest tests/ -v --tb=short
 
       - name: Run smoke test script
         run: |
           if [ -f scripts/smoke_test.py ]; then
             python scripts/smoke_test.py
           fi
+
+  # ── package install (build .asty → install → import) ────────────
+
+  package-install:
+    name: package install (${{ matrix.python }})
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rust-src-dir: asatsuyu
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Build and install generated packages
+        run: python scripts/test_package_install.py

@@ -1,0 +1,7 @@
+from python import pathlib
+
+pub fn joined() -> Bool {
+  let p = pathlib.Path(".")
+  let q = p.joinpath("sub")
+  q.is_dir()
+}

@@ -1,0 +1,6 @@
+from python import pathlib
+
+pub fn read_file(path: String) -> String {
+  let p = pathlib.Path(path)
+  p.read_text()
+}
