@@ -287,6 +287,8 @@ pub enum Expr {
     Let { name: Ident, value: Box<Expr>, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda { params: Vec<Param>, return_type: Option<TypeExpr>, body: Box<Expr>, span: Span },
+    /// A field access: `expr.field`.
+    FieldAccess { receiver: Box<Expr>, field: Ident, span: Span },
 }
 
 impl Expr {
@@ -304,7 +306,8 @@ impl Expr {
             | Self::Match { span, .. }
             | Self::Pipeline { span, .. }
             | Self::Let { span, .. }
-            | Self::Lambda { span, .. } => *span,
+            | Self::Lambda { span, .. }
+            | Self::FieldAccess { span, .. } => *span,
         }
     }
 }

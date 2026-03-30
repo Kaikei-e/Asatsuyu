@@ -531,6 +531,7 @@ impl LowerCtx {
             SyntaxKind::IfExpr => self.lower_if_expr(node),
             SyntaxKind::MatchExpr => self.lower_match_expr(node),
             SyntaxKind::LambdaExpr => self.lower_lambda_expr(node),
+            SyntaxKind::FieldAccessExpr => self.lower_field_access_expr(node),
             SyntaxKind::ParenExpr => self.lower_paren_expr(node),
             SyntaxKind::NodeError => {
                 let span = span_of(node, self.file_id);
@@ -605,6 +606,37 @@ impl LowerCtx {
     fn lower_arg_list(&mut self, node: &SyntaxNode) -> Vec<Expr> {
         debug_assert_eq!(node.kind(), SyntaxKind::ArgList);
         node.children().filter_map(|c| self.lower_expr(&c)).collect()
+    }
+
+    // ── FieldAccessExpr ──────────────────────────────────────────────
+
+    fn lower_field_access_expr(&mut self, node: &SyntaxNode) -> Option<Expr> {
+        debug_assert_eq!(node.kind(), SyntaxKind::FieldAccessExpr);
+
+        // First child node is the receiver expression.
+        let receiver = node
+            .children()
+            .find(|c| c.kind() != SyntaxKind::NodeError)
+            .and_then(|c| self.lower_expr(&c))?;
+
+        // The field name is the Ident token that is a direct child of this node
+        // (not nested inside a child expression node). It appears after the Dot.
+        let field_token = node
+            .children_with_tokens()
+            .filter_map(|el| el.into_token())
+            .filter(|t| t.kind() == SyntaxKind::Ident)
+            .last()?;
+
+        let field = Ident {
+            name: SmolStr::from(field_token.text()),
+            span: span_of_token(&field_token, self.file_id),
+        };
+
+        Some(Expr::FieldAccess {
+            receiver: Box::new(receiver),
+            field,
+            span: span_of(node, self.file_id),
+        })
     }
 
     // ── BinaryExpr ──────────────────────────────────────────────────
