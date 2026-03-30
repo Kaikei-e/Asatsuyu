@@ -33,6 +33,9 @@ STUBTEST_ALLOWLIST: dict[str, set[str]] = {
         "os.PathLike.__class_getitem__",
         "os._wrap_close.",
         "os.path.join",
+        # Python 3.14 stdlib additions can temporarily diverge across
+        # runtime/typeshed/mypy release cadences.
+        "os.reload_environ",
     },
     "sys": {
         "sys.gettotalrefcount",
@@ -44,7 +47,11 @@ STUBTEST_ALLOWLIST: dict[str, set[str]] = {
         "sys.last_traceback",
         "sys.tracebacklimit",
         "sys._monitoring",
+        "sys._jit.",
         "sys.implementation",
+        "sys.flags.context_aware_warnings",
+        "sys.flags.thread_inherit_context",
+        "sys.flags.gil",
     },
 }
 
