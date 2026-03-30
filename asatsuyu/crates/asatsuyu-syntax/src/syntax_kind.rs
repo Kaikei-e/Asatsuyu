@@ -25,6 +25,7 @@ pub enum SyntaxKind {
     AsKw,
     TrueKw,
     FalseKw,
+    TryKw,
 
     // === Tokens: Literals ===
     IntLit,
@@ -162,6 +163,8 @@ pub enum SyntaxKind {
     RecordExpr,
     /// Parenthesized expression: `(expr)`
     ParenExpr,
+    /// Try expression: `try expr`
+    TryExpr,
 
     // === Nodes: Patterns ===
     /// Wildcard pattern: `_`
@@ -244,6 +247,7 @@ impl SyntaxKind {
                 | Self::AsKw
                 | Self::TrueKw
                 | Self::FalseKw
+                | Self::TryKw
         )
     }
 
@@ -323,6 +327,7 @@ mod tests {
             SyntaxKind::AsKw,
             SyntaxKind::TrueKw,
             SyntaxKind::FalseKw,
+            SyntaxKind::TryKw,
         ];
         for kw in keywords {
             assert!(kw.is_keyword(), "{kw:?} should be a keyword");

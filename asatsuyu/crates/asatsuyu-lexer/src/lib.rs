@@ -50,6 +50,8 @@ enum LexToken {
     TrueKw,
     #[token("False")]
     FalseKw,
+    #[token("try")]
+    TryKw,
 
     // === Literals ===
     // Float before Int in source for clarity; logos uses longest-match so
@@ -160,6 +162,7 @@ impl From<LexToken> for SyntaxKind {
             LexToken::AsKw => SyntaxKind::AsKw,
             LexToken::TrueKw => SyntaxKind::TrueKw,
             LexToken::FalseKw => SyntaxKind::FalseKw,
+            LexToken::TryKw => SyntaxKind::TryKw,
             LexToken::IntLit => SyntaxKind::IntLit,
             LexToken::FloatLit => SyntaxKind::FloatLit,
             LexToken::StringLit => SyntaxKind::StringLit,

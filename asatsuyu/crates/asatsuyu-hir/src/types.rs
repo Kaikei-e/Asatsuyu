@@ -291,6 +291,8 @@ pub enum HirExpr {
     },
     /// A field access: `expr.field`.
     FieldAccess { receiver: Box<HirExpr>, field: SmolStr, span: Span },
+    /// A try expression: `try expr`. Wraps FFI calls in exception handling.
+    Try { expr: Box<HirExpr>, span: Span },
 }
 
 impl HirExpr {
@@ -308,7 +310,8 @@ impl HirExpr {
             | Self::Match { span, .. }
             | Self::Let { span, .. }
             | Self::Lambda { span, .. }
-            | Self::FieldAccess { span, .. } => *span,
+            | Self::FieldAccess { span, .. }
+            | Self::Try { span, .. } => *span,
         }
     }
 }

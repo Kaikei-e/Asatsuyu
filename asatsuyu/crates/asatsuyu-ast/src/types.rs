@@ -289,6 +289,8 @@ pub enum Expr {
     Lambda { params: Vec<Param>, return_type: Option<TypeExpr>, body: Box<Expr>, span: Span },
     /// A field access: `expr.field`.
     FieldAccess { receiver: Box<Expr>, field: Ident, span: Span },
+    /// A try expression: `try expr`. Captures Python exceptions as Result errors.
+    Try { expr: Box<Expr>, span: Span },
 }
 
 impl Expr {
@@ -307,7 +309,8 @@ impl Expr {
             | Self::Pipeline { span, .. }
             | Self::Let { span, .. }
             | Self::Lambda { span, .. }
-            | Self::FieldAccess { span, .. } => *span,
+            | Self::FieldAccess { span, .. }
+            | Self::Try { span, .. } => *span,
         }
     }
 }

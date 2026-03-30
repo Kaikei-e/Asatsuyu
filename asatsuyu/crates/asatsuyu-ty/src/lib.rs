@@ -1194,4 +1194,63 @@ mod tests {
         let ty = Ty::FfiInstance { module: "pathlib".into(), class: "Path".into() };
         assert_eq!(ty.to_string(), "pathlib.Path");
     }
+
+    // ── Try expression (Issue 41) ──────────────────────────────────
+
+    #[test]
+    fn try_in_result_function_no_error() {
+        let src = "\
+from python import pathlib
+type Result(a, e) { Ok(a) Error(e) }
+type PyExc { PyExc(t: String, m: String) }
+pub fn f() -> Result(Bool, PyExc) {
+  let p = pathlib.Path(\".\")
+  let r = try p.exists()
+  Ok(r)
+}";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn try_outside_result_function_error() {
+        let src = "\
+from python import pathlib
+pub fn f() -> Bool {
+  let p = pathlib.Path(\".\")
+  try p.exists()
+}";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0212)),
+            "expected E0212, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn try_expr_has_inner_type() {
+        let src = "\
+from python import pathlib
+type Result(a, e) { Ok(a) Error(e) }
+type PyExc { PyExc(t: String, m: String) }
+pub fn f() -> Result(Bool, PyExc) {
+  let p = pathlib.Path(\".\")
+  let r = try p.exists()
+  Ok(r)
+}";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        // The function body's last expression should be Ok(r) of type Result(Bool, PyExc)
+        let f = &result.module.functions[0];
+        assert!(
+            matches!(f.return_ty, Ty::Named { ref name, .. } if name.as_str() == "Result"),
+            "expected Result return type, got: {:?}",
+            f.return_ty,
+        );
+    }
 }

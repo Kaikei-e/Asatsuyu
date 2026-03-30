@@ -1405,4 +1405,37 @@ _ -> 0 } }"#;
         let result = parse(FID, source);
         assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
     }
+
+    // ── Try expression (Issue 41) ──────────────────────────────────
+
+    #[test]
+    fn parse_try_method_call() {
+        // try p.read_text() → TryExpr(CallExpr(FieldAccessExpr(...)))
+        let source = "fn f() { try p.read_text() }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("TryExpr"), "tree should contain TryExpr:\n{tree}");
+        assert!(tree.contains("CallExpr"), "tree should contain CallExpr inside TryExpr:\n{tree}");
+        assert!(
+            tree.contains("FieldAccessExpr"),
+            "tree should contain FieldAccessExpr inside TryExpr:\n{tree}"
+        );
+    }
+
+    #[test]
+    fn parse_try_simple_call() {
+        let source = "fn f() { try g() }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("TryExpr"), "tree should contain TryExpr:\n{tree}");
+    }
+
+    #[test]
+    fn parse_try_lossless() {
+        let source = "fn f() { try p.read_text() }";
+        let result = parse(FID, source);
+        assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
+    }
 }

@@ -5,7 +5,7 @@
 use std::fmt::Write;
 
 use asatsuyu_ast::{BinOp, UnOp};
-use asatsuyu_hir::{DefKind, HirCustomType, HirFieldType, HirTypeExpr, HirVariant};
+use asatsuyu_hir::{DefId, DefKind, HirCustomType, HirFieldType, HirTypeExpr, HirVariant};
 use asatsuyu_syntax::Span;
 use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirMatchArm, ThirModule, ThirPattern, Ty};
 use smol_str::SmolStr;
@@ -48,11 +48,22 @@ pub(crate) struct Emitter<'a> {
     indent: usize,
     /// Source-map line offsets. `Some` enables `# asty:L<n>` comments.
     line_offsets: Option<LineOffsets>,
+    /// Counter for generating unique `try` temporary variable names.
+    try_counter: usize,
+    /// Whether any `try` expression was emitted (to decide prelude import).
+    pub(crate) has_try: bool,
 }
 
 impl<'a> Emitter<'a> {
     pub(crate) fn new(module: &'a ThirModule) -> Self {
-        Self { module, output: String::new(), indent: 0, line_offsets: None }
+        Self {
+            module,
+            output: String::new(),
+            indent: 0,
+            line_offsets: None,
+            try_counter: 0,
+            has_try: false,
+        }
     }
 
     /// Create an emitter with source-map comment generation enabled.
@@ -62,10 +73,14 @@ impl<'a> Emitter<'a> {
             output: String::new(),
             indent: 0,
             line_offsets: Some(LineOffsets::from_source(source)),
+            try_counter: 0,
+            has_try: false,
         }
     }
 
     pub(crate) fn emit(&mut self) {
+        // Pre-scan for try expressions to decide prelude imports.
+        self.has_try = self.module.functions.iter().any(|f| expr_contains_try(&f.body));
         self.emit_module();
     }
 
@@ -142,6 +157,9 @@ impl<'a> Emitter<'a> {
         }
         if has_custom_types {
             self.output.push_str("from dataclasses import dataclass\n");
+        }
+        if self.has_try {
+            self.output.push_str("from .asatsuyu_prelude import PyException\n");
         }
 
         // 3. ADT definitions.
@@ -291,6 +309,18 @@ impl<'a> Emitter<'a> {
             self.emit_match_stmt(subject, arms, false);
             return;
         }
+        // `let x = try expr` → try/except block
+        if let ThirExpr::Let { binding, value, .. } = expr
+            && let ThirExpr::Try { expr: inner, .. } = value.as_ref()
+        {
+            self.emit_try_let_stmt(*binding, inner, expr.span());
+            return;
+        }
+        // bare `try expr` as a statement
+        if let ThirExpr::Try { expr: inner, .. } = expr {
+            self.emit_try_bare_stmt(inner, expr.span());
+            return;
+        }
         self.write_indent();
         self.emit_expr(expr);
         if matches!(expr, ThirExpr::Let { .. }) {
@@ -302,6 +332,11 @@ impl<'a> Emitter<'a> {
     fn emit_return_stmt(&mut self, expr: &ThirExpr) {
         if let ThirExpr::Match { subject, arms, .. } = expr {
             self.emit_match_stmt(subject, arms, true);
+            return;
+        }
+        // `try expr` in return position → try/except, then return Ok(value)
+        if let ThirExpr::Try { expr: inner, .. } = expr {
+            self.emit_try_return_stmt(inner, expr.span());
             return;
         }
         self.write_indent();
@@ -403,6 +438,11 @@ impl<'a> Emitter<'a> {
                 self.output.push('.');
                 self.output.push_str(field.as_str());
             }
+            ThirExpr::Try { expr, .. } => {
+                // Fallback for try in pure expression position.
+                // Statement-level try is handled in emit_stmt/emit_try_stmt.
+                self.emit_expr(expr);
+            }
         }
     }
 
@@ -424,6 +464,89 @@ impl<'a> Emitter<'a> {
     }
 
     // ── Match statement emission ──────────────────────────────────
+
+    // ── Try/except generation ───────────────────────────────────────
+
+    /// Emit `let x = try expr` as:
+    /// ```python
+    /// try:
+    ///     x = <expr>
+    /// except Exception as _e:
+    ///     return Error(PyException.from_exception(_e))
+    /// ```
+    fn emit_try_let_stmt(&mut self, binding: DefId, inner: &ThirExpr, span: Span) {
+        self.has_try = true;
+        let name = self.module.symbol_table.get(binding).name.clone();
+        self.write_indent();
+        self.output.push_str("try:");
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{name} = ");
+        self.emit_expr(inner);
+        self.output.push('\n');
+        self.pop_indent();
+        self.emit_except_block();
+    }
+
+    /// Emit bare `try expr` as a statement:
+    /// ```python
+    /// try:
+    ///     <expr>
+    /// except Exception as _e:
+    ///     return Error(PyException.from_exception(_e))
+    /// ```
+    fn emit_try_bare_stmt(&mut self, inner: &ThirExpr, span: Span) {
+        self.has_try = true;
+        self.write_indent();
+        self.output.push_str("try:");
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.push_indent();
+        self.write_indent();
+        self.emit_expr(inner);
+        self.output.push('\n');
+        self.pop_indent();
+        self.emit_except_block();
+    }
+
+    /// Emit `try expr` in return position:
+    /// ```python
+    /// try:
+    ///     _try_N = <expr>
+    /// except Exception as _e:
+    ///     return Error(PyException.from_exception(_e))
+    /// return Ok(_try_N)
+    /// ```
+    fn emit_try_return_stmt(&mut self, inner: &ThirExpr, span: Span) {
+        self.has_try = true;
+        let tmp = format!("_try_{}", self.try_counter);
+        self.try_counter += 1;
+        self.write_indent();
+        self.output.push_str("try:");
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{tmp} = ");
+        self.emit_expr(inner);
+        self.output.push('\n');
+        self.pop_indent();
+        self.emit_except_block();
+        self.write_indent();
+        let _ = writeln!(self.output, "return Ok({tmp})");
+    }
+
+    /// Emit the common `except Exception as _e: return Error(...)` block.
+    fn emit_except_block(&mut self) {
+        self.write_indent();
+        self.output.push_str("except Exception as _e:\n");
+        self.push_indent();
+        self.write_indent();
+        self.output.push_str("return Error(PyException.from_exception(_e))\n");
+        self.pop_indent();
+    }
 
     fn emit_match_stmt(&mut self, subject: &ThirExpr, arms: &[ThirMatchArm], is_return: bool) {
         self.write_indent();
@@ -644,4 +767,29 @@ fn type_expr_mentions(name: &SmolStr, te: &HirTypeExpr) -> bool {
         return true;
     }
     te.args.iter().any(|a| type_expr_mentions(name, a))
+}
+
+/// Recursively check whether a THIR expression contains a `Try` node.
+fn expr_contains_try(expr: &ThirExpr) -> bool {
+    match expr {
+        ThirExpr::Try { .. } => true,
+        ThirExpr::Block { exprs, .. } => exprs.iter().any(expr_contains_try),
+        ThirExpr::Call { func, args, .. } => {
+            expr_contains_try(func) || args.iter().any(expr_contains_try)
+        }
+        ThirExpr::Let { value, .. } => expr_contains_try(value),
+        ThirExpr::If { condition, then_body, else_body, .. } => {
+            expr_contains_try(condition)
+                || expr_contains_try(then_body)
+                || else_body.as_ref().is_some_and(|e| expr_contains_try(e))
+        }
+        ThirExpr::Match { subject, arms, .. } => {
+            expr_contains_try(subject) || arms.iter().any(|a| expr_contains_try(&a.body))
+        }
+        ThirExpr::BinaryOp { lhs, rhs, .. } => expr_contains_try(lhs) || expr_contains_try(rhs),
+        ThirExpr::UnaryOp { expr, .. } => expr_contains_try(expr),
+        ThirExpr::Lambda { body, .. } => expr_contains_try(body),
+        ThirExpr::FieldAccess { receiver, .. } => expr_contains_try(receiver),
+        ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
+    }
 }

@@ -258,6 +258,8 @@ pub enum ThirExpr {
     Lambda { params: Vec<ThirParam>, body: Box<ThirExpr>, ty: Ty, span: Span },
     /// A field access: `expr.field`.
     FieldAccess { receiver: Box<ThirExpr>, field: SmolStr, ty: Ty, span: Span },
+    /// A try expression: `try expr`. The type is the success type (unwrapped).
+    Try { expr: Box<ThirExpr>, ty: Ty, span: Span },
 }
 
 impl ThirExpr {
@@ -275,7 +277,8 @@ impl ThirExpr {
             | Self::Match { ty, .. }
             | Self::Let { ty, .. }
             | Self::Lambda { ty, .. }
-            | Self::FieldAccess { ty, .. } => ty,
+            | Self::FieldAccess { ty, .. }
+            | Self::Try { ty, .. } => ty,
         }
     }
 
@@ -293,7 +296,8 @@ impl ThirExpr {
             | Self::Match { span, .. }
             | Self::Let { span, .. }
             | Self::Lambda { span, .. }
-            | Self::FieldAccess { span, .. } => *span,
+            | Self::FieldAccess { span, .. }
+            | Self::Try { span, .. } => *span,
         }
     }
 }

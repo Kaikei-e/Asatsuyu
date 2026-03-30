@@ -462,6 +462,11 @@ impl HirLowerCtx {
                     span: *span,
                 }
             }
+
+            Expr::Try { expr, span } => {
+                let hir_expr = self.lower_expr(expr);
+                HirExpr::Try { expr: Box::new(hir_expr), span: *span }
+            }
         }
     }
 

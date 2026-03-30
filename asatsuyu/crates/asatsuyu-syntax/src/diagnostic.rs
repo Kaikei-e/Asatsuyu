@@ -37,6 +37,8 @@ pub enum DiagnosticCode {
     E0210,
     /// Unknown member on FFI module or class.
     E0211,
+    /// `try` expression outside a function returning `Result`.
+    E0212,
 
     // ── Match / pattern ────────────────────────────────────────────
     /// Non-exhaustive match.
@@ -66,6 +68,7 @@ impl fmt::Display for DiagnosticCode {
             Self::E0209 => write!(f, "E0209"),
             Self::E0210 => write!(f, "E0210"),
             Self::E0211 => write!(f, "E0211"),
+            Self::E0212 => write!(f, "E0212"),
             Self::E0300 => write!(f, "E0300"),
             Self::E0301 => write!(f, "E0301"),
             Self::E0302 => write!(f, "E0302"),

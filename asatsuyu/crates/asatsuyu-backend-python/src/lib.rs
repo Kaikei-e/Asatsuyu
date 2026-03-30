@@ -86,6 +86,7 @@ pub fn emit_package(
         emitter::Emitter::new(module)
     };
     em.emit();
+    let needs_prelude = em.has_try;
     let module_py = em.into_output();
 
     let pkg = &config.name;
@@ -101,8 +102,8 @@ pub fn emit_package(
     files
         .push(GeneratedFile { path: PathBuf::from(format!("{pkg}/{pkg}.py")), content: module_py });
 
-    // Prelude is emitted only when the generated package explicitly depends on it.
-    if package_needs_prelude(module) {
+    // Prelude is emitted when the generated code uses `try` expressions.
+    if needs_prelude {
         files.push(GeneratedFile {
             path: PathBuf::from(format!("{pkg}/asatsuyu_prelude.py")),
             content: prelude::PRELUDE_PY.to_string(),
@@ -131,12 +132,6 @@ pub fn emit_package(
     });
 
     GeneratedPackage { files }
-}
-
-fn package_needs_prelude(_module: &ThirModule) -> bool {
-    // Prelude-backed builtins are not wired into the language surface yet.
-    // Keep package output minimal until the compiler can reference them.
-    false
 }
 
 #[cfg(test)]

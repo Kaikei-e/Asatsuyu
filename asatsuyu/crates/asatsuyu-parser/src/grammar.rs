@@ -605,6 +605,14 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
             parse_lambda_expr(p);
         }
 
+        // Try expression: `try expr` — captures Python exceptions as Result errors
+        SyntaxKind::TryKw => {
+            p.start_node(SyntaxKind::TryExpr);
+            p.bump(); // consume `try`
+            parse_expr_bp(p, 1); // low bp: captures entire RHS
+            p.finish_node();
+        }
+
         // Literal atoms
         SyntaxKind::IntLit
         | SyntaxKind::FloatLit

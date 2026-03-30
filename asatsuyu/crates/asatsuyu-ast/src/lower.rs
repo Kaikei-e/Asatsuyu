@@ -532,6 +532,7 @@ impl LowerCtx {
             SyntaxKind::MatchExpr => self.lower_match_expr(node),
             SyntaxKind::LambdaExpr => self.lower_lambda_expr(node),
             SyntaxKind::FieldAccessExpr => self.lower_field_access_expr(node),
+            SyntaxKind::TryExpr => self.lower_try_expr(node),
             SyntaxKind::ParenExpr => self.lower_paren_expr(node),
             SyntaxKind::NodeError => {
                 let span = span_of(node, self.file_id);
@@ -637,6 +638,14 @@ impl LowerCtx {
             field,
             span: span_of(node, self.file_id),
         })
+    }
+
+    // ── TryExpr ─────────────────────────────────────────────────────
+
+    fn lower_try_expr(&mut self, node: &SyntaxNode) -> Option<Expr> {
+        debug_assert_eq!(node.kind(), SyntaxKind::TryExpr);
+        let inner = node.children().find_map(|c| self.lower_expr(&c))?;
+        Some(Expr::Try { expr: Box::new(inner), span: span_of(node, self.file_id) })
     }
 
     // ── BinaryExpr ──────────────────────────────────────────────────

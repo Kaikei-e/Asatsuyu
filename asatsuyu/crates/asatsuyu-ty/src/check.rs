@@ -80,6 +80,8 @@ pub(crate) struct TyCheckCtx {
     unannotated_returns: HashSet<DefId>,
     /// Resolved FFI modules from Python imports.
     ffi_modules: HashMap<SmolStr, FfiModule>,
+    /// Return type of the function currently being checked (for `try` validation).
+    current_fn_return_ty: Option<Ty>,
     /// Synthetic symbol table used to allocate builtin collection type ids.
     builtin_types: SymbolTable,
     diagnostics: Vec<Diagnostic>,
@@ -96,6 +98,7 @@ impl TyCheckCtx {
             type_name_to_def_id: HashMap::new(),
             unannotated_returns: HashSet::new(),
             ffi_modules: HashMap::new(),
+            current_fn_return_ty: None,
             builtin_types: SymbolTable::new(),
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
@@ -410,11 +413,7 @@ impl TyCheckCtx {
             })
             .collect();
 
-        // Check the body.
-        let body = self.check_expr(&fn_def.body);
-        let body_ty = self.infer.resolve(body.ty());
-
-        // Extract the declared return type from the function signature.
+        // Extract the declared return type before checking the body (needed for `try` validation).
         let fn_scheme = self.type_env.get(&fn_def.def_id).cloned();
         let fn_ty = fn_scheme.map_or(Ty::Error, |s| s.ty);
         let declared_ret = match &fn_ty {
@@ -422,28 +421,29 @@ impl TyCheckCtx {
             _ => Ty::Error,
         };
 
+        // Set current function return type context for `try` expression validation.
+        self.current_fn_return_ty = Some(declared_ret.clone());
+
+        // Check the body.
+        let body = self.check_expr(&fn_def.body);
+        let body_ty = self.infer.resolve(body.ty());
+
+        // Clear return type context.
+        self.current_fn_return_ty = None;
+
         // Determine the actual return type.
         let is_unannotated = self.unannotated_returns.contains(&fn_def.def_id);
         let return_ty = if is_unannotated {
             // Infer return type from body.
             body_ty
         } else {
-            // Check declared return type against body.
-            if declared_ret != Ty::Error && body_ty != Ty::Error && declared_ret != body_ty {
-                // E0200: Return type mismatch.
-                self.push_diagnostic(
-                    Diagnostic::error(
-                        format!("type mismatch: expected `{declared_ret}`, found `{body_ty}`"),
-                        fn_def.body.span(),
-                    )
-                    .with_code(DiagnosticCode::E0200)
-                    .with_label(fn_def.body.span(), format!("this expression has type `{body_ty}`"))
-                    .with_secondary_label(
-                        fn_def.span,
-                        format!("expected `{declared_ret}` because of return type annotation"),
-                    ),
-                );
-            }
+            // Check declared return type against body via unification.
+            self.unify_or_error(
+                &declared_ret,
+                &body_ty,
+                fn_def.body.span(),
+                DiagnosticContext::ReturnType { fn_span: fn_def.span },
+            );
             declared_ret
         };
 
@@ -527,6 +527,31 @@ impl TyCheckCtx {
 
             HirExpr::FieldAccess { receiver, field, span } => {
                 self.check_field_access(receiver, field, *span)
+            }
+
+            HirExpr::Try { expr, span } => {
+                let checked_inner = self.check_expr(expr);
+                let inner_ty = self.infer.resolve(checked_inner.ty());
+
+                // Validate: enclosing function must return a Result type.
+                if let Some(ref ret_ty) = self.current_fn_return_ty {
+                    let resolved_ret = self.infer.resolve(ret_ty);
+                    if !matches!(&resolved_ret, Ty::Named { name, args, .. } if name.as_str() == "Result" && args.len() == 2)
+                        && resolved_ret != Ty::Error
+                    {
+                        self.push_diagnostic(
+                            Diagnostic::error(
+                                "`try` requires enclosing function to return `Result(T, E)`",
+                                *span,
+                            )
+                            .with_code(DiagnosticCode::E0212)
+                            .with_label(*span, "`try` used here")
+                            .with_hint("annotate the function with `-> Result(T, E)`"),
+                        );
+                    }
+                }
+
+                ThirExpr::Try { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
             }
         }
     }
