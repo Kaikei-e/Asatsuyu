@@ -1,0 +1,233 @@
+//! Hand-crafted FFI signatures for Phase 1 stdlib modules.
+//!
+//! These cover the minimum surface needed for Verified FFI:
+//! `pathlib`, `json`, `os`, `sys`.
+//!
+//! Each function returns an [`FfiModule`] with the symbols Asatsuyu
+//! can safely use. The signatures are intentionally conservative —
+//! they only expose what the MVP requires.
+
+use smol_str::SmolStr;
+
+use super::model::{
+    FfiClass, FfiModule, FfiParam, FfiSignature, FfiSource, FfiSymbol, FfiSymbolKind,
+    FfiTrustLevel, FfiType,
+};
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+fn param(name: &str, ty: FfiType) -> FfiParam {
+    FfiParam { name: SmolStr::from(name), ty, has_default: false }
+}
+
+fn param_with_default(name: &str, ty: FfiType) -> FfiParam {
+    FfiParam { name: SmolStr::from(name), ty, has_default: true }
+}
+
+fn sig(params: Vec<FfiParam>, return_ty: FfiType) -> FfiSignature {
+    FfiSignature { params, return_ty }
+}
+
+fn func(name: &str, signature: FfiSignature) -> FfiSymbol {
+    FfiSymbol {
+        name: SmolStr::from(name),
+        kind: FfiSymbolKind::Function(signature),
+        trust_level: None,
+    }
+}
+
+fn constant(name: &str, ty: FfiType) -> FfiSymbol {
+    FfiSymbol { name: SmolStr::from(name), kind: FfiSymbolKind::Constant(ty), trust_level: None }
+}
+
+fn path_type() -> FfiType {
+    FfiType::Named { module: SmolStr::from("pathlib"), name: SmolStr::from("Path") }
+}
+
+// ── pathlib ────────────────────────────────────────────────────────
+
+/// Minimal surface for `pathlib` (Verified FFI).
+///
+/// Exposes `Path` class with constructor, common methods, and properties.
+#[must_use]
+pub fn pathlib_module() -> FfiModule {
+    let path_class = FfiClass {
+        name: SmolStr::from("Path"),
+        constructor: Some(sig(vec![param_with_default("path", FfiType::Str)], path_type())),
+        methods: vec![
+            (
+                SmolStr::from("read_text"),
+                sig(
+                    vec![param_with_default("encoding", FfiType::Optional(Box::new(FfiType::Str)))],
+                    FfiType::Str,
+                ),
+            ),
+            (
+                SmolStr::from("write_text"),
+                sig(
+                    vec![
+                        param("data", FfiType::Str),
+                        param_with_default("encoding", FfiType::Optional(Box::new(FfiType::Str))),
+                    ],
+                    FfiType::Int,
+                ),
+            ),
+            (SmolStr::from("exists"), sig(vec![], FfiType::Bool)),
+            (SmolStr::from("is_file"), sig(vec![], FfiType::Bool)),
+            (SmolStr::from("is_dir"), sig(vec![], FfiType::Bool)),
+            (SmolStr::from("joinpath"), sig(vec![param("other", FfiType::Str)], path_type())),
+            (
+                SmolStr::from("mkdir"),
+                sig(
+                    vec![
+                        param_with_default("mode", FfiType::Int),
+                        param_with_default("parents", FfiType::Bool),
+                        param_with_default("exist_ok", FfiType::Bool),
+                    ],
+                    FfiType::NoneType,
+                ),
+            ),
+        ],
+        properties: vec![
+            (SmolStr::from("name"), FfiType::Str),
+            (SmolStr::from("stem"), FfiType::Str),
+            (SmolStr::from("suffix"), FfiType::Str),
+            (SmolStr::from("parent"), path_type()),
+            (SmolStr::from("parts"), FfiType::Tuple(vec![FfiType::Str])),
+        ],
+    };
+
+    FfiModule {
+        name: SmolStr::from("pathlib"),
+        source: FfiSource::Builtin,
+        trust_level: FfiTrustLevel::Verified,
+        symbols: vec![FfiSymbol {
+            name: SmolStr::from("Path"),
+            kind: FfiSymbolKind::Class(path_class),
+            trust_level: None,
+        }],
+    }
+}
+
+// ── json ───────────────────────────────────────────────────────────
+
+/// Minimal surface for `json`.
+///
+/// Note: `loads` returns `Any` and `dumps` accepts `Any`, so these symbols
+/// are classified as `Checked` by the admissibility checker.
+#[must_use]
+pub fn json_module() -> FfiModule {
+    FfiModule {
+        name: SmolStr::from("json"),
+        source: FfiSource::Builtin,
+        trust_level: FfiTrustLevel::Verified,
+        symbols: vec![
+            func("loads", sig(vec![param("s", FfiType::Str)], FfiType::Any)),
+            func(
+                "dumps",
+                sig(
+                    vec![
+                        param("obj", FfiType::Any),
+                        param_with_default("indent", FfiType::Optional(Box::new(FfiType::Int))),
+                    ],
+                    FfiType::Str,
+                ),
+            ),
+        ],
+    }
+}
+
+// ── os ─────────────────────────────────────────────────────────────
+
+/// Minimal surface for `os` (Verified FFI).
+#[must_use]
+pub fn os_module() -> FfiModule {
+    FfiModule {
+        name: SmolStr::from("os"),
+        source: FfiSource::Builtin,
+        trust_level: FfiTrustLevel::Verified,
+        symbols: vec![
+            func(
+                "getenv",
+                sig(
+                    vec![
+                        param("key", FfiType::Str),
+                        param_with_default("default", FfiType::Optional(Box::new(FfiType::Str))),
+                    ],
+                    FfiType::Optional(Box::new(FfiType::Str)),
+                ),
+            ),
+            func("getcwd", sig(vec![], FfiType::Str)),
+            constant("environ", FfiType::Dict(Box::new(FfiType::Str), Box::new(FfiType::Str))),
+            constant("sep", FfiType::Str),
+            constant("linesep", FfiType::Str),
+        ],
+    }
+}
+
+// ── sys ────────────────────────────────────────────────────────────
+
+/// Minimal surface for `sys` (Verified FFI).
+#[must_use]
+pub fn sys_module() -> FfiModule {
+    FfiModule {
+        name: SmolStr::from("sys"),
+        source: FfiSource::Builtin,
+        trust_level: FfiTrustLevel::Verified,
+        symbols: vec![
+            constant("argv", FfiType::List(Box::new(FfiType::Str))),
+            func("exit", sig(vec![param_with_default("code", FfiType::Int)], FfiType::NoneType)),
+            constant("platform", FfiType::Str),
+            constant("version", FfiType::Str),
+        ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pathlib_has_path_class() {
+        let module = pathlib_module();
+        let path_sym =
+            module.symbols.iter().find(|s| s.name == "Path").expect("pathlib should have Path");
+        match &path_sym.kind {
+            FfiSymbolKind::Class(cls) => {
+                assert!(cls.constructor.is_some());
+                assert!(!cls.methods.is_empty());
+                assert!(!cls.properties.is_empty());
+                // Check specific methods exist
+                let method_names: Vec<&str> = cls.methods.iter().map(|(n, _)| n.as_str()).collect();
+                assert!(method_names.contains(&"read_text"));
+                assert!(method_names.contains(&"exists"));
+                assert!(method_names.contains(&"joinpath"));
+            }
+            other => panic!("expected Class, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn json_has_loads_and_dumps() {
+        let module = json_module();
+        let names: Vec<&str> = module.symbols.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"loads"));
+        assert!(names.contains(&"dumps"));
+    }
+
+    #[test]
+    fn os_has_getenv_and_environ() {
+        let module = os_module();
+        let names: Vec<&str> = module.symbols.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"getenv"));
+        assert!(names.contains(&"environ"));
+    }
+
+    #[test]
+    fn sys_has_argv_and_exit() {
+        let module = sys_module();
+        let names: Vec<&str> = module.symbols.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"argv"));
+        assert!(names.contains(&"exit"));
+    }
+}
