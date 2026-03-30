@@ -1275,4 +1275,31 @@ pub fn f() -> Result(Bool, PyExc) {
             result.diagnostics,
         );
     }
+
+    // ── FFI: Issue 44 — ffi_modules in THIR ───────────────────────
+
+    #[test]
+    fn ffi_modules_passed_to_thir() {
+        let result = thir_from_source("from python import json\npub fn f() { json }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert!(
+            result.module.ffi_modules.contains_key("json"),
+            "expected ffi_modules to contain 'json', got keys: {:?}",
+            result.module.ffi_modules.keys().collect::<Vec<_>>(),
+        );
+        let json_mod = &result.module.ffi_modules["json"];
+        assert_eq!(
+            json_mod.trust_level,
+            asatsuyu_hir::ffi::FfiTrustLevel::Checked,
+            "json module should be Checked (contains Any)",
+        );
+    }
+
+    #[test]
+    fn ffi_modules_pathlib_is_verified() {
+        let result = thir_from_source("from python import pathlib\npub fn f() { pathlib }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        let pathlib_mod = &result.module.ffi_modules["pathlib"];
+        assert_eq!(pathlib_mod.trust_level, asatsuyu_hir::ffi::FfiTrustLevel::Verified,);
+    }
 }

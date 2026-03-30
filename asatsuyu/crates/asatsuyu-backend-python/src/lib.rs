@@ -23,6 +23,7 @@
 
 mod emitter;
 mod prelude;
+mod runtime_shim;
 
 use std::path::PathBuf;
 
@@ -87,6 +88,7 @@ pub fn emit_package(
     };
     em.emit();
     let needs_prelude = em.has_try || em.has_checked_ffi;
+    let needs_runtime_shim = em.has_checked_ffi;
     let module_py = em.into_output();
 
     let pkg = &config.name;
@@ -107,6 +109,12 @@ pub fn emit_package(
         files.push(GeneratedFile {
             path: PathBuf::from(format!("{pkg}/asatsuyu_prelude.py")),
             content: prelude::PRELUDE_PY.to_string(),
+        });
+    }
+    if needs_runtime_shim {
+        files.push(GeneratedFile {
+            path: PathBuf::from(format!("{pkg}/_asatsuyu_runtime.py")),
+            content: runtime_shim::RUNTIME_SHIM_PY.to_string(),
         });
     }
 
@@ -570,6 +578,19 @@ mod tests {
     }
 
     #[test]
+    fn package_emits_runtime_shim_for_checked_ffi() {
+        let pkg = package_from_source(
+            "from python import json\npub fn main(data: String) { json.loads(data) }",
+            "hello",
+        );
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(
+            paths.contains(&"hello/_asatsuyu_runtime.py".to_string()),
+            "runtime shim should be emitted for Checked FFI: {paths:?}",
+        );
+    }
+
+    #[test]
     fn package_no_main_without_main_fn() {
         let pkg = package_from_source("fn add(x: Int, y: Int) -> Int { x }", "lib");
         let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
@@ -695,6 +716,104 @@ type PyException { PyExc(kind: String, exception_type: String, message: String, 
 pub fn f() -> Result(Bool, PyException) {
   let p = pathlib.Path(\".\")
   try p.exists()
+}";
+        let py = python_from_source(source);
+        insta::assert_snapshot!(py);
+    }
+
+    // ── Issue 44: Checked FFI ──────────────────────────────────────
+
+    #[test]
+    fn emit_checked_ffi_json_loads() {
+        let source = "\
+from python import json
+pub fn f(data: String) -> Int {
+  let result = json.loads(data)
+  42
+}";
+        let py = python_from_source(source);
+        assert!(py.contains("try:"), "should contain try block: {py}");
+        assert!(
+            py.contains("_checked_runtime_json = _asatsuyu_runtime.import_module(\"json\")"),
+            "should import runtime module: {py}"
+        );
+        assert!(
+            py.contains("_checked_0 = _asatsuyu_runtime.call_function(_checked_runtime_json, \"loads\", data)"),
+            "should route Checked call through runtime: {py}"
+        );
+        assert!(py.contains("except Exception as _e:"), "should have except: {py}");
+        assert!(py.contains("isinstance"), "should have isinstance check: {py}");
+        assert!(py.contains("AsatsuyuError"), "should raise AsatsuyuError: {py}");
+    }
+
+    #[test]
+    fn emit_checked_ffi_json_dumps_return() {
+        let source = "\
+from python import json
+pub fn f(data: String) { json.dumps(data) }";
+        let py = python_from_source(source);
+        assert!(py.contains("try:"), "should contain try block: {py}");
+        assert!(
+            py.contains("_asatsuyu_runtime.call_function(_checked_runtime_json, \"dumps\", data)"),
+            "should route return-position Checked call through runtime: {py}"
+        );
+        assert!(py.contains("isinstance(_checked_0, str)"), "should check str return: {py}");
+    }
+
+    #[test]
+    fn emit_verified_ffi_unchanged() {
+        let source = "\
+from python import pathlib
+pub fn f() { pathlib.Path(\".\") }";
+        let py = python_from_source(source);
+        // Verified FFI should NOT have checked wrappers
+        assert!(!py.contains("_checked_"), "should not wrap Verified calls: {py}");
+        assert!(!py.contains("AsatsuyuError"), "no AsatsuyuError for Verified: {py}");
+    }
+
+    #[test]
+    fn emit_checked_ffi_hasattr_guard() {
+        let source = "\
+from python import json
+pub fn f(data: String) { json.loads(data) }";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("if not _asatsuyu_runtime.ffi_available():"),
+            "should check runtime capability: {py}"
+        );
+        assert!(
+            py.contains("hasattr(_checked_runtime_json, 'loads')"),
+            "should check loads on runtime module: {py}"
+        );
+        assert!(
+            py.contains("hasattr(_checked_runtime_json, 'dumps')"),
+            "should check dumps on runtime module: {py}"
+        );
+    }
+
+    #[test]
+    fn emit_checked_triggers_prelude() {
+        let source = "\
+from python import json
+pub fn f(data: String) { json.loads(data) }";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("from .asatsuyu_prelude import PyException, AsatsuyuError"),
+            "should import AsatsuyuError: {py}"
+        );
+        assert!(
+            py.contains("from . import _asatsuyu_runtime"),
+            "should import runtime helper: {py}"
+        );
+    }
+
+    #[test]
+    fn snap_checked_ffi_codegen() {
+        let source = "\
+from python import json
+pub fn f(data: String) -> Int {
+  let result = json.loads(data)
+  42
 }";
         let py = python_from_source(source);
         insta::assert_snapshot!(py);

@@ -173,8 +173,6 @@ impl<'a> Emitter<'a> {
                     } else {
                         let _ = writeln!(self.output, "import {module_name} as {bound_name}");
                     }
-                    // Emit hasattr guards for Checked FFI symbols.
-                    self.emit_hasattr_guards(module_name, bound_name);
                 }
             }
         }
@@ -183,9 +181,28 @@ impl<'a> Emitter<'a> {
         }
         if self.has_try || self.has_checked_ffi {
             if self.has_checked_ffi {
-                self.output.push_str("from .asatsuyu_prelude import PyException, AsatsuyuError\n");
+                self.output.push_str(
+                    "from .asatsuyu_prelude import PyException, AsatsuyuError\nfrom . import _asatsuyu_runtime\n",
+                );
             } else {
                 self.output.push_str("from .asatsuyu_prelude import PyException\n");
+            }
+        }
+        // hasattr guards for Checked FFI symbols (after prelude import).
+        if self.has_checked_ffi {
+            self.output.push_str("if not _asatsuyu_runtime.ffi_available():\n");
+            self.output.push_str(
+                "    raise AsatsuyuError(\"_asatsuyu_runtime is not available for Checked FFI\")\n",
+            );
+            for import in &self.module.imports {
+                if let asatsuyu_hir::HirImportKind::Python { module_name } = &import.kind {
+                    let runtime_binding = checked_runtime_binding(module_name);
+                    let _ = writeln!(
+                        self.output,
+                        "{runtime_binding} = _asatsuyu_runtime.import_module(\"{module_name}\")"
+                    );
+                    self.emit_hasattr_guards(module_name);
+                }
             }
         }
 
@@ -666,7 +683,7 @@ impl<'a> Emitter<'a> {
     fn emit_checked_ffi_let_stmt(
         &mut self,
         binding: DefId,
-        func: &ThirExpr,
+        _func: &ThirExpr,
         args: &[ThirExpr],
         info: &CheckedFfiInfo,
         span: Span,
@@ -675,22 +692,25 @@ impl<'a> Emitter<'a> {
         let tmp = format!("_checked_{}", self.checked_counter);
         self.checked_counter += 1;
         let name = self.module.symbol_table.get(binding).name.clone();
+        let runtime_binding = checked_runtime_binding(&info.module_name);
 
         // try:
-        //     _checked_N = module.func(args)
+        //     _checked_N = _asatsuyu_runtime.call_function(_module_runtime, "func", ...)
         self.write_indent();
         self.output.push_str("try:");
         self.write_source_comment(span);
         self.output.push('\n');
         self.push_indent();
         self.write_indent();
-        let _ = write!(self.output, "{tmp} = ");
-        self.emit_expr(func);
-        self.output.push('(');
-        self.emit_call_args(args);
+        let _ = write!(
+            self.output,
+            "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
+            info.symbol_name
+        );
+        self.emit_runtime_args(args);
         self.output.push_str(")\n");
         self.pop_indent();
-        self.emit_except_block();
+        self.emit_checked_except_block();
         self.emit_validator(&tmp, info);
         // x = _checked_N
         self.write_indent();
@@ -700,7 +720,7 @@ impl<'a> Emitter<'a> {
     /// Emit bare `<checked_ffi_call>` as a statement.
     fn emit_checked_ffi_bare_stmt(
         &mut self,
-        func: &ThirExpr,
+        _func: &ThirExpr,
         args: &[ThirExpr],
         info: &CheckedFfiInfo,
         span: Span,
@@ -708,6 +728,7 @@ impl<'a> Emitter<'a> {
         self.has_checked_ffi = true;
         let tmp = format!("_checked_{}", self.checked_counter);
         self.checked_counter += 1;
+        let runtime_binding = checked_runtime_binding(&info.module_name);
 
         self.write_indent();
         self.output.push_str("try:");
@@ -715,20 +736,22 @@ impl<'a> Emitter<'a> {
         self.output.push('\n');
         self.push_indent();
         self.write_indent();
-        let _ = write!(self.output, "{tmp} = ");
-        self.emit_expr(func);
-        self.output.push('(');
-        self.emit_call_args(args);
+        let _ = write!(
+            self.output,
+            "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
+            info.symbol_name
+        );
+        self.emit_runtime_args(args);
         self.output.push_str(")\n");
         self.pop_indent();
-        self.emit_except_block();
+        self.emit_checked_except_block();
         self.emit_validator(&tmp, info);
     }
 
     /// Emit Checked FFI call in return position.
     fn emit_checked_ffi_return_stmt(
         &mut self,
-        func: &ThirExpr,
+        _func: &ThirExpr,
         args: &[ThirExpr],
         info: &CheckedFfiInfo,
         span: Span,
@@ -736,6 +759,7 @@ impl<'a> Emitter<'a> {
         self.has_checked_ffi = true;
         let tmp = format!("_checked_{}", self.checked_counter);
         self.checked_counter += 1;
+        let runtime_binding = checked_runtime_binding(&info.module_name);
 
         self.write_indent();
         self.output.push_str("try:");
@@ -743,16 +767,29 @@ impl<'a> Emitter<'a> {
         self.output.push('\n');
         self.push_indent();
         self.write_indent();
-        let _ = write!(self.output, "{tmp} = ");
-        self.emit_expr(func);
-        self.output.push('(');
-        self.emit_call_args(args);
+        let _ = write!(
+            self.output,
+            "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
+            info.symbol_name
+        );
+        self.emit_runtime_args(args);
         self.output.push_str(")\n");
         self.pop_indent();
-        self.emit_except_block();
+        self.emit_checked_except_block();
         self.emit_validator(&tmp, info);
         self.write_indent();
         let _ = writeln!(self.output, "return {tmp}");
+    }
+
+    /// Emit the common Checked FFI exception block using runtime normalization.
+    fn emit_checked_except_block(&mut self) {
+        self.write_indent();
+        self.output.push_str("except Exception as _e:\n");
+        self.push_indent();
+        self.write_indent();
+        self.output
+            .push_str("return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))\n");
+        self.pop_indent();
     }
 
     /// Emit isinstance validator for a Checked FFI return value.
@@ -776,14 +813,15 @@ impl<'a> Emitter<'a> {
     }
 
     /// Emit hasattr guards for Checked FFI symbols after a module import.
-    fn emit_hasattr_guards(&mut self, module_name: &SmolStr, bound_name: &SmolStr) {
+    fn emit_hasattr_guards(&mut self, module_name: &SmolStr) {
         let Some(ffi_mod) = self.module.ffi_modules.get(module_name.as_str()) else {
             return;
         };
+        let runtime_binding = checked_runtime_binding(module_name);
         for sym in &ffi_mod.symbols {
             if sym.trust_level == Some(FfiTrustLevel::Checked) {
                 let sym_name = &sym.name;
-                let _ = writeln!(self.output, "if not hasattr({bound_name}, '{sym_name}'):");
+                let _ = writeln!(self.output, "if not hasattr({runtime_binding}, '{sym_name}'):");
                 let _ = writeln!(
                     self.output,
                     "    raise AsatsuyuError(\"{module_name}.{sym_name}: symbol not available at runtime (stub/runtime mismatch)\")"
@@ -792,12 +830,10 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    /// Emit call arguments (comma-separated).
-    fn emit_call_args(&mut self, args: &[ThirExpr]) {
-        for (i, arg) in args.iter().enumerate() {
-            if i > 0 {
-                self.output.push_str(", ");
-            }
+    /// Emit runtime helper arguments after `call_function(..., "name"`.
+    fn emit_runtime_args(&mut self, args: &[ThirExpr]) {
+        for arg in args {
+            self.output.push_str(", ");
             self.emit_expr(arg);
         }
     }
@@ -1065,4 +1101,10 @@ fn ffi_type_to_isinstance(ty: &FfiType) -> Option<&'static str> {
         FfiType::Tuple(_) => Some("tuple"),
         FfiType::Optional(_) | FfiType::Union(_) | FfiType::Named { .. } => None,
     }
+}
+
+fn checked_runtime_binding(module_name: &str) -> String {
+    let suffix: String =
+        module_name.chars().map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' }).collect();
+    format!("_checked_runtime_{suffix}")
 }
