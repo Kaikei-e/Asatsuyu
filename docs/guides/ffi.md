@@ -156,7 +156,8 @@ asatsuyu build --no-emit-package -o lib/ src/main.asty
 ### `--ffi-stub-path <DIR>`
 
 Specify additional directories for `.pyi` stub file lookup.
-Reserved for future use — no stub-file resolver is implemented yet.
+The resolver hookup is reserved for future use, but the CLI already validates
+that each path exists and is a directory.
 
 Available on: `check`, `build`, `run`.
 
