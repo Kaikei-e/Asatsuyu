@@ -361,3 +361,21 @@ fn new_rejects_existing_dir() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ── 12. verify-ffi ────────────────────────────────────────────────
+
+#[test]
+fn verify_ffi_outputs_trust_report() {
+    let output = asatsuyu().args(["verify-ffi"]).output().unwrap();
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("pathlib"), "should list pathlib: {stdout}");
+    assert!(stdout.contains("json"), "should list json: {stdout}");
+    assert!(stdout.contains("os"), "should list os: {stdout}");
+    assert!(stdout.contains("sys"), "should list sys: {stdout}");
+    assert!(stdout.contains("requests"), "should list requests: {stdout}");
+    assert!(stdout.contains("Verified"), "should show Verified: {stdout}");
+    assert!(stdout.contains("Checked"), "should show Checked: {stdout}");
+    assert!(stdout.contains("Summary"), "should show summary: {stdout}");
+}

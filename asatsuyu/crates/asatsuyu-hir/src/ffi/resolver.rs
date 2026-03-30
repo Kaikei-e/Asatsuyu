@@ -30,6 +30,9 @@ pub struct ChainResolver {
     resolvers: Vec<Box<dyn FfiModuleResolver>>,
 }
 
+/// Known module names for the builtin resolver.
+const KNOWN_MODULES: &[&str] = &["pathlib", "json", "os", "sys", "requests"];
+
 impl ChainResolver {
     /// Create a new `ChainResolver` with the default MVP configuration.
     ///
@@ -38,6 +41,14 @@ impl ChainResolver {
     #[must_use]
     pub fn new() -> Self {
         Self { resolvers: vec![Box::new(BuiltinResolver)] }
+    }
+
+    /// Resolve all known builtin modules and return them with trust levels applied.
+    ///
+    /// Used by the `verify-ffi` CLI command to generate a trust report.
+    #[must_use]
+    pub fn verify_all(&self) -> Vec<FfiModule> {
+        KNOWN_MODULES.iter().filter_map(|name| self.resolve(name)).collect()
     }
 }
 
@@ -172,5 +183,18 @@ mod tests {
         // get/post/put/delete should be Checked (return Response which has .json() -> Any)
         let get_sym = module.symbols.iter().find(|s| s.name == "get").unwrap();
         assert_eq!(get_sym.trust_level, Some(FfiTrustLevel::Checked));
+    }
+
+    #[test]
+    fn verify_all_returns_known_modules() {
+        let chain = ChainResolver::new();
+        let modules = chain.verify_all();
+        let names: Vec<&str> = modules.iter().map(|m| m.name.as_str()).collect();
+        assert!(names.contains(&"pathlib"), "should contain pathlib: {names:?}");
+        assert!(names.contains(&"json"), "should contain json: {names:?}");
+        assert!(names.contains(&"os"), "should contain os: {names:?}");
+        assert!(names.contains(&"sys"), "should contain sys: {names:?}");
+        assert!(names.contains(&"requests"), "should contain requests: {names:?}");
+        assert_eq!(modules.len(), 5);
     }
 }

@@ -57,6 +57,9 @@ enum Commands {
         /// Project name (used as directory name)
         name: String,
     },
+    /// Show FFI trust report for all known Python modules
+    #[command(name = "verify-ffi")]
+    VerifyFfi,
 }
 
 // ── Entry point ────────────────────────────────────────────────────
@@ -82,6 +85,7 @@ pub fn run() -> ExitCode {
         Commands::Build { path, output, source_map } => cmd_build(&path, &output, source_map),
         Commands::Run { path, source_map } => cmd_run(&path, source_map),
         Commands::New { name } => cmd_new(&name),
+        Commands::VerifyFfi => cmd_verify_ffi(),
     }
 }
 
@@ -274,6 +278,67 @@ fn cmd_new(name: &str) -> ExitCode {
 
     eprintln!("  Created project `{name}` in ./{name}");
     eprintln!("  Run `asatsuyu run {name}/src/main.asty` to get started");
+    ExitCode::SUCCESS
+}
+
+// ── verify-ffi ────────────────────────────────────────────────────
+
+fn cmd_verify_ffi() -> ExitCode {
+    use asatsuyu_hir::ffi::{ChainResolver, FfiSymbolKind, FfiTrustLevel};
+    use std::fmt::Write;
+
+    let resolver = ChainResolver::new();
+    let modules = resolver.verify_all();
+
+    let mut out = String::new();
+    let mut verified_count = 0u32;
+    let mut checked_count = 0u32;
+    let mut unsafe_count = 0u32;
+
+    let _ = writeln!(out, "FFI Trust Report");
+    let _ = writeln!(out, "================\n");
+
+    for module in &modules {
+        let trust = module.trust_level;
+        match trust {
+            FfiTrustLevel::Verified => verified_count += 1,
+            FfiTrustLevel::Checked => checked_count += 1,
+            FfiTrustLevel::Unsafe => unsafe_count += 1,
+        }
+
+        let source = format!("{:?}", module.source);
+        let _ = writeln!(out, "{} ({source}) ... {trust:?}", module.name);
+
+        for sym in &module.symbols {
+            let sym_trust = sym.trust_level.unwrap_or(trust);
+            let kind_label = match &sym.kind {
+                FfiSymbolKind::Function(_) => "Function",
+                FfiSymbolKind::Class(_) => "Class",
+                FfiSymbolKind::Constant(_) => "Constant",
+            };
+            let _ = writeln!(out, "  {} ({kind_label}) ... {sym_trust:?}", sym.name);
+
+            // Show class members for detail.
+            if let FfiSymbolKind::Class(cls) = &sym.kind {
+                for (prop_name, prop_ty) in &cls.properties {
+                    let _ = writeln!(out, "    {prop_name}: {prop_ty:?}");
+                }
+                for (method_name, sig) in &cls.methods {
+                    let ret = format!("{:?}", sig.return_ty);
+                    let _ = writeln!(out, "    {method_name}() -> {ret}");
+                }
+            }
+        }
+        out.push('\n');
+    }
+
+    let _ = writeln!(
+        out,
+        "Summary: {verified_count} Verified, {checked_count} Checked, {unsafe_count} Unsafe"
+    );
+
+    // stdout: structured report (for scripting).
+    print!("{out}");
     ExitCode::SUCCESS
 }
 

@@ -1492,7 +1492,9 @@ impl TyCheckCtx {
 
 #[cfg(test)]
 mod tests {
-    use asatsuyu_hir::ffi::{FfiModule, FfiSource, FfiSymbol, FfiSymbolKind, FfiTrustLevel, FfiType};
+    use asatsuyu_hir::ffi::{
+        FfiModule, FfiSource, FfiSymbol, FfiSymbolKind, FfiTrustLevel, FfiType,
+    };
     use asatsuyu_syntax::Span;
     use smol_str::SmolStr;
 
