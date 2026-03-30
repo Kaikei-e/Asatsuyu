@@ -521,6 +521,13 @@ mod tests {
     }
 
     #[test]
+    fn prelude_classifies_only_keyerror_as_keyerror() {
+        let content = crate::prelude::PRELUDE_PY;
+        assert!(content.contains("if isinstance(e, KeyError):"), "KeyError branch: {content}");
+        assert!(!content.contains("LookupError"), "should not collapse all LookupError: {content}");
+    }
+
+    #[test]
     fn prelude_is_valid_module() {
         let content = crate::prelude::PRELUDE_PY;
         assert!(content.contains("from dataclasses import dataclass"), "import: {content}");
@@ -655,5 +662,41 @@ mod tests {
         let source = "pub fn main() -> Int {\n  let x = 42\n  x\n}";
         let py = python_from_source_with_sourcemap(source);
         assert!(py.contains("x = 42  # asty:L2"), "let binding should carry source-map: {py}");
+    }
+
+    // ── Snapshot tests: prelude + try codegen (Issue 42) ───────────
+
+    #[test]
+    fn snap_prelude_content() {
+        insta::assert_snapshot!(crate::prelude::PRELUDE_PY);
+    }
+
+    #[test]
+    fn snap_try_let_codegen() {
+        let source = "\
+from python import pathlib
+type Result(a, e) { Ok(a) Error(e) }
+type PyException { PyExc(kind: String, exception_type: String, message: String, module: String, traceback_summary: String) }
+pub fn f() -> Result(Bool, PyException) {
+  let p = pathlib.Path(\".\")
+  let r = try p.exists()
+  Ok(r)
+}";
+        let py = python_from_source(source);
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn snap_try_return_codegen() {
+        let source = "\
+from python import pathlib
+type Result(a, e) { Ok(a) Error(e) }
+type PyException { PyExc(kind: String, exception_type: String, message: String, module: String, traceback_summary: String) }
+pub fn f() -> Result(Bool, PyException) {
+  let p = pathlib.Path(\".\")
+  try p.exists()
+}";
+        let py = python_from_source(source);
+        insta::assert_snapshot!(py);
     }
 }

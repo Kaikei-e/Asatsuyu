@@ -64,6 +64,13 @@ enum DiagnosticContext {
     MatchArm { first_arm_span: Span },
 }
 
+#[derive(Clone, Copy)]
+enum TryPosition {
+    Statement,
+    Return,
+    Other,
+}
+
 // ── Context ────────────────────────────────────────────────────────
 
 /// Accumulates state during HIR → THIR type checking.
@@ -431,6 +438,10 @@ impl TyCheckCtx {
         // Clear return type context.
         self.current_fn_return_ty = None;
 
+        // `try` lowering is currently only implemented for statement position,
+        // `let x = try expr`, and direct final return expressions.
+        self.validate_try_positions(&body, TryPosition::Return);
+
         // Determine the actual return type.
         let is_unannotated = self.unannotated_returns.contains(&fn_def.def_id);
         let return_ty = if is_unannotated {
@@ -553,6 +564,81 @@ impl TyCheckCtx {
 
                 ThirExpr::Try { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
             }
+        }
+    }
+
+    fn validate_try_positions(&mut self, expr: &ThirExpr, position: TryPosition) {
+        match expr {
+            ThirExpr::Try { expr: inner, span, .. } => {
+                if matches!(position, TryPosition::Other) {
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            "`try` is only supported as `let x = try expr`, bare `try expr`, or a function's final expression",
+                            *span,
+                        )
+                        .with_code(DiagnosticCode::E0213)
+                        .with_label(*span, "`try` used in an unsupported expression position")
+                        .with_hint("move `try` to a standalone statement or return position"),
+                    );
+                }
+                self.validate_try_positions(inner, TryPosition::Other);
+            }
+            ThirExpr::Block { exprs, .. } => {
+                if let Some((last, statements)) = exprs.split_last() {
+                    for stmt in statements {
+                        self.validate_try_positions(stmt, TryPosition::Statement);
+                    }
+                    self.validate_try_positions(last, TryPosition::Return);
+                }
+            }
+            ThirExpr::Let { value, .. } => {
+                if matches!(position, TryPosition::Statement)
+                    && matches!(value.as_ref(), ThirExpr::Try { .. })
+                {
+                    if let ThirExpr::Try { expr: inner, .. } = value.as_ref() {
+                        self.validate_try_positions(inner, TryPosition::Other);
+                    }
+                } else {
+                    self.validate_try_positions(value, TryPosition::Other);
+                }
+            }
+            ThirExpr::Match { subject, arms, .. } => {
+                self.validate_try_positions(subject, TryPosition::Other);
+                for arm in arms {
+                    self.validate_try_positions(
+                        &arm.body,
+                        if matches!(position, TryPosition::Return) {
+                            TryPosition::Return
+                        } else {
+                            TryPosition::Statement
+                        },
+                    );
+                }
+            }
+            ThirExpr::If { condition, then_body, else_body, .. } => {
+                self.validate_try_positions(condition, TryPosition::Other);
+                self.validate_try_positions(then_body, TryPosition::Other);
+                if let Some(else_expr) = else_body {
+                    self.validate_try_positions(else_expr, TryPosition::Other);
+                }
+            }
+            ThirExpr::Call { func, args, .. } => {
+                self.validate_try_positions(func, TryPosition::Other);
+                for arg in args {
+                    self.validate_try_positions(arg, TryPosition::Other);
+                }
+            }
+            ThirExpr::BinaryOp { lhs, rhs, .. } => {
+                self.validate_try_positions(lhs, TryPosition::Other);
+                self.validate_try_positions(rhs, TryPosition::Other);
+            }
+            ThirExpr::UnaryOp { expr, .. } | ThirExpr::FieldAccess { receiver: expr, .. } => {
+                self.validate_try_positions(expr, TryPosition::Other);
+            }
+            ThirExpr::Lambda { body, .. } => {
+                self.validate_try_positions(body, TryPosition::Other);
+            }
+            ThirExpr::Literal(_) | ThirExpr::Var { .. } => {}
         }
     }
 

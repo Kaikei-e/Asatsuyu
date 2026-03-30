@@ -1253,4 +1253,26 @@ pub fn f() -> Result(Bool, PyExc) {
             f.return_ty,
         );
     }
+
+    #[test]
+    fn try_in_nested_expression_position_error() {
+        let src = "\
+from python import pathlib
+type Result(a, e) { Ok(a) Error(e) }
+type PyExc { PyExc(t: String, m: String) }
+pub fn f() -> Result(Bool, PyExc) {
+  let p = pathlib.Path(\".\")
+  Ok(try p.exists())
+}";
+        let result = thir_from_source(src);
+        assert!(result.has_errors());
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0213)),
+            "expected E0213, got: {:?}",
+            result.diagnostics,
+        );
+    }
 }

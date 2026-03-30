@@ -101,6 +101,7 @@ dependencies = [
  "asatsuyu-parser",
  "asatsuyu-syntax",
  "asatsuyu-ty",
+ "insta",
  "smol_str",
 ]
 

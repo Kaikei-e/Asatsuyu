@@ -19,3 +19,4 @@ smol_str = { workspace = true }
 [dev-dependencies]
 asatsuyu-parser = { workspace = true }
 asatsuyu-ast = { workspace = true }
+insta = { workspace = true }

@@ -39,6 +39,8 @@ pub enum DiagnosticCode {
     E0211,
     /// `try` expression outside a function returning `Result`.
     E0212,
+    /// `try` expression in a position the backend cannot lower safely.
+    E0213,
 
     // ── Match / pattern ────────────────────────────────────────────
     /// Non-exhaustive match.
@@ -69,6 +71,7 @@ impl fmt::Display for DiagnosticCode {
             Self::E0210 => write!(f, "E0210"),
             Self::E0211 => write!(f, "E0211"),
             Self::E0212 => write!(f, "E0212"),
+            Self::E0213 => write!(f, "E0213"),
             Self::E0300 => write!(f, "E0300"),
             Self::E0301 => write!(f, "E0301"),
             Self::E0302 => write!(f, "E0302"),
