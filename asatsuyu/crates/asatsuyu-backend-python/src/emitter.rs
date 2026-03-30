@@ -117,17 +117,27 @@ impl<'a> Emitter<'a> {
         // 2. Imports.
         for import in &self.module.imports {
             let bound_name = &self.module.symbol_table.get(import.def_id).name;
-            let module_name = import
-                .module_path
-                .iter()
-                .map(smol_str::SmolStr::as_str)
-                .collect::<Vec<_>>()
-                .join(".");
-            let needs_alias = import.module_path.last().is_none_or(|last| last != bound_name);
-            if needs_alias {
-                let _ = writeln!(self.output, "import {module_name} as {bound_name}");
-            } else {
-                let _ = writeln!(self.output, "import {module_name}");
+            match &import.kind {
+                asatsuyu_hir::HirImportKind::Module { module_path } => {
+                    let module_name = module_path
+                        .iter()
+                        .map(smol_str::SmolStr::as_str)
+                        .collect::<Vec<_>>()
+                        .join(".");
+                    let needs_alias = module_path.last().is_none_or(|last| last != bound_name);
+                    if needs_alias {
+                        let _ = writeln!(self.output, "import {module_name} as {bound_name}");
+                    } else {
+                        let _ = writeln!(self.output, "import {module_name}");
+                    }
+                }
+                asatsuyu_hir::HirImportKind::Python { module_name } => {
+                    if module_name.as_str() == bound_name.as_str() {
+                        let _ = writeln!(self.output, "import {module_name}");
+                    } else {
+                        let _ = writeln!(self.output, "import {module_name} as {bound_name}");
+                    }
+                }
             }
         }
         if has_custom_types {
@@ -546,6 +556,7 @@ fn ty_to_python(ty: &Ty) -> String {
                 format!("{name}[{}]", arg_strs.join(", "))
             }
         }
+        Ty::Opaque { module, symbol } => format!("\"{module}.{symbol}\""),
         Ty::Function { .. } | Ty::Var(_) | Ty::Error => "Any".into(),
     }
 }
