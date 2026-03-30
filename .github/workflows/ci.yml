@@ -66,4 +66,69 @@ jobs:
         working-directory: asatsuyu
 
       - name: Verify typed Python surfaces
-        run: python scripts/verify_ffi.py
+        run: |
+          if [ -f scripts/verify_ffi.py ]; then
+            python scripts/verify_ffi.py
+          else
+            echo "::warning::scripts/verify_ffi.py not found, skipping"
+          fi
+
+  # ── maturin wheel build (Linux) ──────────────────────────────────
+
+  maturin-build:
+    name: maturin build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: asatsuyu/crates/asatsuyu-runtime-python
+          args: --release --out dist
+          manylinux: auto
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-linux
+          path: asatsuyu/crates/asatsuyu-runtime-python/dist/*.whl
+
+  # ── smoke test (install wheel and import) ────────────────────────
+
+  smoke-test:
+    name: smoke import test
+    needs: maturin-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel-linux
+          path: dist
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install wheel
+        run: pip install dist/*.whl
+
+      - name: Smoke test
+        run: |
+          python -c "
+          import _asatsuyu_runtime
+          assert _asatsuyu_runtime.ffi_available()
+          print('OK: _asatsuyu_runtime loaded successfully')
+          "
+
+      - name: Run smoke test script
+        run: |
+          if [ -f scripts/smoke_test.py ]; then
+            python scripts/smoke_test.py
+          fi

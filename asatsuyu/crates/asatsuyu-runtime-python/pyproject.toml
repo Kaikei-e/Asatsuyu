@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "asatsuyu-runtime"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Native runtime boundary for Asatsuyu Checked FFI"
+license = "MIT OR Apache-2.0"
+
+[tool.maturin]
+# The compiled extension is importable as _asatsuyu_runtime.
+# No python-source needed — this crate has no pure-Python files.
+module-name = "_asatsuyu_runtime"
