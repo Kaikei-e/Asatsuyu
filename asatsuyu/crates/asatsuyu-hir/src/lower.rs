@@ -8,13 +8,14 @@
 
 use std::collections::HashMap;
 
-use asatsuyu_ast::{self, Definition, Expr, Module, Pattern, TypeBody};
+use asatsuyu_ast::{self, Definition, Expr, Import, Module, Pattern, TypeBody};
 use asatsuyu_syntax::{Diagnostic, Span};
 use smol_str::SmolStr;
 
 use crate::types::{
-    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFieldType, HirFnDef, HirImport, HirLiteral,
-    HirMatchArm, HirModule, HirParam, HirPattern, HirTypeExpr, HirVariant, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFieldType, HirFnDef, HirImport,
+    HirImportKind, HirLiteral, HirMatchArm, HirModule, HirParam, HirPattern, HirTypeExpr,
+    HirVariant, SymbolTable,
 };
 
 // ── Scope Stack ─────────────────────────────────────────────────────
@@ -156,21 +157,43 @@ impl HirLowerCtx {
     fn register_imports(&mut self, ast: &Module) -> Vec<HirImport> {
         ast.imports
             .iter()
-            .filter_map(|imp| {
-                let bound_name =
-                    if let Some(alias) = &imp.alias { alias } else { imp.module.last()? };
+            .filter_map(|imp| match imp {
+                Import::Module { module, alias, span } => {
+                    let bound_name = if let Some(alias) = alias { alias } else { module.last()? };
 
-                let def_id = self.symbol_table.alloc(DefData {
-                    name: bound_name.name.clone(),
-                    kind: DefKind::Import,
-                    span: bound_name.span,
-                });
+                    let def_id = self.symbol_table.alloc(DefData {
+                        name: bound_name.name.clone(),
+                        kind: DefKind::Import,
+                        span: bound_name.span,
+                    });
 
-                self.define_module_level(&bound_name.name, def_id, bound_name.span);
+                    self.define_module_level(&bound_name.name, def_id, bound_name.span);
 
-                let module_path = imp.module.iter().map(|seg| seg.name.clone()).collect();
+                    let module_path = module.iter().map(|seg| seg.name.clone()).collect();
 
-                Some(HirImport { def_id, module_path, span: imp.span })
+                    Some(HirImport {
+                        def_id,
+                        kind: HirImportKind::Module { module_path },
+                        span: *span,
+                    })
+                }
+                Import::Python { module_name, alias, span } => {
+                    let bound_name = alias.as_ref().unwrap_or(module_name);
+
+                    let def_id = self.symbol_table.alloc(DefData {
+                        name: bound_name.name.clone(),
+                        kind: DefKind::Import,
+                        span: bound_name.span,
+                    });
+
+                    self.define_module_level(&bound_name.name, def_id, bound_name.span);
+
+                    Some(HirImport {
+                        def_id,
+                        kind: HirImportKind::Python { module_name: module_name.name.clone() },
+                        span: *span,
+                    })
+                }
             })
             .collect()
     }

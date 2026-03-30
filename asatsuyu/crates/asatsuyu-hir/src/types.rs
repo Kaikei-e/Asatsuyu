@@ -111,9 +111,24 @@ pub struct HirModule {
 #[derive(Debug, Clone)]
 pub struct HirImport {
     pub def_id: DefId,
-    /// Module path segments: `["gleam", "io"]` for `import gleam.io`.
-    pub module_path: Vec<SmolStr>,
+    /// Whether this is an internal module import or a Python FFI import.
+    pub kind: HirImportKind,
     pub span: Span,
+}
+
+/// Distinguishes internal Asatsuyu imports from Python FFI imports.
+#[derive(Debug, Clone)]
+pub enum HirImportKind {
+    /// Internal module import: `import io`, `import gleam.io as stdio`.
+    Module {
+        /// Module path segments: `["gleam", "io"]` for `import gleam.io`.
+        module_path: Vec<SmolStr>,
+    },
+    /// Python FFI import: `from python import pathlib`.
+    Python {
+        /// The Python module name (e.g., `"pathlib"`, `"json"`).
+        module_name: SmolStr,
+    },
 }
 
 // ── HIR Type Expression ─────────────────────────────────────────────

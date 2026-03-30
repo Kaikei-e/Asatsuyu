@@ -19,12 +19,14 @@
 //! assert_eq!(hir.module.functions.len(), 1);
 //! ```
 
+pub mod ffi;
 mod lower;
 mod types;
 
 pub use types::{
-    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFieldType, HirFnDef, HirImport, HirLiteral,
-    HirMatchArm, HirModule, HirParam, HirPattern, HirTypeExpr, HirVariant, SymbolTable,
+    DefData, DefId, DefKind, HirCustomType, HirExpr, HirFieldType, HirFnDef, HirImport,
+    HirImportKind, HirLiteral, HirMatchArm, HirModule, HirParam, HirPattern, HirTypeExpr,
+    HirVariant, SymbolTable,
 };
 
 use asatsuyu_ast::Module;
@@ -67,6 +69,7 @@ mod tests {
     use asatsuyu_ast::{LiteralKind, Visibility};
     use asatsuyu_parser::parse;
     use asatsuyu_syntax::FileId;
+    use smol_str::SmolStr;
 
     const FID: FileId = FileId(0);
 
@@ -837,7 +840,12 @@ mod tests {
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
         assert_eq!(result.module.imports.len(), 1);
         let imp = &result.module.imports[0];
-        assert_eq!(imp.module_path, vec!["gleam", "io"]);
+        match &imp.kind {
+            HirImportKind::Module { module_path } => {
+                assert_eq!(module_path, &vec![SmolStr::from("gleam"), SmolStr::from("io")]);
+            }
+            other @ HirImportKind::Python { .. } => panic!("expected Module import, got {other:?}"),
+        }
 
         let func = &result.module.functions[0];
         if let HirExpr::Block { exprs, .. } = &func.body {
@@ -964,5 +972,59 @@ mod tests {
             "diagnostics: {:?}",
             result.diagnostics
         );
+    }
+
+    // ── Python FFI import tests ───────────────────────────────────
+
+    #[test]
+    fn python_import_registers_name() {
+        let result = hir_from_source("from python import pathlib\nfn f() { pathlib }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert_eq!(result.module.imports.len(), 1);
+
+        let imp = &result.module.imports[0];
+        match &imp.kind {
+            HirImportKind::Python { module_name } => {
+                assert_eq!(module_name.as_str(), "pathlib");
+            }
+            other @ HirImportKind::Module { .. } => panic!("expected Python import, got {other:?}"),
+        }
+
+        // The name `pathlib` should resolve in the function body.
+        let func = &result.module.functions[0];
+        if let HirExpr::Block { exprs, .. } = &func.body {
+            match &exprs[0] {
+                HirExpr::Var(def_id, _) => {
+                    let data = result.module.symbol_table.get(*def_id);
+                    assert_eq!(data.name.as_str(), "pathlib");
+                    assert_eq!(data.kind, DefKind::Import);
+                }
+                other => panic!("expected Var, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn python_import_with_alias() {
+        let result = hir_from_source("from python import pathlib as pl\nfn f() { pl }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+        assert_eq!(result.module.imports.len(), 1);
+
+        let imp = &result.module.imports[0];
+        match &imp.kind {
+            HirImportKind::Python { module_name } => {
+                assert_eq!(module_name.as_str(), "pathlib");
+            }
+            other @ HirImportKind::Module { .. } => panic!("expected Python import, got {other:?}"),
+        }
+
+        let data = result.module.symbol_table.get(imp.def_id);
+        assert_eq!(data.name.as_str(), "pl");
+    }
+
+    #[test]
+    fn python_import_alias_hides_original() {
+        let result = hir_from_source("from python import json as j\nfn f() { json }");
+        assert!(result.has_errors(), "expected unresolved `json`");
     }
 }
