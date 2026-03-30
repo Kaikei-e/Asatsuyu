@@ -818,4 +818,89 @@ pub fn f(data: String) -> Int {
         let py = python_from_source(source);
         insta::assert_snapshot!(py);
     }
+
+    // ── Issue 45: requests as Checked FFI target ─────────────────────
+
+    #[test]
+    fn emit_requests_get_checked() {
+        let source = "\
+from python import requests
+pub fn download(url: String) -> String {
+  let response = requests.get(url)
+  response.text
+}";
+        let py = python_from_source(source);
+        assert!(py.contains("import requests"), "should import requests: {py}");
+        assert!(
+            py.contains(
+                "_checked_runtime_requests = _asatsuyu_runtime.import_module(\"requests\")"
+            ),
+            "should bind runtime module: {py}"
+        );
+        assert!(
+            py.contains("_asatsuyu_runtime.call_function(_checked_runtime_requests, \"get\", url)"),
+            "should call get via runtime: {py}"
+        );
+        assert!(py.contains("response.text"), "should access text directly: {py}");
+    }
+
+    #[test]
+    fn emit_requests_response_json_checked() {
+        let source = "\
+from python import requests
+pub fn get_data(url: String) -> Int {
+  let response = requests.get(url)
+  let data = response.json()
+  42
+}";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("_asatsuyu_runtime.call_method(response, \"json\")"),
+            "should call json via call_method: {py}"
+        );
+        assert!(py.contains("isinstance(_checked_1"), "should validate json return: {py}");
+    }
+
+    #[test]
+    fn emit_requests_text_not_wrapped() {
+        // response.text is a clean str property — should NOT be wrapped
+        let source = "\
+from python import requests
+pub fn get_text(url: String) -> String {
+  let response = requests.get(url)
+  response.text
+}";
+        let py = python_from_source(source);
+        assert!(py.contains("return response.text"), "text should be direct access: {py}");
+        // call_method should NOT appear for property access
+        assert!(
+            !py.contains("call_method(response, \"text\")"),
+            "text should not use call_method: {py}"
+        );
+    }
+
+    #[test]
+    fn snap_requests_get_codegen() {
+        let source = "\
+from python import requests
+pub fn download(url: String) -> String {
+  let response = requests.get(url)
+  response.text
+}";
+        let py = python_from_source(source);
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn snap_requests_json_codegen() {
+        let source = "\
+from python import requests
+pub fn get_data(url: String) -> Int {
+  let response = requests.get(url)
+  let data = response.json()
+  42
+}";
+        let py = python_from_source(source);
+        insta::assert_snapshot!(py);
+    }
 }

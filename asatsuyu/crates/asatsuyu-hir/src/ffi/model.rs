@@ -144,6 +144,26 @@ pub enum FfiType {
     Any,
 }
 
+impl FfiType {
+    /// Returns `true` if `Any` appears anywhere in this type tree.
+    pub fn contains_any(&self) -> bool {
+        match self {
+            Self::Any => true,
+            Self::List(inner) | Self::Optional(inner) => inner.contains_any(),
+            Self::Dict(k, v) => k.contains_any() || v.contains_any(),
+            Self::Tuple(elems) => elems.iter().any(Self::contains_any),
+            Self::Union(variants) => variants.iter().any(Self::contains_any),
+            Self::Int
+            | Self::Float
+            | Self::Str
+            | Self::Bool
+            | Self::NoneType
+            | Self::Bytes
+            | Self::Named { .. } => false,
+        }
+    }
+}
+
 // ── Admissibility ─────────────────────────────────────────────────
 
 /// Result of admissibility analysis for an entire FFI module.

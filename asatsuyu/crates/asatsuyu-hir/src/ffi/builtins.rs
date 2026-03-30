@@ -183,6 +183,54 @@ pub fn sys_module() -> FfiModule {
     }
 }
 
+// ── requests ──────────────────────────────────────────────────────
+
+fn response_type() -> FfiType {
+    FfiType::Named { module: SmolStr::from("requests"), name: SmolStr::from("Response") }
+}
+
+/// Minimal surface for `requests` (Checked FFI).
+///
+/// `requests` does not ship `py.typed`; type info comes from `types-requests`
+/// (typeshed stubs). MVP exposes `get`/`post`/`put`/`delete` with `url: str`
+/// only. `Response.json()` returns `Any`, making the module `Checked`.
+#[must_use]
+pub fn requests_module() -> FfiModule {
+    let response_class = FfiClass {
+        name: SmolStr::from("Response"),
+        constructor: None, // not directly constructed by users
+        methods: vec![
+            (SmolStr::from("json"), sig(vec![], FfiType::Any)),
+            (SmolStr::from("raise_for_status"), sig(vec![], FfiType::NoneType)),
+        ],
+        properties: vec![
+            (SmolStr::from("text"), FfiType::Str),
+            (SmolStr::from("status_code"), FfiType::Int),
+            (SmolStr::from("ok"), FfiType::Bool),
+            (SmolStr::from("url"), FfiType::Str),
+            (SmolStr::from("content"), FfiType::Bytes),
+            (SmolStr::from("encoding"), FfiType::Optional(Box::new(FfiType::Str))),
+        ],
+    };
+
+    FfiModule {
+        name: SmolStr::from("requests"),
+        source: FfiSource::Builtin,
+        trust_level: FfiTrustLevel::Checked,
+        symbols: vec![
+            func("get", sig(vec![param("url", FfiType::Str)], response_type())),
+            func("post", sig(vec![param("url", FfiType::Str)], response_type())),
+            func("put", sig(vec![param("url", FfiType::Str)], response_type())),
+            func("delete", sig(vec![param("url", FfiType::Str)], response_type())),
+            FfiSymbol {
+                name: SmolStr::from("Response"),
+                kind: FfiSymbolKind::Class(response_class),
+                trust_level: None,
+            },
+        ],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,5 +277,40 @@ mod tests {
         let names: Vec<&str> = module.symbols.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"argv"));
         assert!(names.contains(&"exit"));
+    }
+
+    #[test]
+    fn requests_has_get_post_and_response() {
+        let module = requests_module();
+        let names: Vec<&str> = module.symbols.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"get"));
+        assert!(names.contains(&"post"));
+        assert!(names.contains(&"put"));
+        assert!(names.contains(&"delete"));
+        assert!(names.contains(&"Response"));
+    }
+
+    #[test]
+    fn requests_response_has_json_and_text() {
+        let module = requests_module();
+        let resp_sym = module
+            .symbols
+            .iter()
+            .find(|s| s.name == "Response")
+            .expect("requests should have Response");
+        match &resp_sym.kind {
+            FfiSymbolKind::Class(cls) => {
+                assert!(cls.constructor.is_none());
+                let method_names: Vec<&str> = cls.methods.iter().map(|(n, _)| n.as_str()).collect();
+                assert!(method_names.contains(&"json"));
+                assert!(method_names.contains(&"raise_for_status"));
+                let prop_names: Vec<&str> =
+                    cls.properties.iter().map(|(n, _)| n.as_str()).collect();
+                assert!(prop_names.contains(&"text"));
+                assert!(prop_names.contains(&"status_code"));
+                assert!(prop_names.contains(&"ok"));
+            }
+            other => panic!("expected Class, got {other:?}"),
+        }
     }
 }

@@ -73,6 +73,7 @@ impl FfiModuleResolver for BuiltinResolver {
             "json" => Some(builtins::json_module()),
             "os" => Some(builtins::os_module()),
             "sys" => Some(builtins::sys_module()),
+            "requests" => Some(builtins::requests_module()),
             _ => None,
         }
     }
@@ -154,5 +155,22 @@ mod tests {
         for sym in &module.symbols {
             assert_eq!(sym.trust_level, Some(FfiTrustLevel::Verified));
         }
+    }
+
+    #[test]
+    fn builtin_resolves_requests() {
+        let resolver = BuiltinResolver;
+        let module = resolver.resolve("requests").expect("requests should resolve");
+        assert_eq!(module.name.as_str(), "requests");
+    }
+
+    #[test]
+    fn chain_resolver_requests_is_checked() {
+        let chain = ChainResolver::new();
+        let module = chain.resolve("requests").expect("should resolve");
+        assert_eq!(module.trust_level, FfiTrustLevel::Checked);
+        // get/post/put/delete should be Checked (return Response which has .json() -> Any)
+        let get_sym = module.symbols.iter().find(|s| s.name == "get").unwrap();
+        assert_eq!(get_sym.trust_level, Some(FfiTrustLevel::Checked));
     }
 }

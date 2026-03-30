@@ -1,6 +1,6 @@
 //! Pure-Python compatibility shim for `_asatsuyu_runtime`.
 //!
-//! Issue 43 introduces the native PyO3 runtime crate, but package emission
+//! Issue 43 introduces the native `PyO3` runtime crate, but package emission
 //! still needs an importable module inside generated Python packages before the
 //! later mixed-layout packaging work lands. This shim mirrors the native API so
 //! Checked FFI code can consistently import `from <pkg> import _asatsuyu_runtime`.

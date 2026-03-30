@@ -15,34 +15,16 @@ use super::model::{
 
 // ── Type surface inspection ───────────────────────────────────────
 
-/// Returns `true` if the type contains `Any` anywhere in its structure.
-fn type_contains_any(ty: &FfiType) -> bool {
-    match ty {
-        FfiType::Any => true,
-        FfiType::List(inner) | FfiType::Optional(inner) => type_contains_any(inner),
-        FfiType::Dict(k, v) => type_contains_any(k) || type_contains_any(v),
-        FfiType::Tuple(elems) => elems.iter().any(type_contains_any),
-        FfiType::Union(variants) => variants.iter().any(type_contains_any),
-        FfiType::Int
-        | FfiType::Float
-        | FfiType::Str
-        | FfiType::Bool
-        | FfiType::NoneType
-        | FfiType::Bytes
-        | FfiType::Named { .. } => false,
-    }
-}
-
 /// Returns `true` if any parameter or the return type contains `Any`.
 fn signature_contains_any(sig: &FfiSignature) -> bool {
-    sig.params.iter().any(|p| type_contains_any(&p.ty)) || type_contains_any(&sig.return_ty)
+    sig.params.iter().any(|p| p.ty.contains_any()) || sig.return_ty.contains_any()
 }
 
 /// Returns `true` if any part of a class surface contains `Any`.
 fn class_contains_any(cls: &FfiClass) -> bool {
     cls.constructor.as_ref().is_some_and(signature_contains_any)
         || cls.methods.iter().any(|(_, sig)| signature_contains_any(sig))
-        || cls.properties.iter().any(|(_, ty)| type_contains_any(ty))
+        || cls.properties.iter().any(|(_, ty)| ty.contains_any())
 }
 
 // TODO: Implement when non-builtin resolvers produce bare generics.
@@ -51,11 +33,18 @@ fn class_contains_any(cls: &FfiClass) -> bool {
 // ── Symbol-level check ────────────────────────────────────────────
 
 /// Determine the trust level of a single FFI symbol.
-fn check_symbol(symbol: &FfiSymbol) -> SymbolAdmissibility {
+///
+/// `module_symbols` provides context so that `Named` return types can be
+/// traced back to their class definition within the same module. A function
+/// returning a class whose surface contains `Any` is downgraded to `Checked`.
+fn check_symbol(symbol: &FfiSymbol, module_symbols: &[FfiSymbol]) -> SymbolAdmissibility {
     let has_any = match &symbol.kind {
-        FfiSymbolKind::Function(sig) => signature_contains_any(sig),
+        FfiSymbolKind::Function(sig) => {
+            signature_contains_any(sig)
+                || return_refers_to_any_bearing_class(&sig.return_ty, module_symbols)
+        }
         FfiSymbolKind::Class(cls) => class_contains_any(cls),
-        FfiSymbolKind::Constant(ty) => type_contains_any(ty),
+        FfiSymbolKind::Constant(ty) => ty.contains_any(),
     };
 
     let (trust_level, reason) = if has_any {
@@ -67,6 +56,17 @@ fn check_symbol(symbol: &FfiSymbol) -> SymbolAdmissibility {
     SymbolAdmissibility { name: symbol.name.clone(), trust_level, reason }
 }
 
+/// Returns `true` if the return type is a `Named` type whose class definition
+/// (within the same module) contains `Any` in its surface.
+fn return_refers_to_any_bearing_class(return_ty: &FfiType, symbols: &[FfiSymbol]) -> bool {
+    let FfiType::Named { name, .. } = return_ty else {
+        return false;
+    };
+    symbols.iter().any(|s| {
+        s.name == *name && matches!(&s.kind, FfiSymbolKind::Class(cls) if class_contains_any(cls))
+    })
+}
+
 // ── Module-level check ────────────────────────────────────────────
 
 /// Check the admissibility of all symbols in an FFI module.
@@ -75,7 +75,8 @@ fn check_symbol(symbol: &FfiSymbol) -> SymbolAdmissibility {
 /// that is the minimum across all symbols.
 #[must_use]
 pub fn check_module(module: &FfiModule) -> AdmissibilityReport {
-    let symbols: Vec<SymbolAdmissibility> = module.symbols.iter().map(check_symbol).collect();
+    let symbols: Vec<SymbolAdmissibility> =
+        module.symbols.iter().map(|s| check_symbol(s, &module.symbols)).collect();
 
     let module_trust =
         symbols.iter().map(|s| s.trust_level).min().unwrap_or(FfiTrustLevel::Verified);
@@ -176,18 +177,18 @@ mod tests {
     #[test]
     fn any_in_nested_type_detected() {
         // List(Any)
-        assert!(type_contains_any(&FfiType::List(Box::new(FfiType::Any))));
+        assert!(FfiType::List(Box::new(FfiType::Any)).contains_any());
         // Optional(Any)
-        assert!(type_contains_any(&FfiType::Optional(Box::new(FfiType::Any))));
+        assert!(FfiType::Optional(Box::new(FfiType::Any)).contains_any());
         // Dict(Str, Any)
-        assert!(type_contains_any(&FfiType::Dict(Box::new(FfiType::Str), Box::new(FfiType::Any))));
+        assert!(FfiType::Dict(Box::new(FfiType::Str), Box::new(FfiType::Any)).contains_any());
         // Tuple with Any
-        assert!(type_contains_any(&FfiType::Tuple(vec![FfiType::Int, FfiType::Any])));
+        assert!(FfiType::Tuple(vec![FfiType::Int, FfiType::Any]).contains_any());
         // Union with Any
-        assert!(type_contains_any(&FfiType::Union(vec![FfiType::Str, FfiType::Any])));
+        assert!(FfiType::Union(vec![FfiType::Str, FfiType::Any]).contains_any());
         // Clean types
-        assert!(!type_contains_any(&FfiType::List(Box::new(FfiType::Int))));
-        assert!(!type_contains_any(&FfiType::Optional(Box::new(FfiType::Str))));
+        assert!(!FfiType::List(Box::new(FfiType::Int)).contains_any());
+        assert!(!FfiType::Optional(Box::new(FfiType::Str)).contains_any());
     }
 
     #[test]
@@ -262,5 +263,36 @@ mod tests {
         assert_eq!(report.symbols[0].trust_level, FfiTrustLevel::Verified);
         assert_eq!(report.symbols[1].trust_level, FfiTrustLevel::Checked);
         assert_eq!(report.symbols[2].trust_level, FfiTrustLevel::Verified);
+    }
+
+    // ── requests module tests ────────────────────────────────────────
+
+    #[test]
+    fn requests_get_is_checked_due_to_response_class() {
+        let module = builtins::requests_module();
+        let report = check_module(&module);
+        assert_eq!(report.module_trust, FfiTrustLevel::Checked);
+        let get_sym = report.symbols.iter().find(|s| s.name == "get").unwrap();
+        assert_eq!(get_sym.trust_level, FfiTrustLevel::Checked);
+        assert_eq!(get_sym.reason, AdmissibilityReason::ContainsAny);
+    }
+
+    #[test]
+    fn requests_response_class_is_checked() {
+        let module = builtins::requests_module();
+        let report = check_module(&module);
+        let resp = report.symbols.iter().find(|s| s.name == "Response").unwrap();
+        assert_eq!(resp.trust_level, FfiTrustLevel::Checked);
+    }
+
+    #[test]
+    fn pathlib_stays_verified_with_named_return() {
+        // Regression: Named return types whose class has no Any must stay Verified.
+        let module = builtins::pathlib_module();
+        let report = check_module(&module);
+        assert_eq!(report.module_trust, FfiTrustLevel::Verified);
+        for sym in &report.symbols {
+            assert_eq!(sym.trust_level, FfiTrustLevel::Verified);
+        }
     }
 }

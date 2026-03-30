@@ -64,6 +64,9 @@ struct CheckedFfiInfo {
     module_name: SmolStr,
     symbol_name: SmolStr,
     return_ty: Option<FfiType>,
+    /// `true` for instance method calls (`call_method`),
+    /// `false` for module-level function calls (`call_function`).
+    is_method: bool,
 }
 
 impl<'a> Emitter<'a> {
@@ -621,23 +624,52 @@ impl<'a> Emitter<'a> {
         let ThirExpr::FieldAccess { receiver, field, .. } = func else {
             return None;
         };
-        let Ty::FfiModule { module_name } = receiver.ty() else {
-            return None;
-        };
-        let ffi_mod = self.module.ffi_modules.get(module_name)?;
-        let sym = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
-        if sym.trust_level != Some(FfiTrustLevel::Checked) {
-            return None;
-        }
-        let return_ty = match &sym.kind {
-            FfiSymbolKind::Function(sig) => Some(sig.return_ty.clone()),
+
+        match receiver.ty() {
+            // Case 1: Module-level function — e.g., `requests.get(url)`
+            Ty::FfiModule { module_name } => {
+                let ffi_mod = self.module.ffi_modules.get(module_name)?;
+                let sym = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
+                if sym.trust_level != Some(FfiTrustLevel::Checked) {
+                    return None;
+                }
+                let return_ty = match &sym.kind {
+                    FfiSymbolKind::Function(sig) => Some(sig.return_ty.clone()),
+                    _ => None,
+                };
+                Some(CheckedFfiInfo {
+                    module_name: module_name.clone(),
+                    symbol_name: field.clone(),
+                    return_ty,
+                    is_method: false,
+                })
+            }
+
+            // Case 2: Instance method — e.g., `response.json()`
+            Ty::FfiInstance { module, class } => {
+                let ffi_mod = self.module.ffi_modules.get(module)?;
+                let cls = ffi_mod.symbols.iter().find_map(|s| {
+                    if s.name == *class {
+                        if let FfiSymbolKind::Class(c) = &s.kind { Some(c) } else { None }
+                    } else {
+                        None
+                    }
+                })?;
+                let (_, method_sig) = cls.methods.iter().find(|(n, _)| n == field)?;
+                // Only wrap methods whose return type contains Any.
+                if !method_sig.return_ty.contains_any() {
+                    return None;
+                }
+                Some(CheckedFfiInfo {
+                    module_name: module.clone(),
+                    symbol_name: field.clone(),
+                    return_ty: Some(method_sig.return_ty.clone()),
+                    is_method: true,
+                })
+            }
+
             _ => None,
-        };
-        Some(CheckedFfiInfo {
-            module_name: module_name.clone(),
-            symbol_name: field.clone(),
-            return_ty,
-        })
+        }
     }
 
     /// Pre-scan: does the module contain any Checked FFI calls?
@@ -679,11 +711,44 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    /// Emit the runtime call expression: `_checked_N = _asatsuyu_runtime.call_*(...)`.
+    ///
+    /// For module-level functions (`is_method == false`):
+    ///   `_asatsuyu_runtime.call_function(_checked_runtime_mod, "func", args...)`
+    /// For instance methods (`is_method == true`):
+    ///   `_asatsuyu_runtime.call_method(receiver, "method", args...)`
+    fn emit_checked_ffi_call_expr(
+        &mut self,
+        tmp: &str,
+        func: &ThirExpr,
+        args: &[ThirExpr],
+        info: &CheckedFfiInfo,
+    ) {
+        self.write_indent();
+        if info.is_method {
+            let ThirExpr::FieldAccess { receiver, .. } = func else {
+                unreachable!("Checked FFI method must be a field access")
+            };
+            let _ = write!(self.output, "{tmp} = _asatsuyu_runtime.call_method(");
+            self.emit_expr(receiver);
+            let _ = write!(self.output, ", \"{}\"", info.symbol_name);
+        } else {
+            let runtime_binding = checked_runtime_binding(&info.module_name);
+            let _ = write!(
+                self.output,
+                "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
+                info.symbol_name
+            );
+        }
+        self.emit_runtime_args(args);
+        self.output.push_str(")\n");
+    }
+
     /// Emit `let x = <checked_ffi_call>` as try/except + validator + assignment.
     fn emit_checked_ffi_let_stmt(
         &mut self,
         binding: DefId,
-        _func: &ThirExpr,
+        func: &ThirExpr,
         args: &[ThirExpr],
         info: &CheckedFfiInfo,
         span: Span,
@@ -692,23 +757,13 @@ impl<'a> Emitter<'a> {
         let tmp = format!("_checked_{}", self.checked_counter);
         self.checked_counter += 1;
         let name = self.module.symbol_table.get(binding).name.clone();
-        let runtime_binding = checked_runtime_binding(&info.module_name);
 
-        // try:
-        //     _checked_N = _asatsuyu_runtime.call_function(_module_runtime, "func", ...)
         self.write_indent();
         self.output.push_str("try:");
         self.write_source_comment(span);
         self.output.push('\n');
         self.push_indent();
-        self.write_indent();
-        let _ = write!(
-            self.output,
-            "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
-            info.symbol_name
-        );
-        self.emit_runtime_args(args);
-        self.output.push_str(")\n");
+        self.emit_checked_ffi_call_expr(&tmp, func, args, info);
         self.pop_indent();
         self.emit_checked_except_block();
         self.emit_validator(&tmp, info);
@@ -720,7 +775,7 @@ impl<'a> Emitter<'a> {
     /// Emit bare `<checked_ffi_call>` as a statement.
     fn emit_checked_ffi_bare_stmt(
         &mut self,
-        _func: &ThirExpr,
+        func: &ThirExpr,
         args: &[ThirExpr],
         info: &CheckedFfiInfo,
         span: Span,
@@ -728,21 +783,13 @@ impl<'a> Emitter<'a> {
         self.has_checked_ffi = true;
         let tmp = format!("_checked_{}", self.checked_counter);
         self.checked_counter += 1;
-        let runtime_binding = checked_runtime_binding(&info.module_name);
 
         self.write_indent();
         self.output.push_str("try:");
         self.write_source_comment(span);
         self.output.push('\n');
         self.push_indent();
-        self.write_indent();
-        let _ = write!(
-            self.output,
-            "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
-            info.symbol_name
-        );
-        self.emit_runtime_args(args);
-        self.output.push_str(")\n");
+        self.emit_checked_ffi_call_expr(&tmp, func, args, info);
         self.pop_indent();
         self.emit_checked_except_block();
         self.emit_validator(&tmp, info);
@@ -751,7 +798,7 @@ impl<'a> Emitter<'a> {
     /// Emit Checked FFI call in return position.
     fn emit_checked_ffi_return_stmt(
         &mut self,
-        _func: &ThirExpr,
+        func: &ThirExpr,
         args: &[ThirExpr],
         info: &CheckedFfiInfo,
         span: Span,
@@ -759,21 +806,13 @@ impl<'a> Emitter<'a> {
         self.has_checked_ffi = true;
         let tmp = format!("_checked_{}", self.checked_counter);
         self.checked_counter += 1;
-        let runtime_binding = checked_runtime_binding(&info.module_name);
 
         self.write_indent();
         self.output.push_str("try:");
         self.write_source_comment(span);
         self.output.push('\n');
         self.push_indent();
-        self.write_indent();
-        let _ = write!(
-            self.output,
-            "{tmp} = _asatsuyu_runtime.call_function({runtime_binding}, \"{}\"",
-            info.symbol_name
-        );
-        self.emit_runtime_args(args);
-        self.output.push_str(")\n");
+        self.emit_checked_ffi_call_expr(&tmp, func, args, info);
         self.pop_indent();
         self.emit_checked_except_block();
         self.emit_validator(&tmp, info);
