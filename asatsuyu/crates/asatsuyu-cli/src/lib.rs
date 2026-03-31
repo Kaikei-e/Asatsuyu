@@ -5,6 +5,7 @@
 
 mod diagnostic_report;
 mod json_diagnostic;
+mod lockfile;
 mod project;
 mod python_env;
 mod watch;
@@ -157,6 +158,11 @@ enum Commands {
         /// Project name (used as directory name)
         name: String,
     },
+    /// Generate a reproducible pylock.toml lockfile from declared dependencies
+    Lock {
+        #[command(flatten)]
+        output: OutputArgs,
+    },
     /// Show FFI trust report for all known Python modules
     #[command(name = "verify-ffi")]
     VerifyFfi,
@@ -205,6 +211,7 @@ pub fn run() -> ExitCode {
                 output.error_format,
                 false,
             );
+            check_lockfile_staleness(context.project.as_ref(), output.error_format);
 
             if watch {
                 watch::run_watch(&context.paths, &ffi_config, output.error_format)
@@ -239,6 +246,7 @@ pub fn run() -> ExitCode {
                 output.error_format,
                 false,
             );
+            check_lockfile_staleness(discovered.as_ref(), output.error_format);
 
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
             cmd_build(
@@ -273,6 +281,7 @@ pub fn run() -> ExitCode {
             ) {
                 return exit_config_error();
             }
+            check_lockfile_staleness(discovered.as_ref(), output.error_format);
 
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
             cmd_run(
@@ -284,6 +293,7 @@ pub fn run() -> ExitCode {
                 discovered.as_ref(),
             )
         }
+        Commands::Lock { output } => cmd_lock(output.error_format),
         Commands::New { name } => cmd_new(&name),
         Commands::VerifyFfi => cmd_verify_ffi(),
     }
@@ -553,6 +563,171 @@ fn cmd_run(
         }
     }
 }
+
+// ── lock ─────────────────────────────────────────────────────────
+
+fn cmd_lock(error_format: ErrorFormat) -> ExitCode {
+    let cwd = match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(e) => {
+            emit_lock_event(
+                error_format,
+                "error",
+                serde_json::json!({ "message": format!("cannot determine working directory: {e}") }),
+            );
+            return exit_config_error();
+        }
+    };
+
+    let project = match project::discover_project(&cwd) {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            emit_lock_event(
+                error_format,
+                "error",
+                serde_json::json!({ "message": "no asatsuyu.toml found (run from inside a project)" }),
+            );
+            return exit_config_error();
+        }
+        Err(e) => {
+            emit_lock_event(
+                error_format,
+                "error",
+                serde_json::json!({ "message": e.to_string() }),
+            );
+            return exit_config_error();
+        }
+    };
+
+    if project.config.python_dependencies().is_empty() {
+        emit_lock_event(
+            error_format,
+            "skipped",
+            serde_json::json!({ "reason": "no_dependencies", "message": "no [python-dependencies] declared; nothing to lock" }),
+        );
+        return ExitCode::SUCCESS;
+    }
+
+    let Some(tool) = lockfile::discover_lock_tool() else {
+        emit_lock_event(
+            error_format,
+            "error",
+            serde_json::json!({ "message": lockfile::LockError::ToolNotFound.to_string() }),
+        );
+        return exit_config_error();
+    };
+
+    let output_path = project.root.join("pylock.toml");
+    let dep_count = project.config.python_dependencies().len();
+
+    match lockfile::generate_lockfile(&project, &tool, &output_path) {
+        Ok(()) => {
+            emit_lock_event(
+                error_format,
+                "generated",
+                serde_json::json!({
+                    "path": output_path.display().to_string(),
+                    "tool": tool.to_string(),
+                    "dependency_count": dep_count,
+                }),
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            emit_lock_event(
+                error_format,
+                "error",
+                serde_json::json!({ "message": e.to_string() }),
+            );
+            exit_config_error()
+        }
+    }
+}
+
+fn emit_lock_event(error_format: ErrorFormat, status: &str, extra: serde_json::Value) {
+    match error_format {
+        ErrorFormat::Human => match status {
+            "generated" => {
+                let dep_count = extra
+                    .get("dependency_count")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                let tool = extra.get("tool").and_then(serde_json::Value::as_str).unwrap_or("tool");
+                let path = extra.get("path").and_then(serde_json::Value::as_str).unwrap_or("");
+                eprintln!(
+                    "  Locked {dep_count} dependenc{} via {tool}",
+                    if dep_count == 1 { "y" } else { "ies" }
+                );
+                eprintln!("  Output: {path}");
+            }
+            "skipped" => {
+                let message = extra
+                    .get("message")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("lock skipped");
+                eprintln!("warning: {message}");
+            }
+            _ => {
+                let message = extra
+                    .get("message")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("lock failed");
+                eprintln!("error: {message}");
+            }
+        },
+        ErrorFormat::Json => {
+            let mut obj = serde_json::Map::new();
+            obj.insert("type".into(), serde_json::Value::String("lockfile".into()));
+            obj.insert("status".into(), serde_json::Value::String(status.into()));
+            if let serde_json::Value::Object(extra_obj) = extra {
+                obj.extend(extra_obj);
+            }
+            println!("{}", serde_json::Value::Object(obj));
+        }
+    }
+}
+
+/// Emit a warning if `pylock.toml` is stale or missing.
+///
+/// Called from `cmd_check`, `cmd_build`, and `cmd_run` after dependency checks.
+fn check_lockfile_staleness(project: Option<&project::Project>, error_format: ErrorFormat) {
+    let Some(project) = project else { return };
+    if project.config.python_dependencies().is_empty() {
+        return;
+    }
+
+    let pylock_path = project.root.join("pylock.toml");
+    match lockfile::check_staleness(project, &pylock_path) {
+        lockfile::LockStaleness::Fresh => {}
+        lockfile::LockStaleness::Missing => {
+            if error_format == ErrorFormat::Human {
+                eprintln!("warning: no pylock.toml found; run `asatsuyu lock` to create one");
+            } else {
+                let json = serde_json::json!({
+                    "type": "lockfile",
+                    "status": "missing",
+                    "message": "no pylock.toml found; run `asatsuyu lock` to create one",
+                });
+                println!("{json}");
+            }
+        }
+        lockfile::LockStaleness::Stale { reason } => {
+            if error_format == ErrorFormat::Human {
+                eprintln!("warning: pylock.toml may be stale: {reason}");
+                eprintln!("  hint: run `asatsuyu lock` to update");
+            } else {
+                let json = serde_json::json!({
+                    "type": "lockfile",
+                    "status": "stale",
+                    "reason": reason,
+                });
+                println!("{json}");
+            }
+        }
+    }
+}
+
+// ── new ──────────────────────────────────────────────────────────
 
 fn cmd_new(name: &str) -> ExitCode {
     // Validate project name.

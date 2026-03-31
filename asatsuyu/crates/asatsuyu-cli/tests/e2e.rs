@@ -1131,6 +1131,209 @@ fn build_uses_project_name_and_version() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+// ── lock command ─────────────────────────────────────────────────
+
+/// `asatsuyu lock` outside a project fails with exit code 2.
+#[test]
+fn lock_without_project_fails() {
+    let dir = workspace_root().join("target/test-lock-no-project");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["lock"]).output().unwrap()
+    };
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "lock outside project should exit 2\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu lock` with no python-dependencies succeeds silently.
+#[test]
+fn lock_empty_deps_succeeds() {
+    let dir = workspace_root().join("target/test-lock-empty-deps");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "schema_version = 1\n\n[project]\nname = \"empty\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["lock"]).output().unwrap()
+    };
+
+    assert!(
+        output.status.success(),
+        "lock with no deps should succeed\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+    // No pylock.toml should be created.
+    assert!(!dir.join("pylock.toml").exists(), "pylock.toml should not be created when no deps");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu lock --help` includes the lock subcommand.
+#[test]
+fn lock_help_shows_subcommand() {
+    let output = asatsuyu().args(["lock", "--help"]).output().unwrap();
+    assert!(output.status.success(), "lock --help should succeed");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("lockfile") || stdout.contains("pylock"),
+        "help should describe lockfile: {stdout}",
+    );
+}
+
+/// `asatsuyu lock --error-format json` reports errors as JSON.
+#[test]
+fn lock_json_error_output() {
+    let dir = workspace_root().join("target/test-lock-json-error");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["lock", "--error-format", "json"]).output().unwrap()
+    };
+
+    assert_eq!(output.status.code(), Some(2), "lock json error should exit 2");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"type\":\"lockfile\""), "should emit lockfile json: {stdout}");
+    assert!(stdout.contains("\"status\":\"error\""), "should emit error status: {stdout}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `check --error-format json` reports missing lockfile as a JSON warning.
+#[test]
+fn check_json_emits_lockfile_warning() {
+    let dir = workspace_root().join("target/test-check-json-lock-warning");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\n\n[python-dependencies]\nrequests = \">=2.31\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["check", "--error-format", "json"]).output().unwrap()
+    };
+
+    assert!(output.status.success(), "check should succeed: {}", String::from_utf8_lossy(&output.stderr));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\"type\":\"lockfile\""), "should emit lockfile json warning: {stdout}");
+    assert!(stdout.contains("\"status\":\"missing\""), "should emit missing status: {stdout}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Full integration: `asatsuyu lock` generates pylock.toml (requires uv or pip >= 25.1).
+#[test]
+#[ignore = "requires uv >= 0.6.15 or pip >= 25.1 on PATH"]
+fn lock_generates_pylock_toml() {
+    let dir = workspace_root().join("target/test-lock-generate");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"locktest\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n\n[python-dependencies]\nrequests = \">=2.31\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["lock"]).output().unwrap()
+    };
+
+    assert!(
+        output.status.success(),
+        "lock should succeed\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let pylock_path = dir.join("pylock.toml");
+    assert!(pylock_path.exists(), "pylock.toml should be created");
+
+    let content = std::fs::read_to_string(&pylock_path).unwrap();
+    assert!(content.contains("lock-version"), "should contain lock-version: {content}");
+    assert!(content.contains("requests"), "should contain requests package: {content}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Smoke test: `pip install -r pylock.toml` works in a venv (requires lock + pip).
+#[test]
+#[ignore = "requires uv >= 0.6.15 or pip >= 25.1 and network access"]
+fn lock_install_from_pylock() {
+    let dir = workspace_root().join("target/test-lock-install");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"installtest\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n\n[python-dependencies]\nsix = \">=1.16\"\n",
+    )
+    .unwrap();
+
+    // Generate lockfile.
+    let lock_out = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["lock"]).output().unwrap()
+    };
+    assert!(
+        lock_out.status.success(),
+        "lock failed: {}",
+        String::from_utf8_lossy(&lock_out.stderr)
+    );
+
+    // Create venv and install from lockfile using uv (pip >= 25.1 also works).
+    let venv_dir = dir.join(".venv");
+    let venv_out = Command::new("uv").args(["venv", &venv_dir.to_string_lossy()]).output().unwrap();
+    assert!(venv_out.status.success(), "venv creation failed");
+
+    let install_out = Command::new("uv")
+        .args([
+            "pip",
+            "install",
+            "-r",
+            &dir.join("pylock.toml").to_string_lossy(),
+            "--python",
+            &venv_dir.join("bin/python").to_string_lossy(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        install_out.status.success(),
+        "uv pip install from pylock.toml failed:\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&install_out.stdout),
+        String::from_utf8_lossy(&install_out.stderr),
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// build inside a project includes python-dependencies in pyproject.toml.
 #[test]
 fn build_includes_dependencies_in_pyproject() {
