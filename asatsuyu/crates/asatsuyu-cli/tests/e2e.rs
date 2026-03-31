@@ -501,7 +501,218 @@ fn help_shows_ffi_flags() {
     );
 }
 
-// ── 17. --ffi-stub-path must point at an existing directory ─────
+// ── 17. --error-format json ───────────────────────────────────────
+
+#[test]
+fn check_error_format_json_produces_ndjson() {
+    let dir = workspace_root().join("target/test-json-output");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("bad.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output =
+        asatsuyu().args(["check", "--error-format", "json", &bad_file_str]).output().unwrap();
+
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty(), "stdout should be empty for check");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let lines: Vec<&str> = stderr.lines().collect();
+
+    // At least one diagnostic line + one summary line.
+    assert!(lines.len() >= 2, "expected at least 2 NDJSON lines, got: {stderr}");
+
+    // Every line must be valid JSON.
+    for line in &lines {
+        let _: serde_json::Value =
+            serde_json::from_str(line).unwrap_or_else(|e| panic!("invalid JSON line: {e}\n{line}"));
+    }
+
+    // First line should be a diagnostic.
+    let first: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(first["type"], "diagnostic");
+    assert_eq!(first["severity"], "error");
+
+    // Last line should be the summary.
+    let last: serde_json::Value = serde_json::from_str(lines[lines.len() - 1]).unwrap();
+    assert_eq!(last["type"], "summary");
+    assert!(last["error_count"].as_u64().unwrap() > 0);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_error_format_json_schema_fields() {
+    let dir = workspace_root().join("target/test-json-schema");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("schema.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output =
+        asatsuyu().args(["check", "--error-format", "json", &bad_file_str]).output().unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let first_line = stderr.lines().next().unwrap();
+    let diag: serde_json::Value = serde_json::from_str(first_line).unwrap();
+
+    // Required fields exist.
+    assert!(diag["code"].is_string(), "code should be a string: {diag}");
+    assert!(diag["message"].is_string(), "message should be a string: {diag}");
+    assert!(diag["file"].is_string(), "file should be a string: {diag}");
+
+    // Span positions are 1-based.
+    let start_line = diag["span"]["start"]["line"].as_u64().unwrap();
+    let start_col = diag["span"]["start"]["column"].as_u64().unwrap();
+    assert!(start_line >= 1, "line should be 1-based: {start_line}");
+    assert!(start_col >= 1, "column should be 1-based: {start_col}");
+
+    // Offset is present.
+    assert!(diag["span"]["start"]["offset"].is_u64(), "offset should be present");
+
+    // Labels array exists.
+    assert!(diag["labels"].is_array(), "labels should be an array");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_success_json_emits_summary_only() {
+    let output = asatsuyu()
+        .args(["check", "--error-format", "json", &example("hello.asty")])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let lines: Vec<&str> = stderr.lines().collect();
+
+    // Success: exactly one summary line (no diagnostics).
+    assert_eq!(lines.len(), 1, "expected exactly 1 line (summary), got: {stderr}");
+
+    let summary: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(summary["type"], "summary");
+    assert_eq!(summary["error_count"], 0);
+    assert_eq!(summary["warning_count"], 0);
+    assert_eq!(summary["note_count"], 0);
+}
+
+#[test]
+fn build_error_format_json() {
+    let dir = workspace_root().join("target/test-json-build");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("bad.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output = asatsuyu()
+        .args([
+            "build",
+            "--error-format",
+            "json",
+            &bad_file_str,
+            "-o",
+            &dir.join("out").display().to_string(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let lines: Vec<&str> = stderr.lines().collect();
+    assert!(lines.len() >= 2, "expected NDJSON output: {stderr}");
+
+    // Same schema as check.
+    let first: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(first["type"], "diagnostic");
+
+    let last: serde_json::Value = serde_json::from_str(lines[lines.len() - 1]).unwrap();
+    assert_eq!(last["type"], "summary");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn build_success_json_emits_summary_only() {
+    let dir = workspace_root().join("target/test-json-build-success");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let output = asatsuyu()
+        .args([
+            "build",
+            "--error-format",
+            "json",
+            &example("hello.asty"),
+            "-o",
+            &dir.display().to_string(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "build should succeed");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let lines: Vec<&str> = stderr.lines().collect();
+    assert_eq!(lines.len(), 1, "expected exactly 1 summary line, got: {stderr}");
+
+    let summary: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(summary["type"], "summary");
+    assert_eq!(summary["error_count"], 0);
+    assert_eq!(summary["warning_count"], 0);
+    assert_eq!(summary["note_count"], 0);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn run_success_json_emits_summary_only() {
+    let output = asatsuyu()
+        .args(["run", "--error-format", "json", &example("hello.asty")])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "run should succeed");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let lines: Vec<&str> = stderr.lines().collect();
+    assert_eq!(lines.len(), 1, "expected exactly 1 summary line, got: {stderr}");
+
+    let summary: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(summary["type"], "summary");
+    assert_eq!(summary["error_count"], 0);
+    assert_eq!(summary["warning_count"], 0);
+    assert_eq!(summary["note_count"], 0);
+}
+
+#[test]
+fn check_error_format_human_is_default() {
+    // Omitting --error-format should produce miette output, not JSON.
+    let dir = workspace_root().join("target/test-default-human");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("bad.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output = asatsuyu().args(["check", &bad_file_str]).output().unwrap();
+
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // Human output should NOT be valid JSON.
+    assert!(
+        serde_json::from_str::<serde_json::Value>(stderr.lines().next().unwrap_or("")).is_err(),
+        "default output should be human-readable, not JSON: {stderr}",
+    );
+    // Should contain miette-style output markers.
+    assert!(stderr.contains("type mismatch"), "stderr: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 17b. --ffi-stub-path must point at an existing directory ────
 
 #[test]
 fn check_rejects_missing_ffi_stub_path() {

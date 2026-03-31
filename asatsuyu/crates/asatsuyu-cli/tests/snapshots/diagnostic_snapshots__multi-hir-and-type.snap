@@ -4,5 +4,6 @@ expression: text
 ---
 [E0151] Error: duplicate definition `f`
   span: 16..17
+  primary [16..17]: `f` is redefined here
   secondary [3..4]: previously defined here
   hint: rename one of the definitions

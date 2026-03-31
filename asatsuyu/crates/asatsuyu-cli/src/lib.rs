@@ -4,6 +4,7 @@
 //! compilation pipeline from `.asty` source to Python 3.12+ output.
 
 mod diagnostic_report;
+mod json_diagnostic;
 
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
@@ -11,7 +12,7 @@ use std::process::{Command, ExitCode};
 
 use asatsuyu_backend_python::{FfiRuntimeMode, GeneratedPackage, PackageConfig};
 use asatsuyu_hir::ffi::FfiResolverConfig;
-use asatsuyu_syntax::{Diagnostic, FileId, Severity};
+use asatsuyu_syntax::{Diagnostic, FileId, LineIndex, Severity};
 use asatsuyu_ty::ThirModule;
 use clap::{Parser, Subcommand, ValueEnum};
 
@@ -38,6 +39,24 @@ enum FfiRuntime {
     Auto,
 }
 
+/// Diagnostic output format.
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+enum ErrorFormat {
+    /// Human-readable output with source context (miette)
+    #[default]
+    Human,
+    /// Machine-readable JSON (one object per line, NDJSON)
+    Json,
+}
+
+/// Arguments shared across check/build/run for diagnostic output control.
+#[derive(clap::Args, Clone, Debug)]
+struct OutputArgs {
+    /// Diagnostic output format: human (default) or json
+    #[arg(long, value_enum, default_value_t = ErrorFormat::Human)]
+    error_format: ErrorFormat,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Type-check without code generation
@@ -45,6 +64,8 @@ enum Commands {
         /// Paths to `.asty` source files
         #[arg(required = true)]
         paths: Vec<PathBuf>,
+        #[command(flatten)]
+        output: OutputArgs,
         /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
         #[arg(long)]
         ffi_stdlib_only: bool,
@@ -58,7 +79,7 @@ enum Commands {
         path: PathBuf,
         /// Output directory
         #[arg(short, long, default_value = "dist")]
-        output: PathBuf,
+        output_dir: PathBuf,
         /// Add source-map comments (# asty:L<n>) to generated Python
         #[arg(long)]
         source_map: bool,
@@ -68,6 +89,8 @@ enum Commands {
         /// Control FFI runtime inclusion: on, off, or auto
         #[arg(long, value_enum, default_value_t = FfiRuntime::Auto)]
         ffi_runtime: FfiRuntime,
+        #[command(flatten)]
+        output: OutputArgs,
         /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
         #[arg(long)]
         ffi_stdlib_only: bool,
@@ -85,6 +108,8 @@ enum Commands {
         /// Control FFI runtime inclusion: on, off, or auto
         #[arg(long, value_enum, default_value_t = FfiRuntime::Auto)]
         ffi_runtime: FfiRuntime,
+        #[command(flatten)]
+        output: OutputArgs,
         /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
         #[arg(long)]
         ffi_stdlib_only: bool,
@@ -121,7 +146,7 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { paths, ffi_stdlib_only, ffi_stub_path } => {
+        Commands::Check { paths, output, ffi_stdlib_only, ffi_stub_path } => {
             let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
                 Ok(config) => config,
                 Err(err) => {
@@ -129,14 +154,15 @@ pub fn run() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            cmd_check(&paths, &ffi_config)
+            cmd_check(&paths, &ffi_config, output.error_format)
         }
         Commands::Build {
             path,
-            output,
+            output_dir,
             source_map,
             no_emit_package,
             ffi_runtime,
+            output,
             ffi_stdlib_only,
             ffi_stub_path,
         } => {
@@ -148,9 +174,17 @@ pub fn run() -> ExitCode {
                 }
             };
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
-            cmd_build(&path, &output, source_map, no_emit_package, runtime_mode, &ffi_config)
+            cmd_build(
+                &path,
+                &output_dir,
+                source_map,
+                no_emit_package,
+                runtime_mode,
+                &ffi_config,
+                output.error_format,
+            )
         }
-        Commands::Run { path, source_map, ffi_runtime, ffi_stdlib_only, ffi_stub_path } => {
+        Commands::Run { path, source_map, ffi_runtime, output, ffi_stdlib_only, ffi_stub_path } => {
             let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
                 Ok(config) => config,
                 Err(err) => {
@@ -159,7 +193,7 @@ pub fn run() -> ExitCode {
                 }
             };
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
-            cmd_run(&path, source_map, runtime_mode, &ffi_config)
+            cmd_run(&path, source_map, runtime_mode, &ffi_config, output.error_format)
         }
         Commands::New { name } => cmd_new(&name),
         Commands::VerifyFfi => cmd_verify_ffi(),
@@ -200,20 +234,31 @@ fn convert_ffi_runtime(runtime: FfiRuntime) -> FfiRuntimeMode {
 
 // ── Command handlers ───────────────────────────────────────────────
 
-fn cmd_check(paths: &[PathBuf], ffi_config: &FfiResolverConfig) -> ExitCode {
+fn cmd_check(
+    paths: &[PathBuf],
+    ffi_config: &FfiResolverConfig,
+    error_format: ErrorFormat,
+) -> ExitCode {
     let mut failed = false;
+    let mut all_diags: Vec<Diagnostic> = Vec::new();
 
     for path in paths {
         let filename = path.display().to_string();
         match compile_with_source(path, ffi_config) {
             Ok(result) => {
                 if !result.warnings.is_empty() {
-                    report_diagnostics(&result.warnings, &result.source, &filename);
+                    report_diagnostics(&result.warnings, &result.source, &filename, error_format);
+                    all_diags.extend(result.warnings);
                 }
             }
             Err(CliError::CompileErrors { diagnostics, source }) => {
-                report_diagnostics(&diagnostics, &source, &filename);
-                report_error_summary(&diagnostics);
+                report_diagnostics(&diagnostics, &source, &filename, error_format);
+                // In human mode, show per-file error summary immediately.
+                // In JSON mode, summary is emitted once at the end.
+                if matches!(error_format, ErrorFormat::Human) {
+                    report_error_summary(&diagnostics, error_format);
+                }
+                all_diags.extend(diagnostics);
                 failed = true;
             }
             Err(err) => {
@@ -221,6 +266,12 @@ fn cmd_check(paths: &[PathBuf], ffi_config: &FfiResolverConfig) -> ExitCode {
                 failed = true;
             }
         }
+    }
+
+    // JSON mode: always emit a summary as the final line.
+    if matches!(error_format, ErrorFormat::Json) {
+        let summary = json_diagnostic::summary_to_json(&all_diags);
+        json_diagnostic::emit_json_line(&summary);
     }
 
     if failed { ExitCode::FAILURE } else { ExitCode::SUCCESS }
@@ -233,13 +284,14 @@ fn cmd_build(
     no_emit_package: bool,
     ffi_runtime: FfiRuntimeMode,
     ffi_config: &FfiResolverConfig,
+    error_format: ErrorFormat,
 ) -> ExitCode {
     let filename = path.display().to_string();
     let result = match compile_with_source(path, ffi_config) {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
-            report_diagnostics(&diagnostics, &source, &filename);
-            report_error_summary(&diagnostics);
+            report_diagnostics(&diagnostics, &source, &filename, error_format);
+            report_error_summary(&diagnostics, error_format);
             return ExitCode::FAILURE;
         }
         Err(err) => {
@@ -249,7 +301,7 @@ fn cmd_build(
     };
 
     if !result.warnings.is_empty() {
-        report_diagnostics(&result.warnings, &result.source, &filename);
+        report_diagnostics(&result.warnings, &result.source, &filename, error_format);
     }
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
@@ -266,7 +318,12 @@ fn cmd_build(
             return ExitCode::FAILURE;
         }
         println!("{}", out_path.display());
-        eprintln!("  Compiled {stem} (module only) → {}", out_path.display());
+        if matches!(error_format, ErrorFormat::Human) {
+            eprintln!("  Compiled {stem} (module only) → {}", out_path.display());
+        } else {
+            let summary = json_diagnostic::summary_to_json(&result.warnings);
+            json_diagnostic::emit_json_line(&summary);
+        }
         return ExitCode::SUCCESS;
     }
 
@@ -288,8 +345,13 @@ fn cmd_build(
 
     // stdout: output directory (for scripting).
     println!("{}", output_dir.display());
-    // stderr: human-readable summary.
-    eprintln!("  Compiled {stem} ({} files) → {}", package.files.len(), output_dir.display());
+    if matches!(error_format, ErrorFormat::Human) {
+        // stderr: human-readable summary.
+        eprintln!("  Compiled {stem} ({} files) → {}", package.files.len(), output_dir.display());
+    } else {
+        let summary = json_diagnostic::summary_to_json(&result.warnings);
+        json_diagnostic::emit_json_line(&summary);
+    }
     ExitCode::SUCCESS
 }
 
@@ -298,13 +360,14 @@ fn cmd_run(
     source_map: bool,
     ffi_runtime: FfiRuntimeMode,
     ffi_config: &FfiResolverConfig,
+    error_format: ErrorFormat,
 ) -> ExitCode {
     let filename = path.display().to_string();
     let result = match compile_with_source(path, ffi_config) {
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
-            report_diagnostics(&diagnostics, &source, &filename);
-            report_error_summary(&diagnostics);
+            report_diagnostics(&diagnostics, &source, &filename, error_format);
+            report_error_summary(&diagnostics, error_format);
             return ExitCode::FAILURE;
         }
         Err(err) => {
@@ -314,7 +377,7 @@ fn cmd_run(
     };
 
     if !result.warnings.is_empty() {
-        report_diagnostics(&result.warnings, &result.source, &filename);
+        report_diagnostics(&result.warnings, &result.source, &filename, error_format);
     }
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
@@ -353,6 +416,10 @@ fn cmd_run(
 
     match status_result {
         Ok(status) => {
+            if matches!(error_format, ErrorFormat::Json) {
+                let summary = json_diagnostic::summary_to_json(&result.warnings);
+                json_diagnostic::emit_json_line(&summary);
+            }
             if status.success() {
                 ExitCode::SUCCESS
             } else {
@@ -650,34 +717,60 @@ impl std::fmt::Display for CliError {
 
 // ── Diagnostic reporting (miette) ─────────────────────────────────
 
-fn report_diagnostics(diagnostics: &[Diagnostic], source: &str, filename: &str) {
-    for d in diagnostics {
-        let report = SourceDiagnostic::from_diagnostic(d, filename, source);
-        eprintln!("{:?}", miette::Report::new(report));
+fn report_diagnostics(
+    diagnostics: &[Diagnostic],
+    source: &str,
+    filename: &str,
+    error_format: ErrorFormat,
+) {
+    match error_format {
+        ErrorFormat::Human => {
+            for d in diagnostics {
+                let report = SourceDiagnostic::from_diagnostic(d, filename, source);
+                eprintln!("{:?}", miette::Report::new(report));
+            }
+        }
+        ErrorFormat::Json => {
+            let line_index = LineIndex::new(source);
+            for d in diagnostics {
+                let json = json_diagnostic::diagnostic_to_json(d, filename, &line_index);
+                json_diagnostic::emit_json_line(&json);
+            }
+        }
     }
 }
 
-/// Print a summary line after error diagnostics, e.g.:
-/// `error: aborting due to 2 errors and 1 warning`
-fn report_error_summary(diagnostics: &[Diagnostic]) {
-    let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
-    let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();
+/// Print a summary after error diagnostics.
+///
+/// In human mode: `error: aborting due to 2 errors and 1 warning`
+/// In JSON mode: a `{"type":"summary",...}` NDJSON line.
+fn report_error_summary(diagnostics: &[Diagnostic], error_format: ErrorFormat) {
+    match error_format {
+        ErrorFormat::Human => {
+            let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
+            let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();
 
-    if errors == 0 {
-        return;
-    }
+            if errors == 0 {
+                return;
+            }
 
-    let mut parts = Vec::new();
-    if errors == 1 {
-        parts.push("1 error".to_string());
-    } else {
-        parts.push(format!("{errors} errors"));
-    }
-    if warnings == 1 {
-        parts.push("1 warning".to_string());
-    } else if warnings > 0 {
-        parts.push(format!("{warnings} warnings"));
-    }
+            let mut parts = Vec::new();
+            if errors == 1 {
+                parts.push("1 error".to_string());
+            } else {
+                parts.push(format!("{errors} errors"));
+            }
+            if warnings == 1 {
+                parts.push("1 warning".to_string());
+            } else if warnings > 0 {
+                parts.push(format!("{warnings} warnings"));
+            }
 
-    eprintln!("error: aborting due to {}", parts.join(" and "));
+            eprintln!("error: aborting due to {}", parts.join(" and "));
+        }
+        ErrorFormat::Json => {
+            let summary = json_diagnostic::summary_to_json(diagnostics);
+            json_diagnostic::emit_json_line(&summary);
+        }
+    }
 }

@@ -13,5 +13,5 @@ pub mod span;
 pub mod syntax_kind;
 
 pub use diagnostic::{Diagnostic, DiagnosticCode, Label, LabelStyle, Severity};
-pub use span::{FileId, Span};
+pub use span::{FileId, LineCol, LineIndex, Span};
 pub use syntax_kind::SyntaxKind;
