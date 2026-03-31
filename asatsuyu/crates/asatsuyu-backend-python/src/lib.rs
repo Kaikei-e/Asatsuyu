@@ -56,7 +56,7 @@ pub enum FfiRuntimeMode {
 
 /// Configuration for Python package generation.
 pub struct PackageConfig {
-    /// Package name (used in directory name and `pyproject.toml`).
+    /// Package name (used in `pyproject.toml` `[project] name`).
     pub name: String,
     /// Package version.
     pub version: String,
@@ -64,6 +64,10 @@ pub struct PackageConfig {
     pub source_map: bool,
     /// Controls whether the `PyO3` runtime extension is emitted.
     pub ffi_runtime: FfiRuntimeMode,
+    /// Python version constraint (PEP 440, e.g., `">=3.12"`). Defaults to `">=3.12"`.
+    pub requires_python: Option<String>,
+    /// Python dependency specifiers (PEP 508, e.g., `["requests>=2.31"]`).
+    pub dependencies: Vec<String>,
 }
 
 /// A single file in the generated Python package.
@@ -78,6 +82,14 @@ pub struct GeneratedFile {
 pub struct GeneratedPackage {
     /// All files to write.
     pub files: Vec<GeneratedFile>,
+}
+
+/// Convert a project name to a valid Python package directory name.
+///
+/// Replaces hyphens and dots with underscores and lowercases.
+/// E.g., `"my-app"` → `"my_app"`, `"hello"` → `"hello"`.
+fn python_package_name(name: &str) -> String {
+    name.chars().map(|c| if c == '-' || c == '.' { '_' } else { c.to_ascii_lowercase() }).collect()
 }
 
 /// Generate a Python package from a type-checked module.
@@ -109,32 +121,32 @@ pub fn emit_package(
     let needs_prelude = em.has_try || needs_runtime_shim;
     let module_py = em.into_output();
 
-    let pkg = &config.name;
+    let pkg_dir = python_package_name(&config.name);
     let mut files = Vec::new();
 
-    // All Python source lives under python/{pkg}/ (maturin best practice).
+    // All Python source lives under python/{pkg_dir}/ (maturin best practice).
     // __init__.py
     files.push(GeneratedFile {
-        path: PathBuf::from(format!("python/{pkg}/__init__.py")),
+        path: PathBuf::from(format!("python/{pkg_dir}/__init__.py")),
         content: String::new(),
     });
 
     // Main module
     files.push(GeneratedFile {
-        path: PathBuf::from(format!("python/{pkg}/{pkg}.py")),
+        path: PathBuf::from(format!("python/{pkg_dir}/{pkg_dir}.py")),
         content: module_py,
     });
 
     // py.typed marker (PEP 561) — always emitted.
     files.push(GeneratedFile {
-        path: PathBuf::from(format!("python/{pkg}/py.typed")),
+        path: PathBuf::from(format!("python/{pkg_dir}/py.typed")),
         content: String::new(),
     });
 
     // Prelude is emitted when the generated code uses `try` expressions.
     if needs_prelude {
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("python/{pkg}/asatsuyu_prelude.py")),
+            path: PathBuf::from(format!("python/{pkg_dir}/asatsuyu_prelude.py")),
             content: prelude::PRELUDE_PY.to_string(),
         });
     }
@@ -142,12 +154,12 @@ pub fn emit_package(
     // Pure-Python runtime shim (fallback when native extension is not built).
     if needs_runtime_shim {
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("python/{pkg}/_asatsuyu_runtime.py")),
+            path: PathBuf::from(format!("python/{pkg_dir}/_asatsuyu_runtime.py")),
             content: runtime_shim::RUNTIME_SHIM_PY.to_string(),
         });
         // Type stubs for the native extension (IDE support).
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("python/{pkg}/_asatsuyu_runtime.pyi")),
+            path: PathBuf::from(format!("python/{pkg_dir}/_asatsuyu_runtime.pyi")),
             content: runtime_shim::RUNTIME_STUB_PYI.to_string(),
         });
         // Maturin wrapper crate files.
@@ -157,7 +169,7 @@ pub fn emit_package(
         });
         files.push(GeneratedFile {
             path: PathBuf::from("Cargo.toml"),
-            content: runtime_shim::maturin_cargo_toml(pkg),
+            content: runtime_shim::maturin_cargo_toml(&pkg_dir),
         });
     }
 
@@ -166,32 +178,88 @@ pub fn emit_package(
         module.functions.iter().any(|f| module.symbol_table.get(f.def_id).name.as_str() == "main");
     if has_main {
         files.push(GeneratedFile {
-            path: PathBuf::from(format!("python/{pkg}/__main__.py")),
+            path: PathBuf::from(format!("python/{pkg_dir}/__main__.py")),
             content: format!(
-                "from .{pkg} import main\n\nif __name__ == \"__main__\":\n    main()\n"
+                "from .{pkg_dir} import main\n\nif __name__ == \"__main__\":\n    main()\n"
             ),
         });
     }
 
-    // pyproject.toml — maturin for Checked FFI, setuptools otherwise.
-    let pyproject = if needs_runtime_shim {
-        format!(
-            "[build-system]\nrequires = [\"maturin>=1.9,<2\"]\nbuild-backend = \"maturin\"\n\n\
-             [project]\nname = \"{pkg}\"\nversion = \"{ver}\"\nrequires-python = \">=3.12\"\n\n\
-             [tool.maturin]\npython-source = \"python\"\nmodule-name = \"{pkg}._asatsuyu_runtime\"\n",
-            ver = config.version,
-        )
-    } else {
-        format!(
-            "[build-system]\nrequires = [\"setuptools\"]\nbuild-backend = \"setuptools.build_meta\"\n\n\
-             [project]\nname = \"{pkg}\"\nversion = \"{ver}\"\nrequires-python = \">=3.12\"\n\n\
-             [tool.setuptools.packages.find]\nwhere = [\"python\"]\n",
-            ver = config.version,
-        )
-    };
+    // pyproject.toml
+    let pyproject = generate_pyproject_toml(config, &pkg_dir, has_main, needs_runtime_shim);
     files.push(GeneratedFile { path: PathBuf::from("pyproject.toml"), content: pyproject });
 
     GeneratedPackage { files }
+}
+
+/// Generate `pyproject.toml` content from package configuration.
+///
+/// Produces a standards-compliant file with `[build-system]`, `[project]`
+/// (including optional `dependencies` and `scripts`), and tool-specific
+/// sections.
+fn generate_pyproject_toml(
+    config: &PackageConfig,
+    pkg_dir: &str,
+    has_main: bool,
+    needs_runtime: bool,
+) -> String {
+    use std::fmt::Write;
+
+    let mut out = String::with_capacity(512);
+
+    // ── [build-system] ────────────────────────────────────────────
+    if needs_runtime {
+        out.push_str(
+            "[build-system]\nrequires = [\"maturin>=1.9,<2\"]\nbuild-backend = \"maturin\"\n",
+        );
+    } else {
+        out.push_str(
+            "[build-system]\nrequires = [\"setuptools>=75\"]\nbuild-backend = \"setuptools.build_meta\"\n",
+        );
+    }
+
+    // ── [project] ─────────────────────────────────────────────────
+    let requires_python = config.requires_python.as_deref().unwrap_or(">=3.12");
+    let _ = write!(
+        out,
+        "\n[project]\nname = \"{name}\"\nversion = \"{ver}\"\nrequires-python = \"{requires_python}\"\n",
+        name = config.name,
+        ver = config.version,
+    );
+
+    // dependencies (only if non-empty)
+    if !config.dependencies.is_empty() {
+        out.push_str("dependencies = [\n");
+        for dep in &config.dependencies {
+            let _ = writeln!(out, "    \"{dep}\",");
+        }
+        out.push_str("]\n");
+    }
+
+    // [project.scripts] (only if main() exists)
+    if has_main {
+        let _ = write!(
+            out,
+            "\n[project.scripts]\n{name} = \"{pkg_dir}.{pkg_dir}:main\"\n",
+            name = config.name,
+        );
+    }
+
+    // ── Tool-specific sections ────────────────────────────────────
+    if needs_runtime {
+        let _ = write!(
+            out,
+            "\n[tool.maturin]\npython-source = \"python\"\nmodule-name = \"{pkg_dir}._asatsuyu_runtime\"\n",
+        );
+    } else {
+        out.push_str("\n[tool.setuptools.packages.find]\nwhere = [\"python\"]\n");
+    }
+
+    // [tool.asatsuyu] — compiler metadata
+    let _ =
+        write!(out, "\n[tool.asatsuyu]\ncompiler-version = \"{}\"\n", env!("CARGO_PKG_VERSION"),);
+
+    out
 }
 
 #[cfg(test)]
@@ -606,6 +674,8 @@ mod tests {
             version: "0.1.0".into(),
             source_map: false,
             ffi_runtime: super::FfiRuntimeMode::Auto,
+            requires_python: None,
+            dependencies: Vec::new(),
         };
         super::emit_package(&thir.module, &config, None)
     }
@@ -761,6 +831,8 @@ mod tests {
             version: "0.1.0".into(),
             source_map: true,
             ffi_runtime: super::FfiRuntimeMode::Auto,
+            requires_python: None,
+            dependencies: Vec::new(),
         };
         let pkg = super::emit_package(&thir.module, &config, Some(source));
         pkg.files
@@ -1026,5 +1098,124 @@ pub fn get_data(url: String) -> Int {
             let py = python_from_source(&source);
             insta::assert_snapshot!(py);
         });
+    }
+
+    // ── Issue 58: Standards-compliant pyproject.toml tests ─────────
+
+    fn package_with_config(source: &str, config: &super::PackageConfig) -> super::GeneratedPackage {
+        let cst = parse(FID, source);
+        let ast = asatsuyu_ast::lower(&cst, FID);
+        let hir = asatsuyu_hir::lower_to_hir(&ast.module);
+        let thir = asatsuyu_ty::check_types(&hir.module);
+        super::emit_package(&thir.module, config, None)
+    }
+
+    fn get_pyproject(pkg: &super::GeneratedPackage) -> &str {
+        &pkg.files
+            .iter()
+            .find(|f| f.path.display().to_string() == "pyproject.toml")
+            .expect("pyproject.toml should exist")
+            .content
+    }
+
+    #[test]
+    fn pyproject_includes_dependencies() {
+        let config = super::PackageConfig {
+            name: "myapp".into(),
+            version: "0.2.0".into(),
+            source_map: false,
+            ffi_runtime: super::FfiRuntimeMode::Auto,
+            requires_python: None,
+            dependencies: vec!["requests>=2.31".into(), "flask>=3.0".into()],
+        };
+        let pkg = package_with_config("pub fn main() { 42 }", &config);
+        let pyproject = get_pyproject(&pkg);
+        assert!(pyproject.contains("dependencies = ["), "deps section: {pyproject}");
+        assert!(pyproject.contains("\"requests>=2.31\""), "requests dep: {pyproject}",);
+        assert!(pyproject.contains("\"flask>=3.0\""), "flask dep: {pyproject}");
+    }
+
+    #[test]
+    fn pyproject_no_dependencies_when_empty() {
+        let pkg = package_from_source("pub fn main() { 42 }", "myapp");
+        let pyproject = get_pyproject(&pkg);
+        assert!(!pyproject.contains("dependencies"), "no dependencies when empty: {pyproject}",);
+    }
+
+    #[test]
+    fn pyproject_custom_requires_python() {
+        let config = super::PackageConfig {
+            name: "myapp".into(),
+            version: "0.1.0".into(),
+            source_map: false,
+            ffi_runtime: super::FfiRuntimeMode::Auto,
+            requires_python: Some(">=3.13".into()),
+            dependencies: Vec::new(),
+        };
+        let pkg = package_with_config("pub fn main() { 42 }", &config);
+        let pyproject = get_pyproject(&pkg);
+        assert!(
+            pyproject.contains("requires-python = \">=3.13\""),
+            "custom requires-python: {pyproject}",
+        );
+    }
+
+    #[test]
+    fn pyproject_default_requires_python() {
+        let pkg = package_from_source("pub fn main() { 42 }", "myapp");
+        let pyproject = get_pyproject(&pkg);
+        assert!(
+            pyproject.contains("requires-python = \">=3.12\""),
+            "default requires-python: {pyproject}",
+        );
+    }
+
+    #[test]
+    fn pyproject_scripts_with_main() {
+        let pkg = package_from_source("pub fn main() { 42 }", "myapp");
+        let pyproject = get_pyproject(&pkg);
+        assert!(pyproject.contains("[project.scripts]"), "scripts section: {pyproject}",);
+        assert!(pyproject.contains("myapp = \"myapp.myapp:main\""), "entry point: {pyproject}",);
+    }
+
+    #[test]
+    fn pyproject_no_scripts_without_main() {
+        let pkg = package_from_source("fn add(x: Int, y: Int) -> Int { x }", "lib");
+        let pyproject = get_pyproject(&pkg);
+        assert!(!pyproject.contains("[project.scripts]"), "no scripts without main: {pyproject}",);
+    }
+
+    #[test]
+    fn pyproject_tool_asatsuyu_metadata() {
+        let pkg = package_from_source("pub fn main() { 42 }", "myapp");
+        let pyproject = get_pyproject(&pkg);
+        assert!(pyproject.contains("[tool.asatsuyu]"), "tool.asatsuyu section: {pyproject}",);
+        assert!(pyproject.contains("compiler-version = \""), "compiler version: {pyproject}",);
+    }
+
+    #[test]
+    fn package_name_normalization() {
+        let config = super::PackageConfig {
+            name: "my-app".into(),
+            version: "0.1.0".into(),
+            source_map: false,
+            ffi_runtime: super::FfiRuntimeMode::Auto,
+            requires_python: None,
+            dependencies: Vec::new(),
+        };
+        let pkg = package_with_config("pub fn main() { 42 }", &config);
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        // Directory should use normalized name (underscores).
+        assert!(
+            paths.contains(&"python/my_app/__init__.py".to_string()),
+            "normalized dir: {paths:?}",
+        );
+        assert!(
+            paths.contains(&"python/my_app/my_app.py".to_string()),
+            "normalized module: {paths:?}",
+        );
+        // pyproject.toml should use original name.
+        let pyproject = get_pyproject(&pkg);
+        assert!(pyproject.contains("name = \"my-app\""), "original name in pyproject: {pyproject}",);
     }
 }

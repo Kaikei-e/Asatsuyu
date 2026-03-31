@@ -1090,3 +1090,77 @@ fn check_invalid_python_version_exits_2() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ── 24. pyproject.toml generation tests ────────────────────────────
+
+/// build inside a project uses asatsuyu.toml name/version in pyproject.toml.
+#[test]
+fn build_uses_project_name_and_version() {
+    let dir = workspace_root().join("target/test-build-project-meta");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "schema_version = 1\n\n[project]\nname = \"my-tool\"\nversion = \"1.2.3\"\n\n[python]\nversion = \">=3.13\"\n",
+    )
+    .unwrap();
+
+    let out_dir = dir.join("dist");
+    let out_dir_str = out_dir.display().to_string();
+    let main_path = dir.join("src/main.asty");
+    let main_path_str = main_path.display().to_string();
+
+    let output = asatsuyu().args(["build", &main_path_str, "-o", &out_dir_str]).output().unwrap();
+
+    assert!(
+        output.status.success(),
+        "build should succeed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let pyproject = std::fs::read_to_string(out_dir.join("pyproject.toml"))
+        .expect("pyproject.toml should exist");
+    assert!(pyproject.contains("name = \"my-tool\""), "should use project name: {pyproject}",);
+    assert!(pyproject.contains("version = \"1.2.3\""), "should use project version: {pyproject}",);
+    assert!(
+        pyproject.contains("requires-python = \">=3.13\""),
+        "should use python version: {pyproject}",
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// build inside a project includes python-dependencies in pyproject.toml.
+#[test]
+fn build_includes_dependencies_in_pyproject() {
+    let dir = workspace_root().join("target/test-build-deps");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[python-dependencies]\nrequests = \">=2.31\"\nflask = \">=3.0\"\n",
+    )
+    .unwrap();
+
+    let out_dir = dir.join("dist");
+    let out_dir_str = out_dir.display().to_string();
+    let main_path = dir.join("src/main.asty");
+    let main_path_str = main_path.display().to_string();
+
+    let output = asatsuyu().args(["build", &main_path_str, "-o", &out_dir_str]).output().unwrap();
+
+    assert!(
+        output.status.success(),
+        "build should succeed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let pyproject = std::fs::read_to_string(out_dir.join("pyproject.toml"))
+        .expect("pyproject.toml should exist");
+    assert!(pyproject.contains("\"requests>=2.31\""), "should include requests dep: {pyproject}",);
+    assert!(pyproject.contains("\"flask>=3.0\""), "should include flask dep: {pyproject}",);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

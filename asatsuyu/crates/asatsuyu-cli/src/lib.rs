@@ -15,6 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use asatsuyu_backend_python::{FfiRuntimeMode, GeneratedPackage, PackageConfig};
+// PackageConfig is constructed via build_package_config() helper below.
 use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_syntax::{Diagnostic, FileId, LineIndex, Severity};
 use asatsuyu_ty::ThirModule;
@@ -165,6 +166,7 @@ enum Commands {
 
 /// Run the CLI, returning an appropriate exit code.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn run() -> ExitCode {
     // Configure miette for graphical diagnostic output.
     miette::set_hook(Box::new(|_| {
@@ -247,6 +249,7 @@ pub fn run() -> ExitCode {
                 runtime_mode,
                 &ffi_config,
                 output.error_format,
+                discovered.as_ref(),
             )
         }
         Commands::Run { path, source_map, ffi_runtime, output, ffi, python } => {
@@ -272,7 +275,14 @@ pub fn run() -> ExitCode {
             }
 
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
-            cmd_run(&path, source_map, runtime_mode, &ffi_config, output.error_format)
+            cmd_run(
+                &path,
+                source_map,
+                runtime_mode,
+                &ffi_config,
+                output.error_format,
+                discovered.as_ref(),
+            )
         }
         Commands::New { name } => cmd_new(&name),
         Commands::VerifyFfi => cmd_verify_ffi(),
@@ -309,6 +319,38 @@ fn convert_ffi_runtime(runtime: FfiRuntime) -> FfiRuntimeMode {
         FfiRuntime::Off => FfiRuntimeMode::Off,
         FfiRuntime::Auto => FfiRuntimeMode::Auto,
     }
+}
+
+/// Build a `PackageConfig` from CLI arguments and optional project discovery.
+///
+/// When a project is discovered, uses its `name`, `version`, `python_version`,
+/// and `python_dependencies`. Falls back to file stem and defaults otherwise.
+fn build_package_config(
+    file_stem: &str,
+    source_map: bool,
+    ffi_runtime: FfiRuntimeMode,
+    project: Option<&project::Project>,
+) -> PackageConfig {
+    let (name, version, requires_python, dependencies) = if let Some(proj) = project {
+        let cfg = &proj.config;
+        (
+            cfg.name().to_string(),
+            cfg.version().to_string(),
+            cfg.python_version().map(String::from),
+            format_pep508_deps(cfg.python_dependencies()),
+        )
+    } else {
+        (file_stem.to_string(), "0.1.0".into(), None, Vec::new())
+    };
+
+    PackageConfig { name, version, source_map, ffi_runtime, requires_python, dependencies }
+}
+
+/// Convert `asatsuyu.toml` dependencies (`name → specifier`) to PEP 508 strings.
+///
+/// E.g., `("requests", ">=2.31")` → `"requests>=2.31"`.
+fn format_pep508_deps(deps: &BTreeMap<String, String>) -> Vec<String> {
+    deps.iter().map(|(name, spec)| format!("{name}{spec}")).collect()
 }
 
 // ── Command handlers ───────────────────────────────────────────────
@@ -354,6 +396,7 @@ pub(crate) fn cmd_check(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_build(
     path: &Path,
     output_dir: &Path,
@@ -362,6 +405,7 @@ fn cmd_build(
     ffi_runtime: FfiRuntimeMode,
     ffi_config: &FfiResolverConfig,
     error_format: ErrorFormat,
+    discovered_project: Option<&project::Project>,
 ) -> ExitCode {
     let filename = path.display().to_string();
     let result = match compile_with_source(path, ffi_config) {
@@ -402,13 +446,14 @@ fn cmd_build(
         return ExitCode::SUCCESS;
     }
 
-    let config =
-        PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map, ffi_runtime };
+    let config = build_package_config(&stem, source_map, ffi_runtime, discovered_project);
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
     // Clean the package subdirectory before writing.
-    let pkg_dir = output_dir.join("python").join(stem.as_ref());
+    // Use the normalized Python package name to match backend output.
+    let pkg_dir_name = config.name.replace('-', "_");
+    let pkg_dir = output_dir.join("python").join(&pkg_dir_name);
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
     }
@@ -434,6 +479,7 @@ fn cmd_run(
     ffi_runtime: FfiRuntimeMode,
     ffi_config: &FfiResolverConfig,
     error_format: ErrorFormat,
+    discovered_project: Option<&project::Project>,
 ) -> ExitCode {
     let filename = path.display().to_string();
     let result = match compile_with_source(path, ffi_config) {
@@ -455,13 +501,13 @@ fn cmd_run(
 
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     let output_dir = PathBuf::from("target/run");
-    let config =
-        PackageConfig { name: stem.to_string(), version: "0.1.0".into(), source_map, ffi_runtime };
+    let config = build_package_config(&stem, source_map, ffi_runtime, discovered_project);
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
     // Always clean run output to avoid stale files.
-    let pkg_dir = output_dir.join("python").join(stem.as_ref());
+    let pkg_dir_name = config.name.replace('-', "_");
+    let pkg_dir = output_dir.join("python").join(&pkg_dir_name);
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
     }
