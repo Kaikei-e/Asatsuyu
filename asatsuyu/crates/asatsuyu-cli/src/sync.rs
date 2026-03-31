@@ -155,9 +155,8 @@ fn sync_with_pip(
         // Use `<python> -m pip install` instead of `pip install --python` to
         // avoid compatibility issues: standard pip doesn't support `--python`
         // after the subcommand, and uv shims require it before.
-        let output = Command::new(&env.python_path)
-            .args(["-m", "pip", "install", &spec])
-            .output()?;
+        let output =
+            Command::new(&env.python_path).args(["-m", "pip", "install", &spec]).output()?;
 
         if !output.status.success() {
             return Err(SyncError::ToolFailed {
