@@ -1,0 +1,76 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/match-literal/input.asty
+---
+SourceFile@0..102
+  FnDef@0..101
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..15 "describe"
+    ParamList@15..23
+      LParen@15..16 "("
+      Param@16..22
+        Ident@16..17 "x"
+        Colon@17..18 ":"
+        TypeExpr@18..22
+          Whitespace@18..19 " "
+          Ident@19..22 "Int"
+      RParen@22..23 ")"
+    ReturnType@23..33
+      Whitespace@23..24 " "
+      Arrow@24..26 "->"
+      TypeExpr@26..33
+        Whitespace@26..27 " "
+        Ident@27..33 "String"
+    BlockExpr@33..101
+      Whitespace@33..34 " "
+      LBrace@34..35 "{"
+      MatchExpr@35..99
+        Newline@35..36 "\n"
+        Whitespace@36..38 "  "
+        MatchKw@38..43 "match"
+        IdentExpr@43..45
+          Whitespace@43..44 " "
+          Ident@44..45 "x"
+        Whitespace@45..46 " "
+        LBrace@46..47 "{"
+        MatchArm@47..63
+          LiteralPat@47..53
+            Newline@47..48 "\n"
+            Whitespace@48..52 "    "
+            IntLit@52..53 "0"
+          Whitespace@53..54 " "
+          Arrow@54..56 "->"
+          LiteralExpr@56..63
+            Whitespace@56..57 " "
+            StringLit@57..63 "\"zero\""
+        MatchArm@63..78
+          LiteralPat@63..69
+            Newline@63..64 "\n"
+            Whitespace@64..68 "    "
+            IntLit@68..69 "1"
+          Whitespace@69..70 " "
+          Arrow@70..72 "->"
+          LiteralExpr@72..78
+            Whitespace@72..73 " "
+            StringLit@73..78 "\"one\""
+        MatchArm@78..95
+          WildcardPat@78..84
+            Newline@78..79 "\n"
+            Whitespace@79..83 "    "
+            Underscore@83..84 "_"
+          Whitespace@84..85 " "
+          Arrow@85..87 "->"
+          LiteralExpr@87..95
+            Whitespace@87..88 " "
+            StringLit@88..95 "\"other\""
+        Newline@95..96 "\n"
+        Whitespace@96..98 "  "
+        RBrace@98..99 "}"
+      Newline@99..100 "\n"
+      RBrace@100..101 "}"
+  Newline@101..102 "\n"

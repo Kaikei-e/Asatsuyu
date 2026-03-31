@@ -1,0 +1,40 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/unop-negate/input.asty
+---
+SourceFile@0..38
+  FnDef@0..37
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..13 "negate"
+    ParamList@13..21
+      LParen@13..14 "("
+      Param@14..20
+        Ident@14..15 "x"
+        Colon@15..16 ":"
+        TypeExpr@16..20
+          Whitespace@16..17 " "
+          Ident@17..20 "Int"
+      RParen@20..21 ")"
+    ReturnType@21..28
+      Whitespace@21..22 " "
+      Arrow@22..24 "->"
+      TypeExpr@24..28
+        Whitespace@24..25 " "
+        Ident@25..28 "Int"
+    BlockExpr@28..37
+      Whitespace@28..29 " "
+      LBrace@29..30 "{"
+      UnaryExpr@30..35
+        Newline@30..31 "\n"
+        Whitespace@31..33 "  "
+        Minus@33..34 "-"
+        IdentExpr@34..35
+          Ident@34..35 "x"
+      Newline@35..36 "\n"
+      RBrace@36..37 "}"
+  Newline@37..38 "\n"

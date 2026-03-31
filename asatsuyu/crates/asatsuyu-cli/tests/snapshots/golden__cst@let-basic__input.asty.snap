@@ -1,0 +1,43 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/let-basic/input.asty
+---
+SourceFile@0..42
+  FnDef@0..41
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..11 "main"
+    ParamList@11..13
+      LParen@11..12 "("
+      RParen@12..13 ")"
+    ReturnType@13..20
+      Whitespace@13..14 " "
+      Arrow@14..16 "->"
+      TypeExpr@16..20
+        Whitespace@16..17 " "
+        Ident@17..20 "Int"
+    BlockExpr@20..41
+      Whitespace@20..21 " "
+      LBrace@21..22 "{"
+      LetStmt@22..35
+        Newline@22..23 "\n"
+        Whitespace@23..25 "  "
+        LetKw@25..28 "let"
+        Whitespace@28..29 " "
+        Ident@29..30 "x"
+        Whitespace@30..31 " "
+        Eq@31..32 "="
+        LiteralExpr@32..35
+          Whitespace@32..33 " "
+          IntLit@33..35 "10"
+      IdentExpr@35..39
+        Newline@35..36 "\n"
+        Whitespace@36..38 "  "
+        Ident@38..39 "x"
+      Newline@39..40 "\n"
+      RBrace@40..41 "}"
+  Newline@41..42 "\n"

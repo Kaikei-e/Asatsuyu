@@ -1,0 +1,51 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/ffi-json-basic/input.asty
+---
+SourceFile@0..75
+  FromPythonImportStmt@0..23
+    FromKw@0..4 "from"
+    Whitespace@4..5 " "
+    PythonKw@5..11 "python"
+    Whitespace@11..12 " "
+    ImportKw@12..18 "import"
+    Whitespace@18..19 " "
+    Ident@19..23 "json"
+  FnDef@23..74
+    Visibility@23..28
+      Newline@23..24 "\n"
+      Newline@24..25 "\n"
+      PubKw@25..28 "pub"
+    Whitespace@28..29 " "
+    FnKw@29..31 "fn"
+    Whitespace@31..32 " "
+    Ident@32..36 "main"
+    ParamList@36..38
+      LParen@36..37 "("
+      RParen@37..38 ")"
+    ReturnType@38..48
+      Whitespace@38..39 " "
+      Arrow@39..41 "->"
+      TypeExpr@41..48
+        Whitespace@41..42 " "
+        Ident@42..48 "String"
+    BlockExpr@48..74
+      Whitespace@48..49 " "
+      LBrace@49..50 "{"
+      CallExpr@50..72
+        FieldAccessExpr@50..63
+          IdentExpr@50..57
+            Newline@50..51 "\n"
+            Whitespace@51..53 "  "
+            Ident@53..57 "json"
+          Dot@57..58 "."
+          Ident@58..63 "dumps"
+        ArgList@63..72
+          LParen@63..64 "("
+          LiteralExpr@64..71
+            StringLit@64..71 "\"hello\""
+          RParen@71..72 ")"
+      Newline@72..73 "\n"
+      RBrace@73..74 "}"
+  Newline@74..75 "\n"

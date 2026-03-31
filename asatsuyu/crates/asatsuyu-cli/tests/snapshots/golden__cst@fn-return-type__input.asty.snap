@@ -1,0 +1,32 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/fn-return-type/input.asty
+---
+SourceFile@0..36
+  FnDef@0..35
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..12 "greet"
+    ParamList@12..14
+      LParen@12..13 "("
+      RParen@13..14 ")"
+    ReturnType@14..24
+      Whitespace@14..15 " "
+      Arrow@15..17 "->"
+      TypeExpr@17..24
+        Whitespace@17..18 " "
+        Ident@18..24 "String"
+    BlockExpr@24..35
+      Whitespace@24..25 " "
+      LBrace@25..26 "{"
+      LiteralExpr@26..33
+        Newline@26..27 "\n"
+        Whitespace@27..29 "  "
+        StringLit@29..33 "\"hi\""
+      Newline@33..34 "\n"
+      RBrace@34..35 "}"
+  Newline@35..36 "\n"

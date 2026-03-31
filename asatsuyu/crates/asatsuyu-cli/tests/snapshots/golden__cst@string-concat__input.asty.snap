@@ -1,0 +1,50 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/string-concat/input.asty
+---
+SourceFile@0..71
+  FnDef@0..70
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..15 "greeting"
+    ParamList@15..29
+      LParen@15..16 "("
+      Param@16..28
+        Ident@16..20 "name"
+        Colon@20..21 ":"
+        TypeExpr@21..28
+          Whitespace@21..22 " "
+          Ident@22..28 "String"
+      RParen@28..29 ")"
+    ReturnType@29..39
+      Whitespace@29..30 " "
+      Arrow@30..32 "->"
+      TypeExpr@32..39
+        Whitespace@32..33 " "
+        Ident@33..39 "String"
+    BlockExpr@39..70
+      Whitespace@39..40 " "
+      LBrace@40..41 "{"
+      BinaryExpr@41..68
+        BinaryExpr@41..61
+          LiteralExpr@41..53
+            Newline@41..42 "\n"
+            Whitespace@42..44 "  "
+            StringLit@44..53 "\"Hello, \""
+          Whitespace@53..54 " "
+          StringConcat@54..56 "<>"
+          IdentExpr@56..61
+            Whitespace@56..57 " "
+            Ident@57..61 "name"
+        Whitespace@61..62 " "
+        StringConcat@62..64 "<>"
+        LiteralExpr@64..68
+          Whitespace@64..65 " "
+          StringLit@65..68 "\"!\""
+      Newline@68..69 "\n"
+      RBrace@69..70 "}"
+  Newline@70..71 "\n"

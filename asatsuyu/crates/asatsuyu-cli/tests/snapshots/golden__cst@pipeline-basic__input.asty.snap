@@ -1,0 +1,77 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/pipeline-basic/input.asty
+---
+SourceFile@0..82
+  FnDef@0..40
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..13 "double"
+    ParamList@13..21
+      LParen@13..14 "("
+      Param@14..20
+        Ident@14..15 "x"
+        Colon@15..16 ":"
+        TypeExpr@16..20
+          Whitespace@16..17 " "
+          Ident@17..20 "Int"
+      RParen@20..21 ")"
+    ReturnType@21..28
+      Whitespace@21..22 " "
+      Arrow@22..24 "->"
+      TypeExpr@24..28
+        Whitespace@24..25 " "
+        Ident@25..28 "Int"
+    BlockExpr@28..40
+      Whitespace@28..29 " "
+      LBrace@29..30 "{"
+      BinaryExpr@30..38
+        IdentExpr@30..34
+          Newline@30..31 "\n"
+          Whitespace@31..33 "  "
+          Ident@33..34 "x"
+        Whitespace@34..35 " "
+        Star@35..36 "*"
+        LiteralExpr@36..38
+          Whitespace@36..37 " "
+          IntLit@37..38 "2"
+      Newline@38..39 "\n"
+      RBrace@39..40 "}"
+  FnDef@40..81
+    Visibility@40..45
+      Newline@40..41 "\n"
+      Newline@41..42 "\n"
+      PubKw@42..45 "pub"
+    Whitespace@45..46 " "
+    FnKw@46..48 "fn"
+    Whitespace@48..49 " "
+    Ident@49..53 "main"
+    ParamList@53..55
+      LParen@53..54 "("
+      RParen@54..55 ")"
+    ReturnType@55..62
+      Whitespace@55..56 " "
+      Arrow@56..58 "->"
+      TypeExpr@58..62
+        Whitespace@58..59 " "
+        Ident@59..62 "Int"
+    BlockExpr@62..81
+      Whitespace@62..63 " "
+      LBrace@63..64 "{"
+      PipelineExpr@64..79
+        LiteralExpr@64..69
+          Newline@64..65 "\n"
+          Whitespace@65..67 "  "
+          IntLit@67..69 "10"
+        Whitespace@69..70 " "
+        Pipe@70..72 "|>"
+        IdentExpr@72..79
+          Whitespace@72..73 " "
+          Ident@73..79 "double"
+      Newline@79..80 "\n"
+      RBrace@80..81 "}"
+  Newline@81..82 "\n"

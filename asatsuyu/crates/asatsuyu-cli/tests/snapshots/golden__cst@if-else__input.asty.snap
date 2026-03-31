@@ -1,0 +1,67 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/if-else/input.asty
+---
+SourceFile@0..59
+  FnDef@0..58
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..10 "abs"
+    ParamList@10..18
+      LParen@10..11 "("
+      Param@11..17
+        Ident@11..12 "x"
+        Colon@12..13 ":"
+        TypeExpr@13..17
+          Whitespace@13..14 " "
+          Ident@14..17 "Int"
+      RParen@17..18 ")"
+    ReturnType@18..25
+      Whitespace@18..19 " "
+      Arrow@19..21 "->"
+      TypeExpr@21..25
+        Whitespace@21..22 " "
+        Ident@22..25 "Int"
+    BlockExpr@25..58
+      Whitespace@25..26 " "
+      LBrace@26..27 "{"
+      IfExpr@27..56
+        Newline@27..28 "\n"
+        Whitespace@28..30 "  "
+        IfKw@30..32 "if"
+        BinaryExpr@32..38
+          IdentExpr@32..34
+            Whitespace@32..33 " "
+            Ident@33..34 "x"
+          Whitespace@34..35 " "
+          Gt@35..36 ">"
+          LiteralExpr@36..38
+            Whitespace@36..37 " "
+            IntLit@37..38 "0"
+        BlockExpr@38..44
+          Whitespace@38..39 " "
+          LBrace@39..40 "{"
+          IdentExpr@40..42
+            Whitespace@40..41 " "
+            Ident@41..42 "x"
+          Whitespace@42..43 " "
+          RBrace@43..44 "}"
+        Whitespace@44..45 " "
+        ElseKw@45..49 "else"
+        BlockExpr@49..56
+          Whitespace@49..50 " "
+          LBrace@50..51 "{"
+          UnaryExpr@51..54
+            Whitespace@51..52 " "
+            Minus@52..53 "-"
+            IdentExpr@53..54
+              Ident@53..54 "x"
+          Whitespace@54..55 " "
+          RBrace@55..56 "}"
+      Newline@56..57 "\n"
+      RBrace@57..58 "}"
+  Newline@58..59 "\n"

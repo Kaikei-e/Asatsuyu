@@ -1,0 +1,68 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/adt-record/input.asty
+---
+SourceFile@0..77
+  TypeDef@0..32
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..10 "Point"
+    Whitespace@10..11 " "
+    LBrace@11..12 "{"
+    Field@12..21
+      Newline@12..13 "\n"
+      Whitespace@13..15 "  "
+      Ident@15..16 "x"
+      Colon@16..17 ":"
+      TypeExpr@17..21
+        Whitespace@17..18 " "
+        Ident@18..21 "Int"
+    Field@21..30
+      Newline@21..22 "\n"
+      Whitespace@22..24 "  "
+      Ident@24..25 "y"
+      Colon@25..26 ":"
+      TypeExpr@26..30
+        Whitespace@26..27 " "
+        Ident@27..30 "Int"
+    Newline@30..31 "\n"
+    RBrace@31..32 "}"
+  FnDef@32..76
+    Visibility@32..37
+      Newline@32..33 "\n"
+      Newline@33..34 "\n"
+      PubKw@34..37 "pub"
+    Whitespace@37..38 " "
+    FnKw@38..40 "fn"
+    Whitespace@40..41 " "
+    Ident@41..47 "origin"
+    ParamList@47..49
+      LParen@47..48 "("
+      RParen@48..49 ")"
+    ReturnType@49..58
+      Whitespace@49..50 " "
+      Arrow@50..52 "->"
+      TypeExpr@52..58
+        Whitespace@52..53 " "
+        Ident@53..58 "Point"
+    BlockExpr@58..76
+      Whitespace@58..59 " "
+      LBrace@59..60 "{"
+      CallExpr@60..74
+        IdentExpr@60..68
+          Newline@60..61 "\n"
+          Whitespace@61..63 "  "
+          Ident@63..68 "Point"
+        ArgList@68..74
+          LParen@68..69 "("
+          LiteralExpr@69..70
+            IntLit@69..70 "0"
+          Comma@70..71 ","
+          LiteralExpr@71..73
+            Whitespace@71..72 " "
+            IntLit@72..73 "0"
+          RParen@73..74 ")"
+      Newline@74..75 "\n"
+      RBrace@75..76 "}"
+  Newline@76..77 "\n"

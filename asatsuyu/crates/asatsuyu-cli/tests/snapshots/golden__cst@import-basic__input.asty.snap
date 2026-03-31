@@ -1,0 +1,32 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/import-basic/input.asty
+---
+SourceFile@0..34
+  ImportStmt@0..9
+    ImportKw@0..6 "import"
+    Whitespace@6..7 " "
+    Ident@7..9 "io"
+  FnDef@9..33
+    Visibility@9..14
+      Newline@9..10 "\n"
+      Newline@10..11 "\n"
+      PubKw@11..14 "pub"
+    Whitespace@14..15 " "
+    FnKw@15..17 "fn"
+    Whitespace@17..18 " "
+    Ident@18..22 "main"
+    ParamList@22..24
+      LParen@22..23 "("
+      RParen@23..24 ")"
+    BlockExpr@24..33
+      Whitespace@24..25 " "
+      LBrace@25..26 "{"
+      LiteralExpr@26..31
+        Newline@26..27 "\n"
+        Whitespace@27..29 "  "
+        IntLit@29..31 "42"
+      Newline@31..32 "\n"
+      RBrace@32..33 "}"
+  Newline@33..34 "\n"

@@ -1,0 +1,24 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-parse-missing-brace/input.asty
+---
+SourceFile@0..21
+  FnDef@0..20
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..11 "main"
+    ParamList@11..13
+      LParen@11..12 "("
+      RParen@12..13 ")"
+    BlockExpr@13..20
+      Whitespace@13..14 " "
+      LBrace@14..15 "{"
+      LiteralExpr@15..20
+        Newline@15..16 "\n"
+        Whitespace@16..18 "  "
+        IntLit@18..20 "42"
+  Newline@20..21 "\n"

@@ -1,0 +1,122 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/call-nested/input.asty
+---
+SourceFile@0..123
+  FnDef@0..40
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..13 "double"
+    ParamList@13..21
+      LParen@13..14 "("
+      Param@14..20
+        Ident@14..15 "x"
+        Colon@15..16 ":"
+        TypeExpr@16..20
+          Whitespace@16..17 " "
+          Ident@17..20 "Int"
+      RParen@20..21 ")"
+    ReturnType@21..28
+      Whitespace@21..22 " "
+      Arrow@22..24 "->"
+      TypeExpr@24..28
+        Whitespace@24..25 " "
+        Ident@25..28 "Int"
+    BlockExpr@28..40
+      Whitespace@28..29 " "
+      LBrace@29..30 "{"
+      BinaryExpr@30..38
+        IdentExpr@30..34
+          Newline@30..31 "\n"
+          Whitespace@31..33 "  "
+          Ident@33..34 "x"
+        Whitespace@34..35 " "
+        Star@35..36 "*"
+        LiteralExpr@36..38
+          Whitespace@36..37 " "
+          IntLit@37..38 "2"
+      Newline@38..39 "\n"
+      RBrace@39..40 "}"
+  FnDef@40..79
+    Visibility@40..45
+      Newline@40..41 "\n"
+      Newline@41..42 "\n"
+      PubKw@42..45 "pub"
+    Whitespace@45..46 " "
+    FnKw@46..48 "fn"
+    Whitespace@48..49 " "
+    Ident@49..52 "inc"
+    ParamList@52..60
+      LParen@52..53 "("
+      Param@53..59
+        Ident@53..54 "x"
+        Colon@54..55 ":"
+        TypeExpr@55..59
+          Whitespace@55..56 " "
+          Ident@56..59 "Int"
+      RParen@59..60 ")"
+    ReturnType@60..67
+      Whitespace@60..61 " "
+      Arrow@61..63 "->"
+      TypeExpr@63..67
+        Whitespace@63..64 " "
+        Ident@64..67 "Int"
+    BlockExpr@67..79
+      Whitespace@67..68 " "
+      LBrace@68..69 "{"
+      BinaryExpr@69..77
+        IdentExpr@69..73
+          Newline@69..70 "\n"
+          Whitespace@70..72 "  "
+          Ident@72..73 "x"
+        Whitespace@73..74 " "
+        Plus@74..75 "+"
+        LiteralExpr@75..77
+          Whitespace@75..76 " "
+          IntLit@76..77 "1"
+      Newline@77..78 "\n"
+      RBrace@78..79 "}"
+  FnDef@79..122
+    Visibility@79..84
+      Newline@79..80 "\n"
+      Newline@80..81 "\n"
+      PubKw@81..84 "pub"
+    Whitespace@84..85 " "
+    FnKw@85..87 "fn"
+    Whitespace@87..88 " "
+    Ident@88..92 "main"
+    ParamList@92..94
+      LParen@92..93 "("
+      RParen@93..94 ")"
+    ReturnType@94..101
+      Whitespace@94..95 " "
+      Arrow@95..97 "->"
+      TypeExpr@97..101
+        Whitespace@97..98 " "
+        Ident@98..101 "Int"
+    BlockExpr@101..122
+      Whitespace@101..102 " "
+      LBrace@102..103 "{"
+      CallExpr@103..120
+        IdentExpr@103..112
+          Newline@103..104 "\n"
+          Whitespace@104..106 "  "
+          Ident@106..112 "double"
+        ArgList@112..120
+          LParen@112..113 "("
+          CallExpr@113..119
+            IdentExpr@113..116
+              Ident@113..116 "inc"
+            ArgList@116..119
+              LParen@116..117 "("
+              LiteralExpr@117..118
+                IntLit@117..118 "3"
+              RParen@118..119 ")"
+          RParen@119..120 ")"
+      Newline@120..121 "\n"
+      RBrace@121..122 "}"
+  Newline@122..123 "\n"

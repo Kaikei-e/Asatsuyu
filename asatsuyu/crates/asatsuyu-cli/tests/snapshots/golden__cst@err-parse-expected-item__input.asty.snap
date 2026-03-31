@@ -1,0 +1,9 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-parse-expected-item/input.asty
+---
+SourceFile@0..3
+  NodeError@0..3
+    IntLit@0..2 "42"
+    Newline@2..3 "\n"

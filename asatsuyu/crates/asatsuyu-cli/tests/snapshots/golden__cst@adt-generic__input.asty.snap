@@ -1,0 +1,71 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/adt-generic/input.asty
+---
+SourceFile@0..81
+  TypeDef@0..35
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..11 "Option"
+    LParen@11..12 "("
+    TypeParam@12..13
+      Ident@12..13 "a"
+    RParen@13..14 ")"
+    Whitespace@14..15 " "
+    LBrace@15..16 "{"
+    Variant@16..26
+      Newline@16..17 "\n"
+      Whitespace@17..19 "  "
+      Ident@19..23 "Some"
+      LParen@23..24 "("
+      Field@24..25
+        TypeExpr@24..25
+          Ident@24..25 "a"
+      RParen@25..26 ")"
+    Variant@26..33
+      Newline@26..27 "\n"
+      Whitespace@27..29 "  "
+      Ident@29..33 "None"
+    Newline@33..34 "\n"
+    RBrace@34..35 "}"
+  FnDef@35..80
+    Visibility@35..40
+      Newline@35..36 "\n"
+      Newline@36..37 "\n"
+      PubKw@37..40 "pub"
+    Whitespace@40..41 " "
+    FnKw@41..43 "fn"
+    Whitespace@43..44 " "
+    Ident@44..48 "wrap"
+    ParamList@48..56
+      LParen@48..49 "("
+      Param@49..55
+        Ident@49..50 "x"
+        Colon@50..51 ":"
+        TypeExpr@51..55
+          Whitespace@51..52 " "
+          Ident@52..55 "Int"
+      RParen@55..56 ")"
+    ReturnType@56..66
+      Whitespace@56..57 " "
+      Arrow@57..59 "->"
+      TypeExpr@59..66
+        Whitespace@59..60 " "
+        Ident@60..66 "Option"
+    BlockExpr@66..80
+      Whitespace@66..67 " "
+      LBrace@67..68 "{"
+      CallExpr@68..78
+        IdentExpr@68..75
+          Newline@68..69 "\n"
+          Whitespace@69..71 "  "
+          Ident@71..75 "Some"
+        ArgList@75..78
+          LParen@75..76 "("
+          IdentExpr@76..77
+            Ident@76..77 "x"
+          RParen@77..78 ")"
+      Newline@78..79 "\n"
+      RBrace@79..80 "}"
+  Newline@80..81 "\n"

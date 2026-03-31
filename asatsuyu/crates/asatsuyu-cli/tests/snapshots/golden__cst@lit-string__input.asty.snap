@@ -1,0 +1,32 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/lit-string/input.asty
+---
+SourceFile@0..38
+  FnDef@0..37
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..11 "main"
+    ParamList@11..13
+      LParen@11..12 "("
+      RParen@12..13 ")"
+    ReturnType@13..23
+      Whitespace@13..14 " "
+      Arrow@14..16 "->"
+      TypeExpr@16..23
+        Whitespace@16..17 " "
+        Ident@17..23 "String"
+    BlockExpr@23..37
+      Whitespace@23..24 " "
+      LBrace@24..25 "{"
+      LiteralExpr@25..35
+        Newline@25..26 "\n"
+        Whitespace@26..28 "  "
+        StringLit@28..35 "\"hello\""
+      Newline@35..36 "\n"
+      RBrace@36..37 "}"
+  Newline@37..38 "\n"

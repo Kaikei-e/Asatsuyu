@@ -3,6 +3,7 @@
 //! Each `tests/cases/<name>/input.asty` is compiled through the full pipeline
 //! and snapshots are generated for every stage that succeeds:
 //!
+//! - **cst**: `{:#?}` dump of the lossless parser CST
 //! - **ast**: `{:#?}` dump of the untyped AST module
 //! - **hir**: `{:#?}` dump of the HIR module (after name resolution & desugaring)
 //! - **thir**: `{:#?}` dump of the typed HIR module
@@ -25,6 +26,7 @@ fn ffi_config() -> FfiResolverConfig {
 // ── Pipeline output ────────────────────────────────────────────────
 
 struct GoldenOutput {
+    cst: Option<String>,
     ast: Option<String>,
     hir: Option<String>,
     thir: Option<String>,
@@ -38,8 +40,10 @@ fn compile_golden(source: &str) -> GoldenOutput {
     // 1. Parse
     let cst = asatsuyu_parser::parse(FID, source);
     all_diags.extend(cst.diagnostics().iter().cloned());
+    let cst_dump = format!("{:#?}", cst.syntax());
     if cst.has_errors() {
         return GoldenOutput {
+            cst: Some(cst_dump),
             ast: None,
             hir: None,
             thir: None,
@@ -54,6 +58,7 @@ fn compile_golden(source: &str) -> GoldenOutput {
     all_diags.extend(ast.diagnostics.iter().cloned());
     if ast.has_errors() {
         return GoldenOutput {
+            cst: Some(cst_dump),
             ast: Some(ast_dump),
             hir: None,
             thir: None,
@@ -68,6 +73,7 @@ fn compile_golden(source: &str) -> GoldenOutput {
     all_diags.extend(hir.diagnostics.iter().cloned());
     if hir.has_errors() {
         return GoldenOutput {
+            cst: Some(cst_dump),
             ast: Some(ast_dump),
             hir: Some(hir_dump),
             thir: None,
@@ -83,6 +89,7 @@ fn compile_golden(source: &str) -> GoldenOutput {
     all_diags.extend(thir.diagnostics.iter().cloned());
     if thir.has_errors() {
         return GoldenOutput {
+            cst: Some(cst_dump),
             ast: Some(ast_dump),
             hir: Some(hir_dump),
             thir: Some(thir_dump),
@@ -101,6 +108,7 @@ fn compile_golden(source: &str) -> GoldenOutput {
     };
 
     GoldenOutput {
+        cst: Some(cst_dump),
         ast: Some(ast_dump),
         hir: Some(hir_dump),
         thir: Some(thir_dump),
@@ -161,6 +169,9 @@ fn golden() {
         let source = std::fs::read_to_string(path).unwrap();
         let out = compile_golden(&source);
 
+        if let Some(ref cst) = out.cst {
+            insta::assert_snapshot!("cst", cst);
+        }
         if let Some(ref ast) = out.ast {
             insta::assert_snapshot!("ast", ast);
         }

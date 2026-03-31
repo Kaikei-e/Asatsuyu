@@ -1,0 +1,59 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/fn-multiple/input.asty
+---
+SourceFile@0..62
+  FnDef@0..29
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..12 "first"
+    ParamList@12..14
+      LParen@12..13 "("
+      RParen@13..14 ")"
+    ReturnType@14..21
+      Whitespace@14..15 " "
+      Arrow@15..17 "->"
+      TypeExpr@17..21
+        Whitespace@17..18 " "
+        Ident@18..21 "Int"
+    BlockExpr@21..29
+      Whitespace@21..22 " "
+      LBrace@22..23 "{"
+      LiteralExpr@23..27
+        Newline@23..24 "\n"
+        Whitespace@24..26 "  "
+        IntLit@26..27 "1"
+      Newline@27..28 "\n"
+      RBrace@28..29 "}"
+  FnDef@29..61
+    Visibility@29..34
+      Newline@29..30 "\n"
+      Newline@30..31 "\n"
+      PubKw@31..34 "pub"
+    Whitespace@34..35 " "
+    FnKw@35..37 "fn"
+    Whitespace@37..38 " "
+    Ident@38..44 "second"
+    ParamList@44..46
+      LParen@44..45 "("
+      RParen@45..46 ")"
+    ReturnType@46..53
+      Whitespace@46..47 " "
+      Arrow@47..49 "->"
+      TypeExpr@49..53
+        Whitespace@49..50 " "
+        Ident@50..53 "Int"
+    BlockExpr@53..61
+      Whitespace@53..54 " "
+      LBrace@54..55 "{"
+      LiteralExpr@55..59
+        Newline@55..56 "\n"
+        Whitespace@56..58 "  "
+        IntLit@58..59 "2"
+      Newline@59..60 "\n"
+      RBrace@60..61 "}"
+  Newline@61..62 "\n"

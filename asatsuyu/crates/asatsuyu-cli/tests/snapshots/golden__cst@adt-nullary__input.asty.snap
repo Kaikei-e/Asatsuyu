@@ -1,0 +1,54 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/adt-nullary/input.asty
+---
+SourceFile@0..70
+  TypeDef@0..35
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..10 "Color"
+    Whitespace@10..11 " "
+    LBrace@11..12 "{"
+    Variant@12..18
+      Newline@12..13 "\n"
+      Whitespace@13..15 "  "
+      Ident@15..18 "Red"
+    Variant@18..26
+      Newline@18..19 "\n"
+      Whitespace@19..21 "  "
+      Ident@21..26 "Green"
+    Variant@26..33
+      Newline@26..27 "\n"
+      Whitespace@27..29 "  "
+      Ident@29..33 "Blue"
+    Newline@33..34 "\n"
+    RBrace@34..35 "}"
+  FnDef@35..69
+    Visibility@35..40
+      Newline@35..36 "\n"
+      Newline@36..37 "\n"
+      PubKw@37..40 "pub"
+    Whitespace@40..41 " "
+    FnKw@41..43 "fn"
+    Whitespace@43..44 " "
+    Ident@44..48 "main"
+    ParamList@48..50
+      LParen@48..49 "("
+      RParen@49..50 ")"
+    ReturnType@50..59
+      Whitespace@50..51 " "
+      Arrow@51..53 "->"
+      TypeExpr@53..59
+        Whitespace@53..54 " "
+        Ident@54..59 "Color"
+    BlockExpr@59..69
+      Whitespace@59..60 " "
+      LBrace@60..61 "{"
+      IdentExpr@61..67
+        Newline@61..62 "\n"
+        Whitespace@62..64 "  "
+        Ident@64..67 "Red"
+      Newline@67..68 "\n"
+      RBrace@68..69 "}"
+  Newline@69..70 "\n"

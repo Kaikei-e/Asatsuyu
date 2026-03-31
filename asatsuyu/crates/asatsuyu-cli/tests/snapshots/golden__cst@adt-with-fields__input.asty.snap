@@ -1,0 +1,72 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/adt-with-fields/input.asty
+---
+SourceFile@0..92
+  TypeDef@0..44
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..9 "User"
+    Whitespace@9..10 " "
+    LBrace@10..11 "{"
+    Variant@11..42
+      Newline@11..12 "\n"
+      Whitespace@12..14 "  "
+      Ident@14..18 "User"
+      LParen@18..19 "("
+      Field@19..31
+        Ident@19..23 "name"
+        Colon@23..24 ":"
+        TypeExpr@24..31
+          Whitespace@24..25 " "
+          Ident@25..31 "String"
+      Comma@31..32 ","
+      Field@32..41
+        Whitespace@32..33 " "
+        Ident@33..36 "age"
+        Colon@36..37 ":"
+        TypeExpr@37..41
+          Whitespace@37..38 " "
+          Ident@38..41 "Int"
+      RParen@41..42 ")"
+    Newline@42..43 "\n"
+    RBrace@43..44 "}"
+  FnDef@44..91
+    Visibility@44..49
+      Newline@44..45 "\n"
+      Newline@45..46 "\n"
+      PubKw@46..49 "pub"
+    Whitespace@49..50 " "
+    FnKw@50..52 "fn"
+    Whitespace@52..53 " "
+    Ident@53..57 "make"
+    ParamList@57..59
+      LParen@57..58 "("
+      RParen@58..59 ")"
+    ReturnType@59..67
+      Whitespace@59..60 " "
+      Arrow@60..62 "->"
+      TypeExpr@62..67
+        Whitespace@62..63 " "
+        Ident@63..67 "User"
+    BlockExpr@67..91
+      Whitespace@67..68 " "
+      LBrace@68..69 "{"
+      CallExpr@69..89
+        IdentExpr@69..76
+          Newline@69..70 "\n"
+          Whitespace@70..72 "  "
+          Ident@72..76 "User"
+        ArgList@76..89
+          LParen@76..77 "("
+          LiteralExpr@77..84
+            StringLit@77..84 "\"Alice\""
+          Comma@84..85 ","
+          LiteralExpr@85..88
+            Whitespace@85..86 " "
+            IntLit@86..88 "30"
+          RParen@88..89 ")"
+      Newline@89..90 "\n"
+      RBrace@90..91 "}"
+  Newline@91..92 "\n"

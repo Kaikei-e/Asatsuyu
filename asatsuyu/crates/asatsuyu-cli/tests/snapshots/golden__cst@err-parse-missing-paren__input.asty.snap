@@ -1,0 +1,27 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-parse-missing-paren/input.asty
+---
+SourceFile@0..22
+  FnDef@0..20
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..11 "main"
+    ParamList@11..14
+      LParen@11..12 "("
+      Param@12..12
+      NodeError@12..14
+        Whitespace@12..13 " "
+        LBrace@13..14 "{"
+    NodeError@14..20
+      Newline@14..15 "\n"
+      Whitespace@15..17 "  "
+      IntLit@17..19 "42"
+      Newline@19..20 "\n"
+  NodeError@20..22
+    RBrace@20..21 "}"
+    Newline@21..22 "\n"

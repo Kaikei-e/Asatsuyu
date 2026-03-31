@@ -1,0 +1,64 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/binop-arithmetic/input.asty
+---
+SourceFile@0..55
+  FnDef@0..54
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..11 "calc"
+    ParamList@11..27
+      LParen@11..12 "("
+      Param@12..18
+        Ident@12..13 "x"
+        Colon@13..14 ":"
+        TypeExpr@14..18
+          Whitespace@14..15 " "
+          Ident@15..18 "Int"
+      Comma@18..19 ","
+      Param@19..26
+        Whitespace@19..20 " "
+        Ident@20..21 "y"
+        Colon@21..22 ":"
+        TypeExpr@22..26
+          Whitespace@22..23 " "
+          Ident@23..26 "Int"
+      RParen@26..27 ")"
+    ReturnType@27..34
+      Whitespace@27..28 " "
+      Arrow@28..30 "->"
+      TypeExpr@30..34
+        Whitespace@30..31 " "
+        Ident@31..34 "Int"
+    BlockExpr@34..54
+      Whitespace@34..35 " "
+      LBrace@35..36 "{"
+      BinaryExpr@36..52
+        BinaryExpr@36..48
+          IdentExpr@36..40
+            Newline@36..37 "\n"
+            Whitespace@37..39 "  "
+            Ident@39..40 "x"
+          Whitespace@40..41 " "
+          Plus@41..42 "+"
+          BinaryExpr@42..48
+            IdentExpr@42..44
+              Whitespace@42..43 " "
+              Ident@43..44 "y"
+            Whitespace@44..45 " "
+            Star@45..46 "*"
+            LiteralExpr@46..48
+              Whitespace@46..47 " "
+              IntLit@47..48 "2"
+        Whitespace@48..49 " "
+        Minus@49..50 "-"
+        LiteralExpr@50..52
+          Whitespace@50..51 " "
+          IntLit@51..52 "1"
+      Newline@52..53 "\n"
+      RBrace@53..54 "}"
+  Newline@54..55 "\n"

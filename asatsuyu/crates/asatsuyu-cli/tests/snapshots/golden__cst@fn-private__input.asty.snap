@@ -1,0 +1,29 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/fn-private/input.asty
+---
+SourceFile@0..28
+  FnDef@0..27
+    FnKw@0..2 "fn"
+    Whitespace@2..3 " "
+    Ident@3..9 "helper"
+    ParamList@9..11
+      LParen@9..10 "("
+      RParen@10..11 ")"
+    ReturnType@11..18
+      Whitespace@11..12 " "
+      Arrow@12..14 "->"
+      TypeExpr@14..18
+        Whitespace@14..15 " "
+        Ident@15..18 "Int"
+    BlockExpr@18..27
+      Whitespace@18..19 " "
+      LBrace@19..20 "{"
+      LiteralExpr@20..25
+        Newline@20..21 "\n"
+        Whitespace@21..23 "  "
+        IntLit@23..25 "42"
+      Newline@25..26 "\n"
+      RBrace@26..27 "}"
+  Newline@27..28 "\n"

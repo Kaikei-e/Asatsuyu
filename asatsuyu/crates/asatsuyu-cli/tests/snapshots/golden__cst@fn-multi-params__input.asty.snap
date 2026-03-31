@@ -1,0 +1,52 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/fn-multi-params/input.asty
+---
+SourceFile@0..46
+  FnDef@0..45
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..10 "add"
+    ParamList@10..26
+      LParen@10..11 "("
+      Param@11..17
+        Ident@11..12 "x"
+        Colon@12..13 ":"
+        TypeExpr@13..17
+          Whitespace@13..14 " "
+          Ident@14..17 "Int"
+      Comma@17..18 ","
+      Param@18..25
+        Whitespace@18..19 " "
+        Ident@19..20 "y"
+        Colon@20..21 ":"
+        TypeExpr@21..25
+          Whitespace@21..22 " "
+          Ident@22..25 "Int"
+      RParen@25..26 ")"
+    ReturnType@26..33
+      Whitespace@26..27 " "
+      Arrow@27..29 "->"
+      TypeExpr@29..33
+        Whitespace@29..30 " "
+        Ident@30..33 "Int"
+    BlockExpr@33..45
+      Whitespace@33..34 " "
+      LBrace@34..35 "{"
+      BinaryExpr@35..43
+        IdentExpr@35..39
+          Newline@35..36 "\n"
+          Whitespace@36..38 "  "
+          Ident@38..39 "x"
+        Whitespace@39..40 " "
+        Plus@40..41 "+"
+        IdentExpr@41..43
+          Whitespace@41..42 " "
+          Ident@42..43 "y"
+      Newline@43..44 "\n"
+      RBrace@44..45 "}"
+  Newline@45..46 "\n"

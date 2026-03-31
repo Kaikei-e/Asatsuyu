@@ -1,0 +1,105 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/adt-option/input.asty
+---
+SourceFile@0..147
+  TypeDef@0..35
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..11 "Option"
+    LParen@11..12 "("
+    TypeParam@12..13
+      Ident@12..13 "a"
+    RParen@13..14 ")"
+    Whitespace@14..15 " "
+    LBrace@15..16 "{"
+    Variant@16..26
+      Newline@16..17 "\n"
+      Whitespace@17..19 "  "
+      Ident@19..23 "Some"
+      LParen@23..24 "("
+      Field@24..25
+        TypeExpr@24..25
+          Ident@24..25 "a"
+      RParen@25..26 ")"
+    Variant@26..33
+      Newline@26..27 "\n"
+      Whitespace@27..29 "  "
+      Ident@29..33 "None"
+    Newline@33..34 "\n"
+    RBrace@34..35 "}"
+  FnDef@35..146
+    Visibility@35..40
+      Newline@35..36 "\n"
+      Newline@36..37 "\n"
+      PubKw@37..40 "pub"
+    Whitespace@40..41 " "
+    FnKw@41..43 "fn"
+    Whitespace@43..44 " "
+    Ident@44..53 "unwrap_or"
+    ParamList@53..80
+      LParen@53..54 "("
+      Param@54..65
+        Ident@54..57 "opt"
+        Colon@57..58 ":"
+        TypeExpr@58..65
+          Whitespace@58..59 " "
+          Ident@59..65 "Option"
+      Comma@65..66 ","
+      Param@66..79
+        Whitespace@66..67 " "
+        Ident@67..74 "default"
+        Colon@74..75 ":"
+        TypeExpr@75..79
+          Whitespace@75..76 " "
+          Ident@76..79 "Int"
+      RParen@79..80 ")"
+    ReturnType@80..87
+      Whitespace@80..81 " "
+      Arrow@81..83 "->"
+      TypeExpr@83..87
+        Whitespace@83..84 " "
+        Ident@84..87 "Int"
+    BlockExpr@87..146
+      Whitespace@87..88 " "
+      LBrace@88..89 "{"
+      MatchExpr@89..144
+        Newline@89..90 "\n"
+        Whitespace@90..92 "  "
+        MatchKw@92..97 "match"
+        IdentExpr@97..101
+          Whitespace@97..98 " "
+          Ident@98..101 "opt"
+        Whitespace@101..102 " "
+        LBrace@102..103 "{"
+        MatchArm@103..120
+          ConstructorPat@103..115
+            Newline@103..104 "\n"
+            Whitespace@104..108 "    "
+            Ident@108..112 "Some"
+            LParen@112..113 "("
+            IdentPat@113..114
+              Ident@113..114 "x"
+            RParen@114..115 ")"
+          Whitespace@115..116 " "
+          Arrow@116..118 "->"
+          IdentExpr@118..120
+            Whitespace@118..119 " "
+            Ident@119..120 "x"
+        MatchArm@120..140
+          ConstructorPat@120..129
+            Newline@120..121 "\n"
+            Whitespace@121..125 "    "
+            Ident@125..129 "None"
+          Whitespace@129..130 " "
+          Arrow@130..132 "->"
+          IdentExpr@132..140
+            Whitespace@132..133 " "
+            Ident@133..140 "default"
+        Newline@140..141 "\n"
+        Whitespace@141..143 "  "
+        RBrace@143..144 "}"
+      Newline@144..145 "\n"
+      RBrace@145..146 "}"
+  Newline@146..147 "\n"

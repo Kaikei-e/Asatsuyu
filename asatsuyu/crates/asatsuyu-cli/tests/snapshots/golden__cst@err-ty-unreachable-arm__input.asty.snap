@@ -1,0 +1,66 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-unreachable-arm/input.asty
+---
+SourceFile@0..85
+  FnDef@0..84
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..15 "describe"
+    ParamList@15..23
+      LParen@15..16 "("
+      Param@16..22
+        Ident@16..17 "x"
+        Colon@17..18 ":"
+        TypeExpr@18..22
+          Whitespace@18..19 " "
+          Ident@19..22 "Int"
+      RParen@22..23 ")"
+    ReturnType@23..33
+      Whitespace@23..24 " "
+      Arrow@24..26 "->"
+      TypeExpr@26..33
+        Whitespace@26..27 " "
+        Ident@27..33 "String"
+    BlockExpr@33..84
+      Whitespace@33..34 " "
+      LBrace@34..35 "{"
+      MatchExpr@35..82
+        Newline@35..36 "\n"
+        Whitespace@36..38 "  "
+        MatchKw@38..43 "match"
+        IdentExpr@43..45
+          Whitespace@43..44 " "
+          Ident@44..45 "x"
+        Whitespace@45..46 " "
+        LBrace@46..47 "{"
+        MatchArm@47..62
+          WildcardPat@47..53
+            Newline@47..48 "\n"
+            Whitespace@48..52 "    "
+            Underscore@52..53 "_"
+          Whitespace@53..54 " "
+          Arrow@54..56 "->"
+          LiteralExpr@56..62
+            Whitespace@56..57 " "
+            StringLit@57..62 "\"any\""
+        MatchArm@62..78
+          LiteralPat@62..68
+            Newline@62..63 "\n"
+            Whitespace@63..67 "    "
+            IntLit@67..68 "0"
+          Whitespace@68..69 " "
+          Arrow@69..71 "->"
+          LiteralExpr@71..78
+            Whitespace@71..72 " "
+            StringLit@72..78 "\"zero\""
+        Newline@78..79 "\n"
+        Whitespace@79..81 "  "
+        RBrace@81..82 "}"
+      Newline@82..83 "\n"
+      RBrace@83..84 "}"
+  Newline@84..85 "\n"

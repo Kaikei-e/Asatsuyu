@@ -1,0 +1,78 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-non-exhaustive/input.asty
+---
+SourceFile@0..106
+  TypeDef@0..35
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..10 "Color"
+    Whitespace@10..11 " "
+    LBrace@11..12 "{"
+    Variant@12..18
+      Newline@12..13 "\n"
+      Whitespace@13..15 "  "
+      Ident@15..18 "Red"
+    Variant@18..26
+      Newline@18..19 "\n"
+      Whitespace@19..21 "  "
+      Ident@21..26 "Green"
+    Variant@26..33
+      Newline@26..27 "\n"
+      Whitespace@27..29 "  "
+      Ident@29..33 "Blue"
+    Newline@33..34 "\n"
+    RBrace@34..35 "}"
+  FnDef@35..105
+    Visibility@35..40
+      Newline@35..36 "\n"
+      Newline@36..37 "\n"
+      PubKw@37..40 "pub"
+    Whitespace@40..41 " "
+    FnKw@41..43 "fn"
+    Whitespace@43..44 " "
+    Ident@44..48 "name"
+    ParamList@48..58
+      LParen@48..49 "("
+      Param@49..57
+        Ident@49..50 "c"
+        Colon@50..51 ":"
+        TypeExpr@51..57
+          Whitespace@51..52 " "
+          Ident@52..57 "Color"
+      RParen@57..58 ")"
+    ReturnType@58..68
+      Whitespace@58..59 " "
+      Arrow@59..61 "->"
+      TypeExpr@61..68
+        Whitespace@61..62 " "
+        Ident@62..68 "String"
+    BlockExpr@68..105
+      Whitespace@68..69 " "
+      LBrace@69..70 "{"
+      MatchExpr@70..103
+        Newline@70..71 "\n"
+        Whitespace@71..73 "  "
+        MatchKw@73..78 "match"
+        IdentExpr@78..80
+          Whitespace@78..79 " "
+          Ident@79..80 "c"
+        Whitespace@80..81 " "
+        LBrace@81..82 "{"
+        MatchArm@82..99
+          ConstructorPat@82..90
+            Newline@82..83 "\n"
+            Whitespace@83..87 "    "
+            Ident@87..90 "Red"
+          Whitespace@90..91 " "
+          Arrow@91..93 "->"
+          LiteralExpr@93..99
+            Whitespace@93..94 " "
+            StringLit@94..99 "\"red\""
+        Newline@99..100 "\n"
+        Whitespace@100..102 "  "
+        RBrace@102..103 "}"
+      Newline@103..104 "\n"
+      RBrace@104..105 "}"
+  Newline@105..106 "\n"
