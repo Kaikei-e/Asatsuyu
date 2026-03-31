@@ -13,10 +13,12 @@
 //! assert_eq!(result.syntax().to_string(), "pub fn main() { 42 }");
 //! ```
 
+pub mod format;
 mod grammar;
 mod language;
 mod parser;
 
+pub use format::format_source;
 pub use language::{AsatsuyuLanguage, SyntaxElement, SyntaxNode, SyntaxToken};
 
 use asatsuyu_syntax::{Diagnostic, FileId, Severity};

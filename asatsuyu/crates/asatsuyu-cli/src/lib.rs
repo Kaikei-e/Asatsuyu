@@ -190,6 +190,14 @@ enum Commands {
         #[command(flatten)]
         python: PythonArgs,
     },
+    /// Format Asatsuyu source files
+    Fmt {
+        /// Paths to `.asty` source files (optional when inside a project)
+        paths: Vec<PathBuf>,
+        /// Check if files are already formatted (exit 1 if not, for CI)
+        #[arg(long)]
+        check: bool,
+    },
     /// Show FFI trust report for all known Python modules
     #[command(name = "verify-ffi")]
     VerifyFfi,
@@ -329,6 +337,16 @@ pub fn run() -> ExitCode {
             cmd_sync(output.error_format, python.python_path.as_deref())
         }
         Commands::New { name } => cmd_new(&name),
+        Commands::Fmt { paths, check } => {
+            let resolved = match resolve_fmt_paths(&paths) {
+                Ok(p) => p,
+                Err(err) => {
+                    eprintln!("error: {err}");
+                    return exit_config_error();
+                }
+            };
+            cmd_fmt(&resolved, check)
+        }
         Commands::VerifyFfi => cmd_verify_ffi(),
     }
 }
@@ -1054,6 +1072,85 @@ fn cmd_new(name: &str) -> ExitCode {
     eprintln!("  Created project `{name}` in ./{name}");
     eprintln!("  Run `asatsuyu run {name}/src/main.asty` to get started");
     ExitCode::SUCCESS
+}
+
+// ── fmt ──────────────────────────────────────────────────────────
+
+/// Resolve paths for the `fmt` command, reusing the check-context pattern.
+fn resolve_fmt_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>, CliError> {
+    if !paths.is_empty() {
+        return Ok(paths.to_vec());
+    }
+    let cwd = std::env::current_dir().map_err(CliError::Io)?;
+    let proj =
+        project::discover_project(&cwd).map_err(CliError::Project)?.ok_or(CliError::NoProject)?;
+    project::discover_sources(&proj.root).map_err(CliError::Project)
+}
+
+fn cmd_fmt(paths: &[PathBuf], check_mode: bool) -> ExitCode {
+    let mut formatted_count: u32 = 0;
+    let mut unchanged_count: u32 = 0;
+    let mut error_paths: Vec<PathBuf> = Vec::new();
+
+    for path in paths {
+        let source = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(err) => {
+                eprintln!("error: cannot read {}: {err}", path.display());
+                return exit_config_error();
+            }
+        };
+
+        let result = asatsuyu_parser::format_source(&source);
+
+        if result.has_parse_errors {
+            // Skip files with parse errors (print warning).
+            eprintln!("warning: {} has parse errors, skipping", path.display());
+            continue;
+        }
+
+        if result.formatted == source {
+            unchanged_count += 1;
+            continue;
+        }
+
+        if check_mode {
+            error_paths.push(path.clone());
+        } else {
+            if let Err(err) = std::fs::write(path, &result.formatted) {
+                eprintln!("error: cannot write {}: {err}", path.display());
+                return exit_config_error();
+            }
+            formatted_count += 1;
+        }
+    }
+
+    if check_mode {
+        if error_paths.is_empty() {
+            eprintln!("{unchanged_count} file(s) already formatted");
+            ExitCode::SUCCESS
+        } else {
+            for p in &error_paths {
+                eprintln!("would reformat: {}", p.display());
+            }
+            eprintln!(
+                "{} file(s) would be reformatted, {} already formatted",
+                error_paths.len(),
+                unchanged_count
+            );
+            exit_compile_error()
+        }
+    } else {
+        let total = formatted_count + unchanged_count;
+        if formatted_count > 0 {
+            eprintln!(
+                "Formatted {formatted_count} file(s) ({unchanged_count} unchanged, {total} total)"
+            );
+        } else {
+            eprintln!("{total} file(s) already formatted");
+        }
+        ExitCode::SUCCESS
+    }
 }
 
 // ── verify-ffi ────────────────────────────────────────────────────

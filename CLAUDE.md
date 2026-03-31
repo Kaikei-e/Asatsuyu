@@ -42,7 +42,8 @@ Source (.asty)
 ```
 
 - `asatsuyu-syntax` — 全クレート共有の最下層（SyntaxKind, Span, Diagnostic）。外部依存ゼロ
-- `asatsuyu-cli` — ユーザー入口。薄いラッパー
+- `asatsuyu-cli` — ユーザー入口。薄いラッパー（`check`, `build`, `run`, `fmt`, `new` 等）
+- `asatsuyu-parser::format` — CST ベースの決定的フォーマッタ（設定なし、Gleam 方式）
 - `asatsuyu-runtime-python` — Checked FFI 用の PyO3 ランタイム境界層。コンパイラクレートとは独立
 
 ## Things That Will Bite You
