@@ -610,46 +610,9 @@ impl<'a> Emitter<'a> {
     fn emit_list_call(&mut self, method: &str, args: &[ThirExpr]) -> bool {
         match method {
             // list.map(items, fn(x) { expr }) → [expr for x in items]
-            "map" if args.len() == 2 => {
-                if let Some((param, body)) = self.extract_lambda(&args[1]) {
-                    self.output.push('[');
-                    self.emit_expr(body);
-                    self.output.push_str(" for ");
-                    self.output.push_str(&param);
-                    self.output.push_str(" in ");
-                    self.emit_expr(&args[0]);
-                    self.output.push(']');
-                } else {
-                    // Non-lambda: fall back to [f(x) for x in items]
-                    self.output.push('[');
-                    self.emit_expr(&args[1]);
-                    self.output.push_str("(_x) for _x in ");
-                    self.emit_expr(&args[0]);
-                    self.output.push(']');
-                }
-                true
-            }
+            "map" if args.len() == 2 => self.emit_list_map_call(args),
             // list.filter(items, fn(x) { cond }) → [x for x in items if cond]
-            "filter" if args.len() == 2 => {
-                if let Some((param, body)) = self.extract_lambda(&args[1]) {
-                    self.output.push('[');
-                    self.output.push_str(&param);
-                    self.output.push_str(" for ");
-                    self.output.push_str(&param);
-                    self.output.push_str(" in ");
-                    self.emit_expr(&args[0]);
-                    self.output.push_str(" if ");
-                    self.emit_expr(body);
-                    self.output.push(']');
-                } else {
-                    self.output.push_str("[_x for _x in ");
-                    self.emit_expr(&args[0]);
-                    self.output.push_str(" if ");
-                    self.emit_expr(&args[1]);
-                    self.output.push_str("(_x)]");
-                }
-                true
-            }
+            "filter" if args.len() == 2 => self.emit_list_filter_call(args),
             // list.length(items) → len(items)
             "length" if args.len() == 1 => {
                 self.output.push_str("len(");
@@ -690,36 +653,82 @@ impl<'a> Emitter<'a> {
                 true
             }
             // list.fold(items, init, f) → functools.reduce-style loop
-            "fold" if args.len() == 3 => {
-                self.output.push_str("functools.reduce(");
-                self.emit_expr(&args[2]);
-                self.output.push_str(", ");
-                self.emit_expr(&args[0]);
-                self.output.push_str(", ");
-                self.emit_expr(&args[1]);
-                self.output.push(')');
-                true
-            }
+            "fold" if args.len() == 3 => self.emit_list_fold_expr(args),
             // list.head(items) → (items[0] if items else None)
-            "head" if args.len() == 1 => {
-                self.output.push('(');
-                self.emit_expr(&args[0]);
-                self.output.push_str("[0] if ");
-                self.emit_expr(&args[0]);
-                self.output.push_str(" else None)");
-                true
-            }
+            "head" if args.len() == 1 => self.emit_list_head_expr(args),
             // list.rest(items) → (items[1:] if items else None)
-            "rest" if args.len() == 1 => {
-                self.output.push('(');
-                self.emit_expr(&args[0]);
-                self.output.push_str("[1:] if ");
-                self.emit_expr(&args[0]);
-                self.output.push_str(" else None)");
-                true
-            }
+            "rest" if args.len() == 1 => self.emit_list_rest_expr(args),
             _ => false,
         }
+    }
+
+    fn emit_list_map_call(&mut self, args: &[ThirExpr]) -> bool {
+        if let Some((param, body)) = self.extract_lambda(&args[1]) {
+            self.output.push('[');
+            self.emit_expr(body);
+            self.output.push_str(" for ");
+            self.output.push_str(&param);
+            self.output.push_str(" in ");
+            self.emit_expr(&args[0]);
+            self.output.push(']');
+        } else {
+            self.output.push('[');
+            self.emit_expr(&args[1]);
+            self.output.push_str("(_x) for _x in ");
+            self.emit_expr(&args[0]);
+            self.output.push(']');
+        }
+        true
+    }
+
+    fn emit_list_filter_call(&mut self, args: &[ThirExpr]) -> bool {
+        if let Some((param, body)) = self.extract_lambda(&args[1]) {
+            self.output.push('[');
+            self.output.push_str(&param);
+            self.output.push_str(" for ");
+            self.output.push_str(&param);
+            self.output.push_str(" in ");
+            self.emit_expr(&args[0]);
+            self.output.push_str(" if ");
+            self.emit_expr(body);
+            self.output.push(']');
+        } else {
+            self.output.push_str("[_x for _x in ");
+            self.emit_expr(&args[0]);
+            self.output.push_str(" if ");
+            self.emit_expr(&args[1]);
+            self.output.push_str("(_x)]");
+        }
+        true
+    }
+
+    fn emit_list_fold_expr(&mut self, args: &[ThirExpr]) -> bool {
+        self.output.push_str("functools.reduce(");
+        self.emit_expr(&args[2]);
+        self.output.push_str(", ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(", ");
+        self.emit_expr(&args[1]);
+        self.output.push(')');
+        true
+    }
+
+    fn emit_list_head_expr(&mut self, args: &[ThirExpr]) -> bool {
+        self.output.push('(');
+        self.emit_expr(&args[0]);
+        self.output.push_str("[0] if ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(" else None)");
+        true
+    }
+
+    fn emit_list_rest_expr(&mut self, args: &[ThirExpr]) -> bool {
+        self.output.push('(');
+        self.emit_expr(&args[0]);
+        self.output.push_str("[1:] if ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(" else None)");
+        true
     }
 
     fn emit_list_fold_let_stmt(&mut self, binding: DefId, args: &[ThirExpr], span: Span) {

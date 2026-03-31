@@ -1502,15 +1502,14 @@ impl TyCheckCtx {
         let mut catchall_seen = false;
 
         for arm in arms {
-            let arm_is_reachable = !catchall_seen
-                && !(empty_seen && non_empty_seen)
+            let coverage_complete = catchall_seen || (empty_seen && non_empty_seen);
+            let arm_is_reachable = !coverage_complete
                 && match &arm.pattern {
-                    ThirPattern::Wildcard(_) | ThirPattern::Variable { .. } => true,
                     ThirPattern::List { elements, rest, .. } => {
                         if elements.is_empty() && rest.is_none() {
                             !empty_seen
                         } else if elements.is_empty() && rest.is_some() {
-                            !(empty_seen && non_empty_seen)
+                            true
                         } else {
                             !non_empty_seen
                         }
