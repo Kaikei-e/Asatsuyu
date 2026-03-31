@@ -98,6 +98,7 @@ impl HirLowerCtx {
             self.diagnostics.push(
                 Diagnostic::error(format!("duplicate binding `{name}`"), span)
                     .with_code(DiagnosticCode::E0150)
+                    .with_label(span, format!("`{name}` is rebound here"))
                     .with_secondary_label(prev.span, "previously bound here")
                     .with_hint("each name can only be bound once in the same scope"),
             );
@@ -112,6 +113,7 @@ impl HirLowerCtx {
             self.diagnostics.push(
                 Diagnostic::error(format!("duplicate definition `{name}`"), span)
                     .with_code(DiagnosticCode::E0151)
+                    .with_label(span, format!("`{name}` is redefined here"))
                     .with_secondary_label(prev.span, "previously defined here")
                     .with_hint("rename one of the definitions"),
             );

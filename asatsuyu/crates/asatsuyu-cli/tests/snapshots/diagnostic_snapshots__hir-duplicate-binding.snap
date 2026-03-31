@@ -4,5 +4,6 @@ expression: text
 ---
 [E0150] Error: duplicate binding `x`
   span: 27..28
+  primary [27..28]: `x` is rebound here
   secondary [15..16]: previously bound here
   hint: each name can only be bound once in the same scope
