@@ -28,6 +28,7 @@ pub(super) fn span_to_range(span: Span, line_index: &LineIndex) -> lsp_types::Ra
 pub(super) fn to_lsp_diagnostic(
     diag: &Diagnostic,
     line_index: &LineIndex,
+    uri: &lsp_types::Url,
 ) -> lsp_types::Diagnostic {
     let range = span_to_range(diag.span, line_index);
 
@@ -58,9 +59,7 @@ pub(super) fn to_lsp_diagnostic(
                 .map(|label| lsp_types::DiagnosticRelatedInformation {
                     location: lsp_types::Location {
                         // Same file for now (single-file analysis).
-                        uri: lsp_types::Url::parse("file:///unknown").unwrap_or_else(|_| {
-                            lsp_types::Url::parse("file:///").expect("valid url")
-                        }),
+                        uri: uri.clone(),
                         range: span_to_range(label.span, line_index),
                     },
                     message: label.message.clone(),
@@ -88,6 +87,41 @@ pub(super) fn to_lsp_diagnostic(
 pub(super) fn to_lsp_diagnostics(
     diags: &[Diagnostic],
     line_index: &LineIndex,
+    uri: &lsp_types::Url,
 ) -> Vec<lsp_types::Diagnostic> {
-    diags.iter().map(|d| to_lsp_diagnostic(d, line_index)).collect()
+    diags.iter().map(|d| to_lsp_diagnostic(d, line_index, uri)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use asatsuyu_syntax::{DiagnosticCode, FileId, LineCol};
+
+    use super::*;
+
+    #[test]
+    fn span_to_range_is_zero_based() {
+        let index = LineIndex::new("ab\ncd\n");
+        let range = span_to_range(Span::new(FileId(0), 3, 5), &index);
+        assert_eq!(range.start.line, 1);
+        assert_eq!(range.start.character, 0);
+        assert_eq!(range.end.line, 1);
+        assert_eq!(range.end.character, 2);
+        assert_eq!(index.line_col(3), Some(LineCol { line: 2, column: 1 }));
+    }
+
+    #[test]
+    fn related_information_uses_document_uri() {
+        let uri = lsp_types::Url::parse("file:///tmp/example.asty").expect("valid file uri");
+        let diag = Diagnostic::error("boom", Span::new(FileId(0), 0, 1))
+            .with_code(DiagnosticCode::E0001)
+            .with_label(Span::new(FileId(0), 0, 1), "primary")
+            .with_secondary_label(Span::new(FileId(0), 2, 3), "secondary");
+        let index = LineIndex::new("abc");
+
+        let lsp = to_lsp_diagnostic(&diag, &index, &uri);
+        let related = lsp.related_information.expect("related information");
+        assert_eq!(related.len(), 1);
+        assert_eq!(related[0].location.uri, uri);
+        assert_eq!(related[0].message, "secondary");
+    }
 }

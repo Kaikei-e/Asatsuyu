@@ -14,8 +14,8 @@ use tower_lsp::lsp_types::{
     DidSaveTextDocumentParams, DocumentFormattingParams, GotoDefinitionParams,
     GotoDefinitionResponse, Hover, HoverContents, HoverParams, HoverProviderCapability,
     InitializeParams, InitializeResult, InitializedParams, Location, MarkupContent, MarkupKind,
-    MessageType, OneOf, Position, Range, ServerCapabilities, ServerInfo,
-    TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit, Url,
+    MessageType, OneOf, Position, ServerCapabilities, ServerInfo, TextDocumentSyncCapability,
+    TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, Url,
 };
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -46,7 +46,7 @@ impl Backend {
         let line_index = LineIndex::new(&source);
         let (thir, diagnostics) = compile_source(&source);
 
-        let lsp_diags = convert::to_lsp_diagnostics(&diagnostics, &line_index);
+        let lsp_diags = convert::to_lsp_diagnostics(&diagnostics, &line_index, uri);
 
         // Update stored state.
         {
@@ -102,8 +102,13 @@ impl LanguageServer for Backend {
     async fn initialize(&self, _params: InitializeParams) -> Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::FULL,
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        open_close: Some(true),
+                        change: Some(TextDocumentSyncKind::FULL),
+                        save: Some(true.into()),
+                        ..Default::default()
+                    },
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 definition_provider: Some(OneOf::Left(true)),
@@ -160,6 +165,9 @@ impl LanguageServer for Backend {
             if let Some(fs) = state.get_mut(&uri) {
                 fs.source = change.text;
                 fs.line_index = line_index;
+                fs.thir = None;
+            } else {
+                state.insert(uri, FileState { source: change.text, line_index, thir: None });
             }
         }
     }
@@ -241,17 +249,13 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
 
-        // Replace the entire document.
+        // Replace the entire document using a precise EOF range.
         #[allow(clippy::cast_possible_truncation)]
-        let line_count = file_state.source.lines().count() as u32;
-        #[allow(clippy::cast_possible_truncation)]
-        let last_line_len = file_state.source.lines().last().map_or(0, str::len) as u32;
+        let eof_span = asatsuyu_syntax::Span::new(FileId(0), 0, file_state.source.len() as u32);
+        let full_range = convert::span_to_range(eof_span, &file_state.line_index);
 
         Ok(Some(vec![TextEdit {
-            range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: line_count, character: last_line_len },
-            },
+            range: full_range,
             new_text: result.formatted,
         }]))
     }
@@ -302,6 +306,29 @@ fn position_to_offset(pos: Position, source: &str) -> u32 {
 /// Convert a file URI to a filesystem path.
 fn uri_to_path(uri: &Url) -> Option<PathBuf> {
     uri.to_file_path().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn position_to_offset_clamps_at_line_end() {
+        let source = "ab\ncd\n";
+        assert_eq!(position_to_offset(Position { line: 0, character: 1 }, source), 1);
+        assert_eq!(position_to_offset(Position { line: 0, character: 99 }, source), 2);
+        assert_eq!(position_to_offset(Position { line: 1, character: 1 }, source), 4);
+    }
+
+    #[test]
+    fn formatting_range_covers_entire_document() {
+        let source = "a\n";
+        let index = LineIndex::new(source);
+        let eof_span = asatsuyu_syntax::Span::new(FileId(0), 0, source.len() as u32);
+        let range = convert::span_to_range(eof_span, &index);
+        assert_eq!(range.start, Position { line: 0, character: 0 });
+        assert_eq!(range.end, Position { line: 1, character: 0 });
+    }
 }
 
 // ── Server startup ──────────────────────────────────────────────
