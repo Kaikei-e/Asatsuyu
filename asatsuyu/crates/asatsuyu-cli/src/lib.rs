@@ -5,6 +5,8 @@
 
 mod diagnostic_report;
 mod json_diagnostic;
+mod project;
+mod watch;
 
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
@@ -40,8 +42,8 @@ enum FfiRuntime {
 }
 
 /// Diagnostic output format.
-#[derive(Clone, Copy, Debug, Default, ValueEnum)]
-enum ErrorFormat {
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub(crate) enum ErrorFormat {
     /// Human-readable output with source context (miette)
     #[default]
     Human,
@@ -61,9 +63,11 @@ struct OutputArgs {
 enum Commands {
     /// Type-check without code generation
     Check {
-        /// Paths to `.asty` source files
-        #[arg(required = true)]
+        /// Paths to `.asty` source files (optional when inside a project)
         paths: Vec<PathBuf>,
+        /// Watch for file changes and re-check automatically
+        #[arg(long)]
+        watch: bool,
         #[command(flatten)]
         output: OutputArgs,
         /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
@@ -146,7 +150,7 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { paths, output, ffi_stdlib_only, ffi_stub_path } => {
+        Commands::Check { paths, watch, output, ffi_stdlib_only, ffi_stub_path } => {
             let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
                 Ok(config) => config,
                 Err(err) => {
@@ -154,7 +158,18 @@ pub fn run() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            cmd_check(&paths, &ffi_config, output.error_format)
+            let resolved = match resolve_check_paths(&paths) {
+                Ok(p) => p,
+                Err(err) => {
+                    eprintln!("error: {err}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            if watch {
+                watch::run_watch(&resolved, &ffi_config, output.error_format)
+            } else {
+                cmd_check(&resolved, &ffi_config, output.error_format)
+            }
         }
         Commands::Build {
             path,
@@ -234,7 +249,7 @@ fn convert_ffi_runtime(runtime: FfiRuntime) -> FfiRuntimeMode {
 
 // ── Command handlers ───────────────────────────────────────────────
 
-fn cmd_check(
+pub(crate) fn cmd_check(
     paths: &[PathBuf],
     ffi_config: &FfiResolverConfig,
     error_format: ErrorFormat,
@@ -696,6 +711,8 @@ enum CliError {
     Io(std::io::Error),
     CompileErrors { diagnostics: Vec<Diagnostic>, source: String },
     InvalidFfiStubPath { path: PathBuf, reason: &'static str },
+    Project(project::ProjectError),
+    NoProject,
 }
 
 impl std::fmt::Display for CliError {
@@ -711,8 +728,31 @@ impl std::fmt::Display for CliError {
             Self::InvalidFfiStubPath { path, reason } => {
                 write!(f, "invalid --ffi-stub-path `{}`: {reason}", path.display())
             }
+            Self::Project(e) => write!(f, "{e}"),
+            Self::NoProject => write!(
+                f,
+                "no asatsuyu.toml found; specify files explicitly or run from within a project"
+            ),
         }
     }
+}
+
+// ── Path resolution ──────────────────────────────────────────────────
+
+/// Resolve the files to check.
+///
+/// If explicit paths are given, use them. Otherwise, discover the project root
+/// from the current directory and collect all `src/**/*.asty` files.
+fn resolve_check_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>, CliError> {
+    if !paths.is_empty() {
+        return Ok(paths.to_vec());
+    }
+
+    let cwd = std::env::current_dir().map_err(CliError::Io)?;
+    let project =
+        project::discover_project(&cwd).map_err(CliError::Project)?.ok_or(CliError::NoProject)?;
+
+    project::discover_sources(&project.root).map_err(CliError::Project)
 }
 
 // ── Diagnostic reporting (miette) ─────────────────────────────────

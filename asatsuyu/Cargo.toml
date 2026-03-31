@@ -44,6 +44,13 @@ pyo3 = { version = "0.28" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Project config
+toml = "0.8"
+
+# File watching (CLI only)
+notify = "8.0"
+notify-debouncer-mini = "0.7"
+
 # Testing
 insta = { version = "1.47", features = ["glob"] }
 

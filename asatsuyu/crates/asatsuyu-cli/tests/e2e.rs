@@ -712,7 +712,54 @@ fn check_error_format_human_is_default() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-// ── 17b. --ffi-stub-path must point at an existing directory ────
+// ── 17c. project discovery ────────────────────────────────────────
+
+#[test]
+fn check_no_args_in_project() {
+    let dir = workspace_root().join("target/test-check-no-args");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // Create a project.
+    let output = asatsuyu().current_dir(&dir).args(["new", "myproj"]).output().unwrap();
+    assert!(output.status.success(), "new: {}", String::from_utf8_lossy(&output.stderr));
+
+    // Run check with no file args from inside the project.
+    let project_dir = dir.join("myproj");
+    let output = asatsuyu().current_dir(&project_dir).args(["check"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "check (no args) should succeed in project:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_no_args_outside_project() {
+    let dir = workspace_root().join("target/test-check-no-project");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    // Run check with no file args in a directory without asatsuyu.toml.
+    let output = asatsuyu().current_dir(&dir).args(["check"]).output().unwrap();
+    assert!(!output.status.success(), "should fail without project");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("asatsuyu.toml"), "error should mention asatsuyu.toml: {stderr}",);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_watch_flag_in_help() {
+    let output = asatsuyu().args(["check", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("--watch"), "help should mention --watch: {stdout}");
+}
+
+// ── 17d. --ffi-stub-path must point at an existing directory ────
 
 #[test]
 fn check_rejects_missing_ffi_stub_path() {
