@@ -6,7 +6,9 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
+use pep440_rs::VersionSpecifiers;
 use serde::Deserialize;
 
 /// Marker file that identifies an Asatsuyu project root.
@@ -97,6 +99,9 @@ pub(crate) struct PythonConfig {
     /// Python version constraint (e.g. `">=3.12"`).
     #[serde(default)]
     pub(crate) version: Option<String>,
+    /// Explicit path to Python interpreter (overrides environment discovery).
+    #[serde(default)]
+    pub(crate) path: Option<PathBuf>,
 }
 
 /// `[ffi]` section of `asatsuyu.toml`.
@@ -135,6 +140,10 @@ impl ProjectConfig {
     pub(crate) fn ffi_config(&self) -> Option<&FfiConfig> {
         self.ffi.as_ref()
     }
+
+    pub(crate) fn python_path(&self) -> Option<&Path> {
+        self.python.as_ref().and_then(|p| p.path.as_deref())
+    }
 }
 
 // ── Validation ──────────────────────────────────────────────────────
@@ -158,6 +167,31 @@ impl ProjectConfig {
                 "project.name must contain only ASCII letters, digits, underscores, and hyphens"
                     .into(),
             ));
+        }
+
+        self.validate_python_specifiers()?;
+
+        Ok(())
+    }
+
+    /// Validate PEP 440 version specifiers in `[python-dependencies]` and `[python] version`.
+    fn validate_python_specifiers(&self) -> Result<(), ProjectError> {
+        // Validate [python] version constraint.
+        if let Some(version_str) = self.python_version() {
+            VersionSpecifiers::from_str(version_str).map_err(|e| {
+                ProjectError::InvalidConfig(format!(
+                    "python.version: invalid PEP 440 specifier \"{version_str}\": {e}"
+                ))
+            })?;
+        }
+
+        // Validate each [python-dependencies] specifier.
+        for (name, specifier) in &self.python_dependencies {
+            VersionSpecifiers::from_str(specifier).map_err(|e| {
+                ProjectError::InvalidConfig(format!(
+                    "python-dependencies.{name}: invalid PEP 440 specifier \"{specifier}\": {e}"
+                ))
+            })?;
         }
 
         Ok(())
@@ -338,8 +372,7 @@ custom-key = "value"
 
     #[test]
     fn parse_config_generated_by_cmd_new() {
-        let toml =
-            "schema_version = 1\n\n[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n";
+        let toml = "schema_version = 1\n\n[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n";
         let config = parse_config(toml).unwrap();
         assert_eq!(config.name(), "demo");
         assert_eq!(config.schema_version, 1);
@@ -485,6 +518,68 @@ nested = { key = 42 }
         assert_eq!(deps.len(), 2);
         assert_eq!(deps["requests"], ">=2.31");
         assert_eq!(deps["numpy"], ">=1.26");
+    }
+
+    // ── PEP 440 validation ──────────────────────────────────────────
+
+    #[test]
+    fn valid_pep440_specifiers() {
+        let cases = [
+            (">=2.31", "simple >="),
+            (">=1.0,<2.0", "range"),
+            ("==3.12.*", "wildcard"),
+            ("~=1.0", "compatible release"),
+            ("!=1.5", "exclusion"),
+            (">=1.0,!=1.3.*,<2.0", "complex"),
+        ];
+        for (spec, label) in cases {
+            let toml =
+                format!("[project]\nname = \"demo\"\n\n[python-dependencies]\npkg = \"{spec}\"\n");
+            assert!(parse_config(&toml).is_ok(), "should accept {label}: {spec}");
+        }
+    }
+
+    #[test]
+    fn reject_invalid_pep440_specifier() {
+        let cases = ["not a version", "abc", ">>>1.0", ">=,<2"];
+        for spec in cases {
+            let toml =
+                format!("[project]\nname = \"demo\"\n\n[python-dependencies]\npkg = \"{spec}\"\n");
+            let err = parse_config(&toml).unwrap_err();
+            assert!(
+                err.to_string().contains("invalid PEP 440 specifier"),
+                "should reject \"{spec}\": {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_python_version_specifier_valid() {
+        let toml = "[project]\nname = \"demo\"\n\n[python]\nversion = \">=3.12\"\n";
+        assert!(parse_config(toml).is_ok());
+    }
+
+    #[test]
+    fn validate_python_version_specifier_invalid() {
+        let toml = "[project]\nname = \"demo\"\n\n[python]\nversion = \"bad\"\n";
+        let err = parse_config(toml).unwrap_err();
+        assert!(err.to_string().contains("python.version"), "should mention python.version: {err}");
+    }
+
+    // ── Python path config ────────────────────────────────────────────
+
+    #[test]
+    fn python_path_config_parses() {
+        let toml = "[project]\nname = \"demo\"\n\n[python]\nversion = \">=3.12\"\npath = \"/usr/bin/python3\"\n";
+        let config = parse_config(toml).unwrap();
+        assert_eq!(config.python_path(), Some(Path::new("/usr/bin/python3")));
+    }
+
+    #[test]
+    fn python_path_defaults_to_none() {
+        let toml = "[project]\nname = \"demo\"\n\n[python]\nversion = \">=3.12\"\n";
+        let config = parse_config(toml).unwrap();
+        assert!(config.python_path().is_none());
     }
 
     // ── Discovery tests ────────────────────────────────────────────

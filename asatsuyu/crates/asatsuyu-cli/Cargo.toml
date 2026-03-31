@@ -22,6 +22,7 @@ miette = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
+pep440_rs = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
 

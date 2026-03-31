@@ -6,8 +6,10 @@
 mod diagnostic_report;
 mod json_diagnostic;
 mod project;
+mod python_env;
 mod watch;
 
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -70,6 +72,14 @@ struct FfiArgs {
     ffi_stub_path: Vec<PathBuf>,
 }
 
+/// Arguments shared across check/build/run for Python environment configuration.
+#[derive(clap::Args, Clone, Debug)]
+struct PythonArgs {
+    /// Path to Python interpreter (overrides environment discovery)
+    #[arg(long)]
+    python_path: Option<PathBuf>,
+}
+
 // ── Exit codes ────────────────────────────────────────────────────
 //
 // Convention (following ruff/ty):
@@ -98,6 +108,8 @@ enum Commands {
         output: OutputArgs,
         #[command(flatten)]
         ffi: FfiArgs,
+        #[command(flatten)]
+        python: PythonArgs,
     },
     /// Compile Asatsuyu source to a Python 3.12+ package
     Build {
@@ -119,6 +131,8 @@ enum Commands {
         output: OutputArgs,
         #[command(flatten)]
         ffi: FfiArgs,
+        #[command(flatten)]
+        python: PythonArgs,
     },
     /// Compile and execute an Asatsuyu source file with python3
     Run {
@@ -134,6 +148,8 @@ enum Commands {
         output: OutputArgs,
         #[command(flatten)]
         ffi: FfiArgs,
+        #[command(flatten)]
+        python: PythonArgs,
     },
     /// Create a new Asatsuyu project
     New {
@@ -164,7 +180,7 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { paths, watch, output, ffi } => {
+        Commands::Check { paths, watch, output, ffi, python } => {
             let ffi_config = match build_ffi_config(&ffi) {
                 Ok(config) => config,
                 Err(err) => {
@@ -172,17 +188,26 @@ pub fn run() -> ExitCode {
                     return exit_config_error();
                 }
             };
-            let resolved = match resolve_check_paths(&paths) {
-                Ok(p) => p,
+            let context = match resolve_check_context(&paths) {
+                Ok(ctx) => ctx,
                 Err(err) => {
                     eprintln!("error: {err}");
                     return exit_config_error();
                 }
             };
+
+            // Dependency check (project mode only, warnings).
+            run_dependency_check(
+                context.project.as_ref(),
+                python.python_path.as_deref(),
+                output.error_format,
+                false,
+            );
+
             if watch {
-                watch::run_watch(&resolved, &ffi_config, output.error_format)
+                watch::run_watch(&context.paths, &ffi_config, output.error_format)
             } else {
-                cmd_check(&resolved, &ffi_config, output.error_format)
+                cmd_check(&context.paths, &ffi_config, output.error_format)
             }
         }
         Commands::Build {
@@ -193,6 +218,7 @@ pub fn run() -> ExitCode {
             ffi_runtime,
             output,
             ffi,
+            python,
         } => {
             let ffi_config = match build_ffi_config(&ffi) {
                 Ok(config) => config,
@@ -201,6 +227,17 @@ pub fn run() -> ExitCode {
                     return exit_config_error();
                 }
             };
+
+            // Attempt project discovery from file's parent for dep check.
+            let discovered =
+                path.parent().and_then(|dir| project::discover_project(dir).ok().flatten());
+            run_dependency_check(
+                discovered.as_ref(),
+                python.python_path.as_deref(),
+                output.error_format,
+                false,
+            );
+
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
             cmd_build(
                 &path,
@@ -212,7 +249,7 @@ pub fn run() -> ExitCode {
                 output.error_format,
             )
         }
-        Commands::Run { path, source_map, ffi_runtime, output, ffi } => {
+        Commands::Run { path, source_map, ffi_runtime, output, ffi, python } => {
             let ffi_config = match build_ffi_config(&ffi) {
                 Ok(config) => config,
                 Err(err) => {
@@ -220,6 +257,20 @@ pub fn run() -> ExitCode {
                     return exit_config_error();
                 }
             };
+
+            // Attempt project discovery from file's parent for dep check.
+            // For `run`, missing deps are errors (exit code 2).
+            let discovered =
+                path.parent().and_then(|dir| project::discover_project(dir).ok().flatten());
+            if run_dependency_check(
+                discovered.as_ref(),
+                python.python_path.as_deref(),
+                output.error_format,
+                true,
+            ) {
+                return exit_config_error();
+            }
+
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
             cmd_run(&path, source_map, runtime_mode, &ffi_config, output.error_format)
         }
@@ -745,20 +796,154 @@ impl std::fmt::Display for CliError {
 
 // ── Path resolution ──────────────────────────────────────────────────
 
-/// Resolve the files to check.
+/// Context returned by `resolve_check_context`, carrying both the files
+/// to compile and (optionally) the discovered project for dependency checking.
+struct CheckContext {
+    paths: Vec<PathBuf>,
+    project: Option<project::Project>,
+}
+
+/// Resolve the files to check and optionally discover the project.
 ///
-/// If explicit paths are given, use them. Otherwise, discover the project root
-/// from the current directory and collect all `src/**/*.asty` files.
-fn resolve_check_paths(paths: &[PathBuf]) -> Result<Vec<PathBuf>, CliError> {
+/// If explicit paths are given, use them (no project discovery).
+/// Otherwise, discover the project root from the current directory and
+/// collect all `src/**/*.asty` files.
+fn resolve_check_context(paths: &[PathBuf]) -> Result<CheckContext, CliError> {
     if !paths.is_empty() {
-        return Ok(paths.to_vec());
+        let project = discover_project_for_explicit_paths(paths);
+        return Ok(CheckContext { paths: paths.to_vec(), project });
     }
 
     let cwd = std::env::current_dir().map_err(CliError::Io)?;
     let project =
         project::discover_project(&cwd).map_err(CliError::Project)?.ok_or(CliError::NoProject)?;
 
-    project::discover_sources(&project.root).map_err(CliError::Project)
+    let sources = project::discover_sources(&project.root).map_err(CliError::Project)?;
+    Ok(CheckContext { paths: sources, project: Some(project) })
+}
+
+/// Best-effort project discovery for explicit `check` paths.
+///
+/// `asatsuyu check src/main.asty` inside a project should still honor
+/// `asatsuyu.toml` and run the Python dependency check introduced in Issue 57.
+/// When multiple paths are given, use the first project we can discover.
+fn discover_project_for_explicit_paths(paths: &[PathBuf]) -> Option<project::Project> {
+    let cwd = std::env::current_dir().ok()?;
+
+    for path in paths {
+        let candidate = if path.is_absolute() { path.clone() } else { cwd.join(path) };
+        let start_dir =
+            if candidate.is_dir() { candidate } else { candidate.parent()?.to_path_buf() };
+
+        if let Ok(Some(project)) = project::discover_project(&start_dir) {
+            return Some(project);
+        }
+    }
+
+    project::discover_project(&cwd).ok().flatten()
+}
+
+// ── Dependency checking ──────────────────────────────────────────────
+
+/// Run dependency check against the Python environment.
+///
+/// Only runs when a project is discovered and `[python-dependencies]` is
+/// non-empty. Returns `true` if there are issues and `error_on_missing` is set.
+fn run_dependency_check(
+    project: Option<&project::Project>,
+    explicit_python_path: Option<&Path>,
+    error_format: ErrorFormat,
+    error_on_missing: bool,
+) -> bool {
+    let Some(project) = project else {
+        return false;
+    };
+    let config = &project.config;
+
+    if config.python_dependencies().is_empty() {
+        return false;
+    }
+
+    let python_path = explicit_python_path.or_else(|| config.python_path());
+    let env = python_env::discover_environment(&project.root, python_path);
+
+    let Some(env) = env else {
+        if matches!(error_format, ErrorFormat::Human) {
+            eprintln!("warning: no Python environment found; dependency check skipped");
+        }
+        // Not finding an environment is not a blocking error.
+        return false;
+    };
+
+    let installed = python_env::scan_installed_packages(&env.site_packages);
+    let statuses = python_env::check_dependencies(config.python_dependencies(), &installed);
+
+    report_dependency_issues(&statuses, error_format, error_on_missing)
+}
+
+/// Report dependency issues to stderr (human) or stdout (JSON/NDJSON).
+///
+/// Returns `true` if any issue was found and `error_on_missing` is set
+/// (caller should abort with exit code 2).
+fn report_dependency_issues(
+    statuses: &BTreeMap<String, python_env::DependencyStatus>,
+    error_format: ErrorFormat,
+    error_on_missing: bool,
+) -> bool {
+    use python_env::DependencyStatus;
+
+    let mut has_issues = false;
+
+    for (name, status) in statuses {
+        match status {
+            DependencyStatus::Satisfied { .. } => {}
+            DependencyStatus::Missing => {
+                has_issues = true;
+                let level = if error_on_missing { "error" } else { "warning" };
+                match error_format {
+                    ErrorFormat::Human => {
+                        eprintln!("{level}: Python package `{name}` is not installed");
+                        eprintln!("  hint: install it with `pip install {name}`");
+                    }
+                    ErrorFormat::Json => {
+                        let json = serde_json::json!({
+                            "type": "dependency",
+                            "status": "missing",
+                            "package": name,
+                            "severity": level,
+                        });
+                        println!("{json}");
+                    }
+                }
+            }
+            DependencyStatus::VersionMismatch { installed, required } => {
+                has_issues = true;
+                let level = if error_on_missing { "error" } else { "warning" };
+                match error_format {
+                    ErrorFormat::Human => {
+                        eprintln!(
+                            "{level}: Python package `{name}` version {installed} \
+                             does not satisfy {required}"
+                        );
+                        eprintln!("  hint: upgrade with `pip install \"{name}{required}\"`");
+                    }
+                    ErrorFormat::Json => {
+                        let json = serde_json::json!({
+                            "type": "dependency",
+                            "status": "version_mismatch",
+                            "package": name,
+                            "installed": installed.to_string(),
+                            "required": required,
+                            "severity": level,
+                        });
+                        println!("{json}");
+                    }
+                }
+            }
+        }
+    }
+
+    has_issues && error_on_missing
 }
 
 // ── Diagnostic reporting (miette) ─────────────────────────────────

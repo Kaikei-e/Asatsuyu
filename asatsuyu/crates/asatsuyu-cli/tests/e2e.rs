@@ -942,3 +942,151 @@ fn check_rejects_unknown_toml_key() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ── 23. Python dependency model tests ──────────────────────────────
+
+/// Invalid PEP 440 specifier in [python-dependencies] exits with code 2.
+#[test]
+fn check_invalid_pep440_specifier_exits_2() {
+    let dir = workspace_root().join("target/test-invalid-pep440");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\n\n[python-dependencies]\nrequests = \"not a version\"\n",
+    )
+    .unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["check"]).output().unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "invalid PEP 440 specifier should exit 2\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("invalid PEP 440 specifier"), "error should mention PEP 440: {stderr}",);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Valid PEP 440 specifiers in [python-dependencies] parse without config error.
+#[test]
+fn check_valid_pep440_config_parses() {
+    let dir = workspace_root().join("target/test-valid-pep440");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\n\n[python-dependencies]\nrequests = \">=2.31\"\nflask = \">=3.0,<4.0\"\n",
+    )
+    .unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["check"]).output().unwrap();
+    // Should not fail with exit code 2 (config error).
+    // It may still succeed or warn about missing packages, but not exit 2 for config.
+    assert_ne!(
+        output.status.code(),
+        Some(2),
+        "valid PEP 440 specifiers should not cause config error\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Explicit `check` paths still honor project dependency checking.
+#[test]
+fn check_explicit_path_runs_dependency_check() {
+    let dir = workspace_root().join("target/test-check-explicit-path-deps");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\n\n[python-dependencies]\ndefinitely-missing-package = \">=1.0\"\n",
+    )
+    .unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["check", "src/main.asty"]).output().unwrap();
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("definitely-missing-package")
+            || stderr.contains("dependency check skipped"),
+        "explicit path check should still run dependency discovery:\nstderr: {stderr}",
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// [python] path field is accepted in asatsuyu.toml.
+#[test]
+fn check_python_path_config_field_accepted() {
+    let dir = workspace_root().join("target/test-python-path-config");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\n\n[python]\nversion = \">=3.12\"\npath = \"/usr/bin/python3\"\n",
+    )
+    .unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["check"]).output().unwrap();
+    // The path field should be parsed without causing an "unknown field" error.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("unknown field"),
+        "python.path should not be rejected as unknown: {stderr}",
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// --python-path flag is accepted by check command.
+#[test]
+fn check_python_path_cli_flag_accepted() {
+    let output = asatsuyu()
+        .args(["check", "--python-path", "/usr/bin/python3", &example("hello.asty")])
+        .output()
+        .unwrap();
+
+    // The flag should be accepted without error. The compilation itself
+    // should still succeed since hello.asty has no Python dependencies.
+    assert!(
+        output.status.success(),
+        "check with --python-path should succeed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+/// Invalid [python] version specifier is rejected.
+#[test]
+fn check_invalid_python_version_exits_2() {
+    let dir = workspace_root().join("target/test-invalid-py-ver");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\n\n[python]\nversion = \"bad\"\n",
+    )
+    .unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["check"]).output().unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "invalid python version should exit 2\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("python.version"), "error should mention python.version: {stderr}",);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
