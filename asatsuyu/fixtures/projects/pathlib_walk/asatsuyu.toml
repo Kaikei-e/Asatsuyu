@@ -1,0 +1,8 @@
+schema_version = 1
+
+[project]
+name = "pathlib_walk"
+version = "0.1.0"
+
+[python]
+version = ">=3.12"

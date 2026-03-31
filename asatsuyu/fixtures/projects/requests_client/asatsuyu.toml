@@ -1,0 +1,11 @@
+schema_version = 1
+
+[project]
+name = "requests_client"
+version = "0.1.0"
+
+[python]
+version = ">=3.12"
+
+[python-dependencies]
+requests = ">=2.31"

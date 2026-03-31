@@ -1,0 +1,12 @@
+// Fixture: json_process
+// Verified FFI project using os and sys (stdlib).
+// Covers: from python import, function calls, constants, Optional handling.
+
+from python import os
+from python import sys
+
+pub fn main() -> String {
+  let cwd = os.getcwd()
+  let platform = sys.platform
+  cwd <> " on " <> platform
+}

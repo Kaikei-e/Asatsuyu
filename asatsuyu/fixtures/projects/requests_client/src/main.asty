@@ -1,0 +1,23 @@
+// Fixture: requests_client
+// Checked FFI project using requests (third-party).
+// Covers: from python import, try expression, Result, PyException, exception boundary.
+
+from python import requests
+
+type Result(a, e) {
+  Ok(a)
+  Error(e)
+}
+
+type PyException {
+  PyExc(kind: String, exception_type: String, message: String, module: String, traceback_summary: String)
+}
+
+pub fn fetch(url: String) -> Result(Int, PyException) {
+  let response = try requests.get(url)
+  Ok(response.status_code)
+}
+
+pub fn main() {
+  fetch("https://example.com")
+}

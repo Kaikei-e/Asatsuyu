@@ -1,0 +1,15 @@
+// Fixture: build_install
+// Full pipeline test: build -> Python package -> pip install -> import.
+// Covers: package metadata, pyproject.toml generation, installable output.
+
+pub fn greeting() -> String {
+  "Hello from build_install!"
+}
+
+pub fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+pub fn main() -> String {
+  greeting()
+}

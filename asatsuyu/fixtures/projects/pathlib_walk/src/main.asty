@@ -1,0 +1,10 @@
+// Fixture: pathlib_walk
+// Verified FFI project using pathlib (stdlib).
+// Covers: from python import, method calls, field access.
+
+from python import pathlib
+
+pub fn main() -> Bool {
+  let p = pathlib.Path(".")
+  p.exists()
+}

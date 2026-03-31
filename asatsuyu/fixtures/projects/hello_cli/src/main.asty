@@ -1,0 +1,29 @@
+// Fixture: hello_cli
+// Pure Asatsuyu project demonstrating core language features without FFI.
+// Covers: ADT, match, pipeline, string concat, let binding, multiple functions.
+
+type Color {
+  Red
+  Green
+  Blue
+}
+
+pub fn color_name(c: Color) -> String {
+  match c {
+    Red -> "red"
+    Green -> "green"
+    Blue -> "blue"
+  }
+}
+
+pub fn greet(name: String) -> String {
+  "Hello, " <> name <> "!"
+}
+
+pub fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+pub fn main() -> String {
+  greet("Asatsuyu")
+}
