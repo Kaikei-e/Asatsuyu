@@ -172,3 +172,57 @@ jobs:
 
       - name: Build and install generated packages
         run: python scripts/test_package_install.py
+
+  # ── docs sync check ─────────────────────────────────────────────────
+
+  docs-sync:
+    name: docs sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/check_docs_sync.py
+
+  # ── release gate (aggregates ALL gates) ─────────────────────────────
+
+  release-gate:
+    name: release gate
+    if: always()
+    needs:
+      - fmt
+      - clippy
+      - test
+      - verify-ffi
+      - maturin-build
+      - pytest
+      - package-install
+      - docs-sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all gates passed
+        run: |
+          echo "Gate results:"
+          echo "  fmt:             ${{ needs.fmt.result }}"
+          echo "  clippy:          ${{ needs.clippy.result }}"
+          echo "  test:            ${{ needs.test.result }}"
+          echo "  verify-ffi:      ${{ needs.verify-ffi.result }}"
+          echo "  maturin-build:   ${{ needs.maturin-build.result }}"
+          echo "  pytest:          ${{ needs.pytest.result }}"
+          echo "  package-install: ${{ needs.package-install.result }}"
+          echo "  docs-sync:       ${{ needs.docs-sync.result }}"
+          if [[ "${{ needs.fmt.result }}" != "success" ]] || \
+             [[ "${{ needs.clippy.result }}" != "success" ]] || \
+             [[ "${{ needs.test.result }}" != "success" ]] || \
+             [[ "${{ needs.verify-ffi.result }}" != "success" ]] || \
+             [[ "${{ needs.maturin-build.result }}" != "success" ]] || \
+             [[ "${{ needs.pytest.result }}" != "success" ]] || \
+             [[ "${{ needs.package-install.result }}" != "success" ]] || \
+             [[ "${{ needs.docs-sync.result }}" != "success" ]]; then
+            echo ""
+            echo "RELEASE GATE: FAIL — one or more gates did not pass"
+            exit 1
+          fi
+          echo ""
+          echo "RELEASE GATE: PASS — all gates green"

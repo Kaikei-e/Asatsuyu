@@ -1,4 +1,4 @@
-.PHONY: dev dev-release build-wheel test check fmt verify-ffi pytest ci
+.PHONY: dev dev-release build-wheel test check fmt verify-ffi pytest ci docs-sync release-gate
 
 # Rust workspace directory
 CARGO_DIR := asatsuyu
@@ -47,3 +47,13 @@ pytest:
 
 ## Run the full CI pipeline locally (fmt → check → test → dev → pytest → verify-ffi)
 ci: fmt check test dev pytest verify-ffi
+
+# ── Release gate ──────────────────────────────────────────────────────
+
+## Run the docs sync check
+docs-sync:
+	python scripts/check_docs_sync.py
+
+## Run the full release gate locally (ci + docs-sync)
+release-gate: ci docs-sync
+	@echo "RELEASE GATE: PASS"

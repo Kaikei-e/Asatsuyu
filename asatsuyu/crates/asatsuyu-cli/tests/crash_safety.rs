@@ -119,7 +119,7 @@ fn assert_no_panic(source: &str, force: bool) -> Result<(), String> {
 fn crash_safety_corpus() {
     let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/corpus");
     insta::glob!(base, "**/*.asty", |path| {
-        let source = std::fs::read_to_string(&path).expect("read corpus file");
+        let source = std::fs::read_to_string(path).expect("read corpus file");
         let result = assert_no_panic(&source, false);
         assert!(result.is_ok(), "PANIC on {}: {}", path.display(), result.unwrap_err());
     });
@@ -129,7 +129,7 @@ fn crash_safety_corpus() {
 fn crash_safety_force_all_stages() {
     let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/corpus");
     insta::glob!(base, "**/*.asty", |path| {
-        let source = std::fs::read_to_string(&path).expect("read corpus file");
+        let source = std::fs::read_to_string(path).expect("read corpus file");
         let result = assert_no_panic(&source, true);
         assert!(result.is_ok(), "PANIC (forced) on {}: {}", path.display(), result.unwrap_err());
     });
@@ -146,8 +146,7 @@ fn malformed_crash_corpus_produces_diagnostics() {
         let diagnostics = collect_diagnostics(&source);
         assert!(
             !diagnostics.is_empty(),
-            "expected diagnostics for malformed corpus input: {}",
-            name
+            "expected diagnostics for malformed corpus input: {name}"
         );
     }
 }
@@ -165,7 +164,9 @@ fn crash_corpus_inventory_is_stable() {
     for path in files {
         let name = path.file_name().and_then(|name| name.to_str()).expect("utf-8 corpus filename");
         assert!(
-            name.starts_with("crash-") && name.ends_with(".asty"),
+            name.starts_with("crash-") && std::path::Path::new(name)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("asty")),
             "corpus file must follow crash-{{stage}}-{{description}}.asty: {name}"
         );
         assert!(
