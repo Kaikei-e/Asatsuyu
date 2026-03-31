@@ -25,5 +25,5 @@ pub fn add(a: Int, b: Int) -> Int {
 }
 
 pub fn main() -> String {
-  greet("Asatsuyu")
+  "Asatsuyu" |> greet
 }

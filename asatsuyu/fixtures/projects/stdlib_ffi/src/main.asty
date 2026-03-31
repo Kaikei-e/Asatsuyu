@@ -1,4 +1,4 @@
-// Fixture: json_process
+// Fixture: stdlib_ffi
 // Verified FFI project using os and sys (stdlib).
 // Covers: from python import, function calls, constants, Optional handling.
 

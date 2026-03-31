@@ -30,4 +30,5 @@ asatsuyu run fixtures/projects/hello_cli/src/main.asty
 
 These fixtures are tested automatically via `cargo test -p asatsuyu-cli --test fixture_projects`.
 Tests cover `check`, `build`, and `run` for each fixture.
+The `package-install` CI job also builds and installs installable fixture packages.
 Network-dependent tests (`requests_client` run) are `#[ignore]`.
