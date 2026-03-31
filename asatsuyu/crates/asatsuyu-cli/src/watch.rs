@@ -6,6 +6,8 @@
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use crate::exit_config_error;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -42,14 +44,14 @@ pub(crate) fn run_watch(
         Ok(d) => d,
         Err(e) => {
             eprintln!("error: cannot start file watcher: {e}");
-            return ExitCode::FAILURE;
+            return exit_config_error();
         }
     };
 
     for dir in &watch_dirs {
         if let Err(e) = debouncer.watcher().watch(dir, notify::RecursiveMode::Recursive) {
             eprintln!("error: cannot watch {}: {e}", dir.display());
-            return ExitCode::FAILURE;
+            return exit_config_error();
         }
     }
 
@@ -140,10 +142,8 @@ mod tests {
 
     #[test]
     fn should_recheck_for_asty_any_event() {
-        let event = DebouncedEvent {
-            path: PathBuf::from("src/main.asty"),
-            kind: DebouncedEventKind::Any,
-        };
+        let event =
+            DebouncedEvent { path: PathBuf::from("src/main.asty"), kind: DebouncedEventKind::Any };
         assert!(should_recheck(&event));
     }
 
@@ -158,10 +158,8 @@ mod tests {
 
     #[test]
     fn should_not_recheck_for_non_asty_file() {
-        let event = DebouncedEvent {
-            path: PathBuf::from("src/main.py"),
-            kind: DebouncedEventKind::Any,
-        };
+        let event =
+            DebouncedEvent { path: PathBuf::from("src/main.py"), kind: DebouncedEventKind::Any };
         assert!(!should_recheck(&event));
     }
 

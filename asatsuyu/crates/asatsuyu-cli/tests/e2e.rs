@@ -809,3 +809,135 @@ fn check_and_build_produce_same_diagnostic_codes() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ── 19. exit code contract tests ────────────────────────────────
+
+/// Compile errors produce exit code 1.
+#[test]
+fn exit_code_compile_error_is_1() {
+    let dir = workspace_root().join("target/test-exit-code-1");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("bad.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output = asatsuyu().args(["check", &bad_file_str]).output().unwrap();
+    assert_eq!(output.status.code(), Some(1), "compile error should exit with code 1");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Config/usage errors produce exit code 2.
+#[test]
+fn exit_code_missing_file_is_2() {
+    let output = asatsuyu().args(["check", "nonexistent-file.asty"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "missing file should exit with code 2");
+}
+
+/// Invalid --ffi-stub-path produces exit code 2.
+#[test]
+fn exit_code_invalid_ffi_stub_path_is_2() {
+    let output = asatsuyu()
+        .args(["check", &example("hello.asty"), "--ffi-stub-path", "/nonexistent-dir"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2), "invalid --ffi-stub-path should exit with code 2");
+}
+
+/// `new` validation errors produce exit code 2.
+#[test]
+fn exit_code_new_validation_is_2() {
+    let output = asatsuyu().args(["new", "bad name!"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "invalid project name should exit with code 2");
+}
+
+// ── 20. summary contract tests ──────────────────────────────────
+
+/// `run` with compile error + JSON still emits summary.
+#[test]
+fn run_compile_error_json_emits_summary() {
+    let dir = workspace_root().join("target/test-run-json-err");
+    std::fs::create_dir_all(&dir).unwrap();
+    let bad_file = dir.join("bad.asty");
+    std::fs::write(&bad_file, "fn f() -> Int { \"hello\" }").unwrap();
+
+    let bad_file_str = bad_file.display().to_string();
+    let output =
+        asatsuyu().args(["run", "--error-format", "json", &bad_file_str]).output().unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "compile error should exit with code 1");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let lines: Vec<&str> = stderr.lines().collect();
+    assert!(lines.len() >= 2, "should have diagnostics + summary: {stderr}");
+
+    let last: serde_json::Value = serde_json::from_str(lines[lines.len() - 1]).unwrap();
+    assert_eq!(last["type"], "summary", "last line should be summary: {stderr}");
+    assert!(last["error_count"].as_u64().unwrap() > 0);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 21. stdout/stderr contract tests ────────────────────────────
+
+/// `check` success produces empty stdout.
+#[test]
+fn check_success_stdout_is_empty() {
+    let output = asatsuyu().args(["check", &example("hello.asty")]).output().unwrap();
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty(), "check stdout should be empty on success");
+}
+
+/// `build` success produces output path on stdout.
+#[test]
+fn build_success_stdout_has_path() {
+    let dir = workspace_root().join("target/test-stdout-path");
+    let dir_str = dir.display().to_string();
+    let output =
+        asatsuyu().args(["build", &example("hello.asty"), "-o", &dir_str]).output().unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.trim().is_empty(), "build stdout should contain output path: {stdout}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `new` produces empty stdout (messages go to stderr).
+#[test]
+fn new_stdout_is_empty() {
+    let dir = workspace_root().join("target/test-new-stdout");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["new", "check_stdout"]).output().unwrap();
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty(), "new stdout should be empty");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── 22. asatsuyu.toml schema contract tests ─────────────────────
+
+/// Unknown keys in asatsuyu.toml produce a clear error.
+#[test]
+fn check_rejects_unknown_toml_key() {
+    let dir = workspace_root().join("target/test-unknown-toml-key");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    // Write an asatsuyu.toml with an unknown key.
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[unknown]\nfoo = 1\n",
+    )
+    .unwrap();
+
+    let output = asatsuyu().current_dir(&dir).args(["check"]).output().unwrap();
+    assert!(!output.status.success(), "should fail with unknown section");
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("unknown field"), "error should mention unknown field: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}

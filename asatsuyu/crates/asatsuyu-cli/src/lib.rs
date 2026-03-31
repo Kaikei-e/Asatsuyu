@@ -59,9 +59,35 @@ struct OutputArgs {
     error_format: ErrorFormat,
 }
 
+/// Arguments shared across check/build/run for FFI configuration.
+#[derive(clap::Args, Clone, Debug)]
+struct FfiArgs {
+    /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
+    #[arg(long)]
+    ffi_stdlib_only: bool,
+    /// Additional directories for .pyi stub files
+    #[arg(long)]
+    ffi_stub_path: Vec<PathBuf>,
+}
+
+// ── Exit codes ────────────────────────────────────────────────────
+//
+// Convention (following ruff/ty):
+//   0 — success
+//   1 — compilation or semantic errors found
+//   2 — invalid configuration, CLI arguments, or I/O error
+
+fn exit_compile_error() -> ExitCode {
+    ExitCode::from(1)
+}
+
+fn exit_config_error() -> ExitCode {
+    ExitCode::from(2)
+}
+
 #[derive(Subcommand)]
 enum Commands {
-    /// Type-check without code generation
+    /// Type-check Asatsuyu source files without code generation
     Check {
         /// Paths to `.asty` source files (optional when inside a project)
         paths: Vec<PathBuf>,
@@ -70,14 +96,10 @@ enum Commands {
         watch: bool,
         #[command(flatten)]
         output: OutputArgs,
-        /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
-        #[arg(long)]
-        ffi_stdlib_only: bool,
-        /// Additional directories for .pyi stub files
-        #[arg(long)]
-        ffi_stub_path: Vec<PathBuf>,
+        #[command(flatten)]
+        ffi: FfiArgs,
     },
-    /// Compile .asty to Python
+    /// Compile Asatsuyu source to a Python 3.12+ package
     Build {
         /// Path to the .asty source file
         path: PathBuf,
@@ -95,14 +117,10 @@ enum Commands {
         ffi_runtime: FfiRuntime,
         #[command(flatten)]
         output: OutputArgs,
-        /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
-        #[arg(long)]
-        ffi_stdlib_only: bool,
-        /// Additional directories for .pyi stub files
-        #[arg(long)]
-        ffi_stub_path: Vec<PathBuf>,
+        #[command(flatten)]
+        ffi: FfiArgs,
     },
-    /// Compile and execute with python3
+    /// Compile and execute an Asatsuyu source file with python3
     Run {
         /// Path to the .asty source file
         path: PathBuf,
@@ -114,12 +132,8 @@ enum Commands {
         ffi_runtime: FfiRuntime,
         #[command(flatten)]
         output: OutputArgs,
-        /// Restrict FFI to stdlib modules only (pathlib, json, os, sys)
-        #[arg(long)]
-        ffi_stdlib_only: bool,
-        /// Additional directories for .pyi stub files
-        #[arg(long)]
-        ffi_stub_path: Vec<PathBuf>,
+        #[command(flatten)]
+        ffi: FfiArgs,
     },
     /// Create a new Asatsuyu project
     New {
@@ -150,19 +164,19 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { paths, watch, output, ffi_stdlib_only, ffi_stub_path } => {
-            let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
+        Commands::Check { paths, watch, output, ffi } => {
+            let ffi_config = match build_ffi_config(&ffi) {
                 Ok(config) => config,
                 Err(err) => {
                     eprintln!("error: {err}");
-                    return ExitCode::FAILURE;
+                    return exit_config_error();
                 }
             };
             let resolved = match resolve_check_paths(&paths) {
                 Ok(p) => p,
                 Err(err) => {
                     eprintln!("error: {err}");
-                    return ExitCode::FAILURE;
+                    return exit_config_error();
                 }
             };
             if watch {
@@ -178,14 +192,13 @@ pub fn run() -> ExitCode {
             no_emit_package,
             ffi_runtime,
             output,
-            ffi_stdlib_only,
-            ffi_stub_path,
+            ffi,
         } => {
-            let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
+            let ffi_config = match build_ffi_config(&ffi) {
                 Ok(config) => config,
                 Err(err) => {
                     eprintln!("error: {err}");
-                    return ExitCode::FAILURE;
+                    return exit_config_error();
                 }
             };
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
@@ -199,12 +212,12 @@ pub fn run() -> ExitCode {
                 output.error_format,
             )
         }
-        Commands::Run { path, source_map, ffi_runtime, output, ffi_stdlib_only, ffi_stub_path } => {
-            let ffi_config = match build_ffi_config(ffi_stdlib_only, &ffi_stub_path) {
+        Commands::Run { path, source_map, ffi_runtime, output, ffi } => {
+            let ffi_config = match build_ffi_config(&ffi) {
                 Ok(config) => config,
                 Err(err) => {
                     eprintln!("error: {err}");
-                    return ExitCode::FAILURE;
+                    return exit_config_error();
                 }
             };
             let runtime_mode = convert_ffi_runtime(ffi_runtime);
@@ -217,11 +230,8 @@ pub fn run() -> ExitCode {
 
 // ── FFI config helpers ────────────────────────────────────────────
 
-fn build_ffi_config(
-    ffi_stdlib_only: bool,
-    ffi_stub_path: &[PathBuf],
-) -> Result<FfiResolverConfig, CliError> {
-    for path in ffi_stub_path {
+fn build_ffi_config(ffi: &FfiArgs) -> Result<FfiResolverConfig, CliError> {
+    for path in &ffi.ffi_stub_path {
         if !path.exists() {
             return Err(CliError::InvalidFfiStubPath {
                 path: path.clone(),
@@ -236,7 +246,10 @@ fn build_ffi_config(
         }
     }
 
-    Ok(FfiResolverConfig { stdlib_only: ffi_stdlib_only, stub_paths: ffi_stub_path.to_vec() })
+    Ok(FfiResolverConfig {
+        stdlib_only: ffi.ffi_stdlib_only,
+        stub_paths: ffi.ffi_stub_path.clone(),
+    })
 }
 
 fn convert_ffi_runtime(runtime: FfiRuntime) -> FfiRuntimeMode {
@@ -254,7 +267,8 @@ pub(crate) fn cmd_check(
     ffi_config: &FfiResolverConfig,
     error_format: ErrorFormat,
 ) -> ExitCode {
-    let mut failed = false;
+    let mut compile_failed = false;
+    let mut config_failed = false;
     let mut all_diags: Vec<Diagnostic> = Vec::new();
 
     for path in paths {
@@ -268,28 +282,25 @@ pub(crate) fn cmd_check(
             }
             Err(CliError::CompileErrors { diagnostics, source }) => {
                 report_diagnostics(&diagnostics, &source, &filename, error_format);
-                // In human mode, show per-file error summary immediately.
-                // In JSON mode, summary is emitted once at the end.
-                if matches!(error_format, ErrorFormat::Human) {
-                    report_error_summary(&diagnostics, error_format);
-                }
                 all_diags.extend(diagnostics);
-                failed = true;
+                compile_failed = true;
             }
             Err(err) => {
                 eprintln!("error: {err}");
-                failed = true;
+                config_failed = true;
             }
         }
     }
 
-    // JSON mode: always emit a summary as the final line.
-    if matches!(error_format, ErrorFormat::Json) {
-        let summary = json_diagnostic::summary_to_json(&all_diags);
-        json_diagnostic::emit_json_line(&summary);
-    }
+    emit_final_summary(&all_diags, error_format);
 
-    if failed { ExitCode::FAILURE } else { ExitCode::SUCCESS }
+    if compile_failed {
+        exit_compile_error()
+    } else if config_failed {
+        exit_config_error()
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn cmd_build(
@@ -306,12 +317,12 @@ fn cmd_build(
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename, error_format);
-            report_error_summary(&diagnostics, error_format);
-            return ExitCode::FAILURE;
+            emit_final_summary(&diagnostics, error_format);
+            return exit_compile_error();
         }
         Err(err) => {
             eprintln!("error: {err}");
-            return ExitCode::FAILURE;
+            return exit_config_error();
         }
     };
 
@@ -330,15 +341,13 @@ fn cmd_build(
         }
         if let Err(e) = std::fs::write(&out_path, &py) {
             eprintln!("error: cannot write {}: {e}", out_path.display());
-            return ExitCode::FAILURE;
+            return exit_config_error();
         }
         println!("{}", out_path.display());
         if matches!(error_format, ErrorFormat::Human) {
             eprintln!("  Compiled {stem} (module only) → {}", out_path.display());
-        } else {
-            let summary = json_diagnostic::summary_to_json(&result.warnings);
-            json_diagnostic::emit_json_line(&summary);
         }
+        emit_final_summary(&result.warnings, error_format);
         return ExitCode::SUCCESS;
     }
 
@@ -355,18 +364,16 @@ fn cmd_build(
 
     if let Err(msg) = write_package(&package, output_dir) {
         eprintln!("error: {msg}");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     // stdout: output directory (for scripting).
     println!("{}", output_dir.display());
     if matches!(error_format, ErrorFormat::Human) {
-        // stderr: human-readable summary.
+        // stderr: human-readable progress.
         eprintln!("  Compiled {stem} ({} files) → {}", package.files.len(), output_dir.display());
-    } else {
-        let summary = json_diagnostic::summary_to_json(&result.warnings);
-        json_diagnostic::emit_json_line(&summary);
     }
+    emit_final_summary(&result.warnings, error_format);
     ExitCode::SUCCESS
 }
 
@@ -382,12 +389,12 @@ fn cmd_run(
         Ok(result) => result,
         Err(CliError::CompileErrors { diagnostics, source }) => {
             report_diagnostics(&diagnostics, &source, &filename, error_format);
-            report_error_summary(&diagnostics, error_format);
-            return ExitCode::FAILURE;
+            emit_final_summary(&diagnostics, error_format);
+            return exit_compile_error();
         }
         Err(err) => {
             eprintln!("error: {err}");
-            return ExitCode::FAILURE;
+            return exit_config_error();
         }
     };
 
@@ -410,8 +417,11 @@ fn cmd_run(
 
     if let Err(msg) = write_package(&package, &output_dir) {
         eprintln!("error: {msg}");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
+
+    // Emit diagnostic summary before executing Python.
+    emit_final_summary(&result.warnings, error_format);
 
     // Execute with python3.
     let has_main = result
@@ -431,10 +441,6 @@ fn cmd_run(
 
     match status_result {
         Ok(status) => {
-            if matches!(error_format, ErrorFormat::Json) {
-                let summary = json_diagnostic::summary_to_json(&result.warnings);
-                json_diagnostic::emit_json_line(&summary);
-            }
             if status.success() {
                 ExitCode::SUCCESS
             } else {
@@ -446,7 +452,7 @@ fn cmd_run(
         }
         Err(e) => {
             eprintln!("error: cannot execute python3: {e}");
-            ExitCode::FAILURE
+            exit_config_error()
         }
     }
 }
@@ -455,31 +461,31 @@ fn cmd_new(name: &str) -> ExitCode {
     // Validate project name.
     if name.is_empty() {
         eprintln!("error: project name cannot be empty");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
     if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         eprintln!("error: project name must contain only ASCII letters, digits, and underscores");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     let project_dir = Path::new(name);
     if project_dir.exists() {
         eprintln!("error: directory `{name}` already exists");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     // Create directory structure.
     let src_dir = project_dir.join("src");
     if let Err(e) = std::fs::create_dir_all(&src_dir) {
         eprintln!("error: cannot create directory: {e}");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     // src/main.asty
     let main_asty = "pub fn main() {\n  42\n}\n";
     if let Err(e) = std::fs::write(src_dir.join("main.asty"), main_asty) {
         eprintln!("error: cannot write main.asty: {e}");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     // asatsuyu.toml
@@ -488,14 +494,14 @@ fn cmd_new(name: &str) -> ExitCode {
     );
     if let Err(e) = std::fs::write(project_dir.join("asatsuyu.toml"), toml) {
         eprintln!("error: cannot write asatsuyu.toml: {e}");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     // .gitignore
     let gitignore = "/dist/\n/target/\n__pycache__/\n*.pyc\n";
     if let Err(e) = std::fs::write(project_dir.join(".gitignore"), gitignore) {
         eprintln!("error: cannot write .gitignore: {e}");
-        return ExitCode::FAILURE;
+        return exit_config_error();
     }
 
     eprintln!("  Created project `{name}` in ./{name}");
@@ -780,36 +786,43 @@ fn report_diagnostics(
     }
 }
 
-/// Print a summary after error diagnostics.
+/// Emit a single final summary after all diagnostics for a command invocation.
 ///
-/// In human mode: `error: aborting due to 2 errors and 1 warning`
-/// In JSON mode: a `{"type":"summary",...}` NDJSON line.
-fn report_error_summary(diagnostics: &[Diagnostic], error_format: ErrorFormat) {
+/// Called exactly once per command, on both success and failure paths.
+///
+/// In human mode:
+///   - errors present: `error: aborting due to N error(s)[ and M warning(s)]`
+///   - only warnings:  `warning: N warning(s) emitted`
+///   - clean success:  no output
+///
+/// In JSON mode: always a `{"type":"summary",...}` NDJSON line.
+fn emit_final_summary(all_diags: &[Diagnostic], error_format: ErrorFormat) {
     match error_format {
         ErrorFormat::Human => {
-            let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
-            let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();
+            let errors = all_diags.iter().filter(|d| d.severity == Severity::Error).count();
+            let warnings = all_diags.iter().filter(|d| d.severity == Severity::Warning).count();
 
-            if errors == 0 {
-                return;
-            }
-
-            let mut parts = Vec::new();
-            if errors == 1 {
-                parts.push("1 error".to_string());
-            } else {
-                parts.push(format!("{errors} errors"));
-            }
-            if warnings == 1 {
-                parts.push("1 warning".to_string());
+            if errors > 0 {
+                let mut parts = Vec::new();
+                if errors == 1 {
+                    parts.push("1 error".to_string());
+                } else {
+                    parts.push(format!("{errors} errors"));
+                }
+                if warnings == 1 {
+                    parts.push("1 warning".to_string());
+                } else if warnings > 0 {
+                    parts.push(format!("{warnings} warnings"));
+                }
+                eprintln!("error: aborting due to {}", parts.join(" and "));
+            } else if warnings == 1 {
+                eprintln!("warning: 1 warning emitted");
             } else if warnings > 0 {
-                parts.push(format!("{warnings} warnings"));
+                eprintln!("warning: {warnings} warnings emitted");
             }
-
-            eprintln!("error: aborting due to {}", parts.join(" and "));
         }
         ErrorFormat::Json => {
-            let summary = json_diagnostic::summary_to_json(diagnostics);
+            let summary = json_diagnostic::summary_to_json(all_diags);
             json_diagnostic::emit_json_line(&summary);
         }
     }
