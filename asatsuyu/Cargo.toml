@@ -57,6 +57,9 @@ notify-debouncer-mini = "0.7"
 # Temp directories (CLI lockfile generation)
 tempfile = "3"
 
+# Format-preserving TOML editing (CLI dependency management)
+toml_edit = "0.22"
+
 # Testing
 insta = { version = "1.47", features = ["glob"] }
 

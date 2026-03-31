@@ -8,12 +8,15 @@ mod json_diagnostic;
 mod lockfile;
 mod project;
 mod python_env;
+mod sync;
+mod toml_edit_util;
 mod watch;
 
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::str::FromStr;
 
 use asatsuyu_backend_python::{FfiRuntimeMode, GeneratedPackage, PackageConfig};
 // PackageConfig is constructed via build_package_config() helper below.
@@ -163,6 +166,30 @@ enum Commands {
         #[command(flatten)]
         output: OutputArgs,
     },
+    /// Add a Python dependency to asatsuyu.toml and re-lock
+    Add {
+        /// Package name (e.g., "requests")
+        package: String,
+        /// PEP 440 version specifier (e.g., ">=2.31"). Defaults to ">=0" (any version).
+        #[arg(default_value = ">=0")]
+        specifier: String,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Remove a Python dependency from asatsuyu.toml and re-lock
+    Remove {
+        /// Package name to remove
+        package: String,
+        #[command(flatten)]
+        output: OutputArgs,
+    },
+    /// Sync Python environment from pylock.toml
+    Sync {
+        #[command(flatten)]
+        output: OutputArgs,
+        #[command(flatten)]
+        python: PythonArgs,
+    },
     /// Show FFI trust report for all known Python modules
     #[command(name = "verify-ffi")]
     VerifyFfi,
@@ -294,6 +321,13 @@ pub fn run() -> ExitCode {
             )
         }
         Commands::Lock { output } => cmd_lock(output.error_format),
+        Commands::Add { package, specifier, output } => {
+            cmd_add(&package, &specifier, output.error_format)
+        }
+        Commands::Remove { package, output } => cmd_remove(&package, output.error_format),
+        Commands::Sync { output, python } => {
+            cmd_sync(output.error_format, python.python_path.as_deref())
+        }
         Commands::New { name } => cmd_new(&name),
         Commands::VerifyFfi => cmd_verify_ffi(),
     }
@@ -538,11 +572,15 @@ fn cmd_run(
         .any(|f| result.module.symbol_table.get(f.def_id).name.as_str() == "main");
 
     // Python source lives under python/ in the new layout.
+    // When inside a project, the package name comes from the config (e.g., "myapp"),
+    // not the file stem (e.g., "main"). Use pkg_dir_name for project mode.
     let python_dir = output_dir.join("python");
+    let module_name =
+        if discovered_project.is_some() { pkg_dir_name.clone() } else { stem.to_string() };
     let status_result = if has_main {
-        Command::new("python3").arg("-m").arg(stem.as_ref()).current_dir(&python_dir).status()
+        Command::new("python3").arg("-m").arg(&module_name).current_dir(&python_dir).status()
     } else {
-        let py_path = python_dir.join(format!("{stem}/{stem}.py"));
+        let py_path = python_dir.join(format!("{module_name}/{module_name}.py"));
         Command::new("python3").arg(&py_path).status()
     };
 
@@ -590,11 +628,7 @@ fn cmd_lock(error_format: ErrorFormat) -> ExitCode {
             return exit_config_error();
         }
         Err(e) => {
-            emit_lock_event(
-                error_format,
-                "error",
-                serde_json::json!({ "message": e.to_string() }),
-            );
+            emit_lock_event(error_format, "error", serde_json::json!({ "message": e.to_string() }));
             return exit_config_error();
         }
     };
@@ -634,11 +668,7 @@ fn cmd_lock(error_format: ErrorFormat) -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            emit_lock_event(
-                error_format,
-                "error",
-                serde_json::json!({ "message": e.to_string() }),
-            );
+            emit_lock_event(error_format, "error", serde_json::json!({ "message": e.to_string() }));
             exit_config_error()
         }
     }
@@ -648,10 +678,8 @@ fn emit_lock_event(error_format: ErrorFormat, status: &str, extra: serde_json::V
     match error_format {
         ErrorFormat::Human => match status {
             "generated" => {
-                let dep_count = extra
-                    .get("dependency_count")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0);
+                let dep_count =
+                    extra.get("dependency_count").and_then(serde_json::Value::as_u64).unwrap_or(0);
                 let tool = extra.get("tool").and_then(serde_json::Value::as_str).unwrap_or("tool");
                 let path = extra.get("path").and_then(serde_json::Value::as_str).unwrap_or("");
                 eprintln!(
@@ -722,6 +750,253 @@ fn check_lockfile_staleness(project: Option<&project::Project>, error_format: Er
                     "reason": reason,
                 });
                 println!("{json}");
+            }
+        }
+    }
+}
+
+// ── add ─────────────────────────────────────────────────────────
+
+fn cmd_add(package: &str, specifier: &str, error_format: ErrorFormat) -> ExitCode {
+    let cwd = match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(e) => {
+            eprintln!("error: cannot determine working directory: {e}");
+            return exit_config_error();
+        }
+    };
+
+    let project = match project::discover_project(&cwd) {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            eprintln!("error: no asatsuyu.toml found (run from inside a project)");
+            return exit_config_error();
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            return exit_config_error();
+        }
+    };
+
+    // Validate PEP 440 specifier.
+    if pep440_rs::VersionSpecifiers::from_str(specifier).is_err() {
+        eprintln!("error: invalid PEP 440 specifier \"{specifier}\"");
+        return exit_config_error();
+    }
+
+    let toml_path = project.root.join("asatsuyu.toml");
+    match toml_edit_util::add_dependency(&toml_path, package, specifier) {
+        Ok(prev) => {
+            if error_format == ErrorFormat::Human {
+                if let Some(old) = &prev {
+                    eprintln!("  Updated {package} \"{old}\" → \"{specifier}\"");
+                } else {
+                    eprintln!("  Added {package} \"{specifier}\" to [python-dependencies]");
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            return exit_config_error();
+        }
+    }
+
+    // Validate the edited config still parses.
+    let content = match std::fs::read_to_string(&toml_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: cannot re-read asatsuyu.toml: {e}");
+            return exit_config_error();
+        }
+    };
+    if let Err(e) = project::parse_config(&content) {
+        eprintln!("error: asatsuyu.toml is invalid after edit: {e}");
+        return exit_config_error();
+    }
+
+    // Re-lock (best-effort).
+    attempt_relock(&project.root, error_format);
+
+    ExitCode::SUCCESS
+}
+
+// ── remove ──────────────────────────────────────────────────────
+
+fn cmd_remove(package: &str, error_format: ErrorFormat) -> ExitCode {
+    let cwd = match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(e) => {
+            eprintln!("error: cannot determine working directory: {e}");
+            return exit_config_error();
+        }
+    };
+
+    let project = match project::discover_project(&cwd) {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            eprintln!("error: no asatsuyu.toml found (run from inside a project)");
+            return exit_config_error();
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            return exit_config_error();
+        }
+    };
+
+    let toml_path = project.root.join("asatsuyu.toml");
+    match toml_edit_util::remove_dependency(&toml_path, package) {
+        Ok(Some(old_spec)) => {
+            if error_format == ErrorFormat::Human {
+                eprintln!("  Removed {package} \"{old_spec}\" from [python-dependencies]");
+            }
+        }
+        Ok(None) => {
+            eprintln!("error: {package} is not in [python-dependencies]");
+            return exit_config_error();
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            return exit_config_error();
+        }
+    }
+
+    // Re-read config to check if deps remain.
+    let content = match std::fs::read_to_string(&toml_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: cannot re-read asatsuyu.toml: {e}");
+            return exit_config_error();
+        }
+    };
+    let config = match project::parse_config(&content) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: asatsuyu.toml is invalid after edit: {e}");
+            return exit_config_error();
+        }
+    };
+
+    let pylock_path = project.root.join("pylock.toml");
+    if config.python_dependencies().is_empty() {
+        // No deps left — remove stale lockfile.
+        if pylock_path.exists() {
+            let _ = std::fs::remove_file(&pylock_path);
+            if error_format == ErrorFormat::Human {
+                eprintln!("  Removed pylock.toml (no dependencies remain)");
+            }
+        }
+    } else {
+        attempt_relock(&project.root, error_format);
+    }
+
+    ExitCode::SUCCESS
+}
+
+// ── sync ────────────────────────────────────────────────────────
+
+fn cmd_sync(error_format: ErrorFormat, explicit_python_path: Option<&Path>) -> ExitCode {
+    let cwd = match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(e) => {
+            eprintln!("error: cannot determine working directory: {e}");
+            return exit_config_error();
+        }
+    };
+
+    let project = match project::discover_project(&cwd) {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            eprintln!("error: no asatsuyu.toml found (run from inside a project)");
+            return exit_config_error();
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            return exit_config_error();
+        }
+    };
+
+    let pylock_path = project.root.join("pylock.toml");
+    if !pylock_path.exists() {
+        eprintln!("error: pylock.toml not found");
+        eprintln!("  hint: run `asatsuyu lock` to generate it");
+        return exit_config_error();
+    }
+
+    // Warn if stale.
+    check_lockfile_staleness(Some(&project), error_format);
+
+    // Discover Python environment.
+    let python_path = explicit_python_path.or_else(|| project.config.python_path());
+    let Some(env) = python_env::discover_environment(&project.root, python_path) else {
+        eprintln!("error: no Python environment found");
+        eprintln!("  hint: create a venv with `python3 -m venv .venv`");
+        return exit_config_error();
+    };
+
+    let Some(tool) = sync::discover_sync_tool() else {
+        eprintln!("error: {}", sync::SyncError::ToolNotFound);
+        return exit_config_error();
+    };
+
+    match sync::sync_environment(&pylock_path, &env, &tool) {
+        Ok(report) => {
+            if error_format == ErrorFormat::Human {
+                eprintln!(
+                    "  Synced {} package{} via {}",
+                    report.packages_synced,
+                    if report.packages_synced == 1 { "" } else { "s" },
+                    report.tool_used,
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            exit_config_error()
+        }
+    }
+}
+
+/// Attempt to re-generate `pylock.toml` after editing `asatsuyu.toml`.
+///
+/// This is best-effort: if no lock tool is available or locking fails,
+/// we emit a warning but do not fail the overall operation.
+fn attempt_relock(project_root: &Path, error_format: ErrorFormat) {
+    let toml_path = project_root.join("asatsuyu.toml");
+    let Ok(content) = std::fs::read_to_string(&toml_path) else {
+        return;
+    };
+    let Ok(config) = project::parse_config(&content) else {
+        return;
+    };
+
+    if config.python_dependencies().is_empty() {
+        return;
+    }
+
+    let project = project::Project { root: project_root.to_path_buf(), config };
+    let Some(tool) = lockfile::discover_lock_tool() else {
+        if error_format == ErrorFormat::Human {
+            eprintln!(
+                "  warning: could not re-lock (no lock tool found; install uv >= 0.6.15 or pip >= 25.1)"
+            );
+        }
+        return;
+    };
+
+    let pylock_path = project_root.join("pylock.toml");
+    match lockfile::generate_lockfile(&project, &tool, &pylock_path) {
+        Ok(()) => {
+            if error_format == ErrorFormat::Human {
+                eprintln!(
+                    "  Locked {} dependencies via {tool}",
+                    project.config.python_dependencies().len()
+                );
+            }
+        }
+        Err(e) => {
+            if error_format == ErrorFormat::Human {
+                eprintln!("  warning: re-lock failed: {e}");
             }
         }
     }

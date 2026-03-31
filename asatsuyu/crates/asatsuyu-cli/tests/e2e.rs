@@ -1238,9 +1238,16 @@ fn check_json_emits_lockfile_warning() {
         cmd.args(["check", "--error-format", "json"]).output().unwrap()
     };
 
-    assert!(output.status.success(), "check should succeed: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "check should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("\"type\":\"lockfile\""), "should emit lockfile json warning: {stdout}");
+    assert!(
+        stdout.contains("\"type\":\"lockfile\""),
+        "should emit lockfile json warning: {stdout}"
+    );
     assert!(stdout.contains("\"status\":\"missing\""), "should emit missing status: {stdout}");
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -1364,6 +1371,291 @@ fn build_includes_dependencies_in_pyproject() {
         .expect("pyproject.toml should exist");
     assert!(pyproject.contains("\"requests>=2.31\""), "should include requests dep: {pyproject}",);
     assert!(pyproject.contains("\"flask>=3.0\""), "should include flask dep: {pyproject}",);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ── add / remove / sync ─────────────────────────────────────────
+
+/// `asatsuyu add` outside a project fails with exit code 2.
+#[test]
+fn add_without_project_fails() {
+    let dir = workspace_root().join("target/test-add-no-project");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["add", "requests"]).output().unwrap()
+    };
+    assert_eq!(output.status.code(), Some(2), "add outside project should exit 2");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu add` with an invalid PEP 440 specifier fails.
+#[test]
+fn add_rejects_invalid_specifier() {
+    let dir = workspace_root().join("target/test-add-bad-spec");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(dir.join("asatsuyu.toml"), "schema_version = 1\n\n[project]\nname = \"test\"\n")
+        .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["add", "requests", "not-a-version"]).output().unwrap()
+    };
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "add with bad specifier should exit 2\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu add` writes to asatsuyu.toml.
+#[test]
+fn add_dependency_to_project() {
+    let dir = workspace_root().join("target/test-add-dep");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "schema_version = 1\n\n[project]\nname = \"addtest\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["add", "requests", ">=2.31"]).output().unwrap()
+    };
+    assert!(
+        output.status.success(),
+        "add should succeed\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let toml = std::fs::read_to_string(dir.join("asatsuyu.toml")).unwrap();
+    assert!(toml.contains("requests = \">=2.31\""), "should contain requests dep:\n{toml}",);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu remove` removes a dependency from asatsuyu.toml.
+#[test]
+fn remove_existing_dependency() {
+    let dir = workspace_root().join("target/test-remove-dep");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "schema_version = 1\n\n[project]\nname = \"rmtest\"\n\n[python-dependencies]\nrequests = \">=2.31\"\nflask = \">=3.0\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["remove", "requests"]).output().unwrap()
+    };
+    assert!(
+        output.status.success(),
+        "remove should succeed\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let toml = std::fs::read_to_string(dir.join("asatsuyu.toml")).unwrap();
+    assert!(!toml.contains("requests"), "should not contain requests:\n{toml}");
+    assert!(toml.contains("flask = \">=3.0\""), "should still contain flask:\n{toml}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu remove` on a nonexistent dep fails with exit 2.
+#[test]
+fn remove_nonexistent_fails() {
+    let dir = workspace_root().join("target/test-remove-nonexistent");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(dir.join("asatsuyu.toml"), "schema_version = 1\n\n[project]\nname = \"test\"\n")
+        .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["remove", "nonexistent"]).output().unwrap()
+    };
+    assert_eq!(output.status.code(), Some(2), "remove nonexistent should exit 2");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu sync` without pylock.toml fails with exit 2.
+#[test]
+fn sync_requires_pylock() {
+    let dir = workspace_root().join("target/test-sync-no-lock");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "schema_version = 1\n\n[project]\nname = \"test\"\n\n[python-dependencies]\nrequests = \">=2.31\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["sync"]).output().unwrap()
+    };
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "sync without pylock.toml should exit 2\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("pylock.toml"), "should mention pylock.toml: {stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `asatsuyu sync --help` works.
+#[test]
+fn sync_help_shows_subcommand() {
+    let output = asatsuyu().args(["sync", "--help"]).output().unwrap();
+    assert!(output.status.success(), "sync --help should succeed");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("pylock") || stdout.contains("Sync") || stdout.contains("environment"),
+        "help should describe sync: {stdout}",
+    );
+}
+
+/// `asatsuyu sync` honors `[python] path` from asatsuyu.toml.
+#[test]
+fn sync_uses_python_path_from_config() {
+    let dir = workspace_root().join("target/test-sync-python-path-config");
+    let _ = std::fs::remove_dir_all(&dir);
+    let site_packages = dir.join("fake-site-packages");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::create_dir_all(&site_packages).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+
+    let fake_python = dir.join("fake-python");
+    std::fs::write(
+        &fake_python,
+        format!(
+            "#!/bin/sh\nif [ \"$1\" = \"-c\" ]; then\n  printf '{}\\n'\n  exit 0\nfi\nexit 1\n",
+            site_packages.display()
+        ),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&fake_python).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&fake_python, perms).unwrap();
+    }
+
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        format!(
+            "[project]\nname = \"test\"\n\n[python]\npath = \"{}\"\n\n[python-dependencies]\nrequests = \">=2.31\"\n",
+            fake_python.display()
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("pylock.toml"),
+        "lock-version = \"1.0\"\ncreated-by = \"test\"\n[[packages]]\nname = \"requests\"\nversion = \"2.31.0\"\n",
+    )
+    .unwrap();
+
+    let output = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.env_clear();
+        cmd.args(["sync"]).output().unwrap()
+    };
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "sync without tools should still exit 2\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("no Python environment found"),
+        "sync should honor [python] path before PATH discovery:\n{stderr}",
+    );
+    assert!(
+        stderr.contains("no sync tool found"),
+        "sync should reach tool discovery after resolving configured python:\n{stderr}",
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Full workflow: add → sync → remove (requires uv).
+#[test]
+#[ignore = "requires uv >= 0.6.15 and network access"]
+fn add_remove_sync_full_workflow() {
+    let dir = workspace_root().join("target/test-full-workflow");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/main.asty"), "pub fn main() { 42 }").unwrap();
+    std::fs::write(
+        dir.join("asatsuyu.toml"),
+        "schema_version = 1\n\n[project]\nname = \"wftest\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n",
+    )
+    .unwrap();
+
+    // Add dependency.
+    let add_out = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["add", "six", ">=1.16"]).output().unwrap()
+    };
+    assert!(add_out.status.success(), "add failed: {}", String::from_utf8_lossy(&add_out.stderr));
+    assert!(dir.join("pylock.toml").exists(), "pylock.toml should exist after add");
+
+    // Create venv and sync.
+    let venv_out =
+        Command::new("uv").args(["venv", &dir.join(".venv").to_string_lossy()]).output().unwrap();
+    assert!(venv_out.status.success(), "venv creation failed");
+
+    let sync_out = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["sync"]).output().unwrap()
+    };
+    assert!(
+        sync_out.status.success(),
+        "sync failed: {}",
+        String::from_utf8_lossy(&sync_out.stderr)
+    );
+
+    // Remove dependency.
+    let rm_out = {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        cmd.current_dir(&dir);
+        cmd.args(["remove", "six"]).output().unwrap()
+    };
+    assert!(rm_out.status.success(), "remove failed: {}", String::from_utf8_lossy(&rm_out.stderr));
+    assert!(!dir.join("pylock.toml").exists(), "pylock.toml should be removed when no deps");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

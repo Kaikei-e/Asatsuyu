@@ -26,6 +26,7 @@ pep440_rs = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
 tempfile = { workspace = true }
+toml_edit = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

@@ -85,21 +85,20 @@ impl From<std::io::Error> for LockError {
 /// Minimal parse of `pylock.toml` — only fields needed for validation and
 /// staleness detection. The full spec has many more fields that we ignore.
 #[derive(Debug, Deserialize)]
-struct PylockToml {
+pub(crate) struct PylockToml {
     #[serde(rename = "lock-version")]
-    lock_version: String,
+    pub(crate) lock_version: String,
     #[serde(rename = "created-by")]
     #[allow(dead_code)]
-    created_by: String,
+    pub(crate) created_by: String,
     #[serde(default)]
-    packages: Vec<PylockPackage>,
+    pub(crate) packages: Vec<PylockPackage>,
 }
 
 #[derive(Debug, Deserialize)]
-struct PylockPackage {
-    name: String,
-    #[allow(dead_code)]
-    version: Option<String>,
+pub(crate) struct PylockPackage {
+    pub(crate) name: String,
+    pub(crate) version: Option<String>,
 }
 
 // ── Tool discovery ──────────────────────────────────────────────────
@@ -141,7 +140,7 @@ fn discover_pip() -> Option<LockTool> {
 }
 
 /// Locate a tool on PATH.
-fn which_tool(name: &str) -> Option<PathBuf> {
+pub(crate) fn which_tool(name: &str) -> Option<PathBuf> {
     let output = Command::new("which").arg(name).output().ok()?;
     if output.status.success() {
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -152,7 +151,7 @@ fn which_tool(name: &str) -> Option<PathBuf> {
 }
 
 /// Parse version from `uv X.Y.Z (...)` output.
-fn parse_uv_version(stdout: &str) -> Option<Vec<u32>> {
+pub(crate) fn parse_uv_version(stdout: &str) -> Option<Vec<u32>> {
     // "uv 0.11.0 (x86_64-unknown-linux-gnu)\n"
     let line = stdout.lines().next()?;
     let version_str = line.strip_prefix("uv ")?;
@@ -177,7 +176,7 @@ fn parse_dotted_version(s: &str) -> Option<Vec<u32>> {
 }
 
 /// Check if a parsed version is >= the minimum required.
-fn version_at_least(actual: &[u32], minimum: &[u32]) -> bool {
+pub(crate) fn version_at_least(actual: &[u32], minimum: &[u32]) -> bool {
     for (i, &min) in minimum.iter().enumerate() {
         let act = actual.get(i).copied().unwrap_or(0);
         match act.cmp(&min) {
@@ -285,7 +284,7 @@ fn run_pip_lock(pip_path: &Path, working_dir: &Path, output_path: &Path) -> Resu
 }
 
 /// Validate that a file is a spec-compliant `pylock.toml`.
-fn validate_pylock(content: &str) -> Result<(), LockError> {
+pub(crate) fn validate_pylock(content: &str) -> Result<(), LockError> {
     let pylock: PylockToml = toml::from_str(content)
         .map_err(|e| LockError::InvalidLockfile(format!("failed to parse pylock.toml: {e}")))?;
 
@@ -297,6 +296,19 @@ fn validate_pylock(content: &str) -> Result<(), LockError> {
     }
 
     Ok(())
+}
+
+/// Parse `pylock.toml` and extract `(name, version)` pairs.
+///
+/// Used by the sync fallback to install packages individually via pip.
+pub(crate) fn parse_pylock_packages(
+    pylock_path: &Path,
+) -> Result<Vec<(String, String)>, LockError> {
+    let content = std::fs::read_to_string(pylock_path)?;
+    let pylock: PylockToml = toml::from_str(&content)
+        .map_err(|e| LockError::InvalidLockfile(format!("failed to parse pylock.toml: {e}")))?;
+
+    Ok(pylock.packages.into_iter().filter_map(|pkg| pkg.version.map(|v| (pkg.name, v))).collect())
 }
 
 // ── Staleness detection ─────────────────────────────────────────────
