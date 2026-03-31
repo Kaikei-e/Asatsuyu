@@ -136,6 +136,7 @@ dependencies = [
  "asatsuyu-ast",
  "asatsuyu-parser",
  "asatsuyu-syntax",
+ "insta",
  "la-arena",
  "smol_str",
 ]

@@ -1,0 +1,67 @@
+---
+source: crates/asatsuyu-hir/tests/ffi_conformance.rs
+assertion_line: 82
+expression: formatted
+---
+module: pathlib
+source: Builtin
+trust:  Verified
+symbols (1):
+  class Path  [Verified]
+    __init__(path: Str)
+    method read_text() -> Str
+    method write_text() -> Int
+    method exists() -> Bool
+    method is_file() -> Bool
+    method is_dir() -> Bool
+    method joinpath() -> Named { module: "pathlib", name: "Path" }
+    method mkdir() -> NoneType
+    prop name: Str
+    prop stem: Str
+    prop suffix: Str
+    prop parent: Named { module: "pathlib", name: "Path" }
+    prop parts: Tuple([Str])
+---
+module: json
+source: Builtin
+trust:  Checked
+symbols (2):
+  fn loads(s: Str) -> Any  [Checked]
+  fn dumps(obj: Any, indent: Optional(Int)) -> Str  [Checked]
+---
+module: os
+source: Builtin
+trust:  Verified
+symbols (5):
+  fn getenv(key: Str, default: Optional(Str)) -> Optional(Str)  [Verified]
+  fn getcwd() -> Str  [Verified]
+  const environ: Dict(Str, Str)  [Verified]
+  const sep: Str  [Verified]
+  const linesep: Str  [Verified]
+---
+module: sys
+source: Builtin
+trust:  Verified
+symbols (4):
+  const argv: List(Str)  [Verified]
+  fn exit(code: Int) -> NoneType  [Verified]
+  const platform: Str  [Verified]
+  const version: Str  [Verified]
+---
+module: requests
+source: Builtin
+trust:  Checked
+symbols (5):
+  fn get(url: Str) -> Named { module: "requests", name: "Response" }  [Checked]
+  fn post(url: Str) -> Named { module: "requests", name: "Response" }  [Checked]
+  fn put(url: Str) -> Named { module: "requests", name: "Response" }  [Checked]
+  fn delete(url: Str) -> Named { module: "requests", name: "Response" }  [Checked]
+  class Response  [Checked]
+    method json() -> Any
+    method raise_for_status() -> NoneType
+    prop text: Str
+    prop status_code: Int
+    prop ok: Bool
+    prop url: Str
+    prop content: Bytes
+    prop encoding: Optional(Str)

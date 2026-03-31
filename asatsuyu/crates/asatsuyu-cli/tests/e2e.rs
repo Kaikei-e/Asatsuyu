@@ -381,6 +381,35 @@ fn verify_ffi_outputs_trust_report() {
     assert!(stdout.contains("Summary"), "should show summary: {stdout}");
 }
 
+// ── 12b. verify-ffi trust summary gate ────────────────────────────
+
+#[test]
+fn verify_ffi_trust_summary_gate() {
+    let output = asatsuyu().args(["verify-ffi"]).output().unwrap();
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Gate: exact trust summary line. If module counts change, this test
+    // fails and forces review of the FFI surface change.
+    assert!(
+        stdout.contains("Summary: 3 Verified, 2 Checked, 0 Unsafe"),
+        "trust summary changed — review FFI surface:\n{stdout}",
+    );
+
+    // Gate: pathlib, os, sys must appear as Verified.
+    for module in &["pathlib", "os", "sys"] {
+        let pattern = format!("{module} (Builtin) ... Verified");
+        assert!(stdout.contains(&pattern), "{module} should be Verified:\n{stdout}",);
+    }
+
+    // Gate: json and requests must appear as Checked.
+    for module in &["json", "requests"] {
+        let pattern = format!("{module} (Builtin) ... Checked");
+        assert!(stdout.contains(&pattern), "{module} should be Checked:\n{stdout}",);
+    }
+}
+
 // ── 13. --ffi-stdlib-only blocks third-party imports ─────────────
 
 #[test]
