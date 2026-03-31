@@ -1,7 +1,7 @@
 pub fn greet(name: String) -> String {
-  "hello"
+  "Hello, " <> name <> "!"
 }
 
-fn add(x: Int, y: Int) -> Int {
-  x
+pub fn main() {
+  println(greet("world"))
 }
