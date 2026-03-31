@@ -1,4 +1,4 @@
-.PHONY: dev dev-release build-wheel test check fmt verify-ffi pytest ci docs-sync release-gate
+.PHONY: dev dev-release build-wheel test check fmt verify-ffi pytest package-install ci docs-sync release-gate
 
 # Rust workspace directory
 CARGO_DIR := asatsuyu
@@ -43,10 +43,14 @@ verify-ffi:
 pytest:
 	pytest tests/ -v
 
+## Build generated fixture packages, install them into temp venvs, and import them
+package-install:
+	python scripts/test_package_install.py
+
 # ── CI equivalent ──────────────────────────────────────────────────
 
-## Run the full CI pipeline locally (fmt → check → test → dev → pytest → verify-ffi)
-ci: fmt check test dev pytest verify-ffi
+## Run the full CI pipeline locally (fmt → check → test → dev → pytest → verify-ffi → package-install)
+ci: fmt check test dev pytest verify-ffi package-install
 
 # ── Release gate ──────────────────────────────────────────────────────
 
