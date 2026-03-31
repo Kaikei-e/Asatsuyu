@@ -1219,4 +1219,32 @@ pub fn get_data(url: String) -> Int {
         let pyproject = get_pyproject(&pkg);
         assert!(pyproject.contains("name = \"my-app\""), "original name in pyproject: {pyproject}",);
     }
+
+    // ── PEP 695 generic functions ─────────────────────────────────
+
+    #[test]
+    fn emit_generic_fn_pep695() {
+        let py = python_from_source(
+            "type Option(a) { Some(a) None }\n\
+             pub fn unwrap_or(opt: Option, default: String) -> String {\n\
+               match opt { Some(x) -> x  None -> default }\n\
+             }",
+        );
+        assert!(py.contains("def unwrap_or[T]"), "should emit PEP 695 type param: {py}");
+        assert!(py.contains("Option[T]"), "should use T not Any: {py}");
+        assert!(!py.contains("Any"), "must not contain Any: {py}");
+    }
+
+    #[test]
+    fn emit_multi_generic_fn_pep695() {
+        let py = python_from_source(
+            "type Result(a, e) { Ok(a) Error(e) }\n\
+             pub fn is_ok(r: Result) -> Bool {\n\
+               match r { Ok(_) -> True  Error(_) -> False }\n\
+             }",
+        );
+        assert!(py.contains("def is_ok[T, U]"), "should emit multiple type params: {py}");
+        assert!(py.contains("Result[T, U]"), "should use T, U not Any: {py}");
+        assert!(!py.contains("Any"), "must not contain Any: {py}");
+    }
 }

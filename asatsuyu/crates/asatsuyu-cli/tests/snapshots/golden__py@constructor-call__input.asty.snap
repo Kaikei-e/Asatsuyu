@@ -20,5 +20,5 @@ class None_:
 type Option[T] = Some[T] | None_
 
 
-def wrap(x: int) -> Option[Any]:
+def wrap[T](x: int) -> Option[T]:
     return Some(x)

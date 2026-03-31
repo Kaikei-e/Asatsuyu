@@ -1,0 +1,452 @@
+// ============================================================================
+// Asatsuyu チュートリアル: ファイルカテゴリ分析ツール
+// ============================================================================
+//
+// このプログラムは Asatsuyu の全 14 予約語を実践的に使う例です。
+//
+//   fn, pub, let, type, match, if, else,
+//   import, from, python, as, True, False, try
+//
+// ファイル拡張子を ADT で分類し、パターンマッチで安全に処理します。
+// Python の pathlib / os / sys を FFI 経由で利用します。
+
+// ── Python FFI インポート ──────────────────────────────────────
+// `from python import` で Python 標準ライブラリを型付きで利用する。
+// pathlib, os, sys は Verified FFI として扱われる。
+
+from python import pathlib
+from python import os
+from python import sys
+
+// ── Asatsuyu モジュールインポート ──────────────────────────────
+// `import ... as ...` でモジュールに別名を付ける。
+
+import io as output
+
+// ── 基盤 ADT: Option ─────────────────────────────────────────
+// Asatsuyu では null を使わない。
+// 値の不在は Option で型として明示する。
+
+pub type Option(a) {
+  Some(a)
+  None
+}
+
+// ── 基盤 ADT: Result ─────────────────────────────────────────
+// Asatsuyu では例外を使わない。
+// 失敗は Result で型として明示する。
+
+pub type Result(a, e) {
+  Ok(a)
+  Error(e)
+}
+
+// ── FFI 例外型 ────────────────────────────────────────────────
+// Python 側の例外は `try` で Result に変換される。
+// Asatsuyu の純粋領域には例外が入らない。
+
+pub type PyException {
+  PyExc(
+    kind: String,
+    exception_type: String,
+    message: String,
+    module: String,
+    traceback_summary: String
+  )
+}
+
+// ── ドメイン型: ファイル分類 ──────────────────────────────────
+// ADT でファイルの種類を表現する。
+// バリアントごとに異なるデータを持てる。
+
+pub type FileCategory {
+  Source(language: String)
+  Document(format: String)
+  Data(format: String)
+  Image(format: String)
+  Config(name: String)
+  Unknown(extension: String)
+}
+
+// (SizeClass は直接 String で表現 — シンプルさ優先)
+
+// ── ドメイン型: 分析結果 ─────────────────────────────────────
+// 解析の成功・失敗を ADT で表現する。
+
+pub type AnalysisResult {
+  AnalysisOk(summary: String)
+  AnalysisFailed(reason: String)
+}
+
+// ============================================================================
+// ファイル分類ロジック
+// ============================================================================
+
+// 拡張子からファイルカテゴリを判定する。
+// match でパターンごとに分岐し、網羅性をコンパイラが保証する。
+
+pub fn categorize(ext: String) -> FileCategory {
+  match ext {
+    ".py" -> Source("Python")
+    ".rs" -> Source("Rust")
+    ".ts" -> Source("TypeScript")
+    ".js" -> Source("JavaScript")
+    ".go" -> Source("Go")
+    ".asty" -> Source("Asatsuyu")
+    ".md" -> Document("Markdown")
+    ".txt" -> Document("Text")
+    ".pdf" -> Document("PDF")
+    ".html" -> Document("HTML")
+    ".json" -> Data("JSON")
+    ".csv" -> Data("CSV")
+    ".xml" -> Data("XML")
+    ".yaml" -> Data("YAML")
+    ".toml" -> Data("TOML")
+    ".png" -> Image("PNG")
+    ".jpg" -> Image("JPEG")
+    ".svg" -> Image("SVG")
+    ".gif" -> Image("GIF")
+    ".gitignore" -> Config("git")
+    ".editorconfig" -> Config("editor")
+    ".env" -> Config("environment")
+    "" -> Unknown("(binary)")
+    _ -> Unknown(ext)
+  }
+}
+
+// ============================================================================
+// カテゴリ名の変換
+// ============================================================================
+
+// match でバリアントを分解し、内部データにアクセスする。
+// <> 演算子で文字列を結合する。
+
+pub fn category_label(cat: FileCategory) -> String {
+  match cat {
+    Source(lang) -> "Source (" <> lang <> ")"
+    Document(fmt) -> "Document (" <> fmt <> ")"
+    Data(fmt) -> "Data (" <> fmt <> ")"
+    Image(fmt) -> "Image (" <> fmt <> ")"
+    Config(name) -> "Config (" <> name <> ")"
+    Unknown(ext) -> "Unknown (" <> ext <> ")"
+  }
+}
+
+// カテゴリの短い識別名を返す。
+
+pub fn category_tag(cat: FileCategory) -> String {
+  match cat {
+    Source(_) -> "src"
+    Document(_) -> "doc"
+    Data(_) -> "dat"
+    Image(_) -> "img"
+    Config(_) -> "cfg"
+    Unknown(_) -> "???"
+  }
+}
+
+// ============================================================================
+// 述語関数群: True / False の使用
+// ============================================================================
+
+// カテゴリがソースコードかどうかを判定する。
+// if/else と True/False を使う。
+
+pub fn is_source(cat: FileCategory) -> Bool {
+  match cat {
+    Source(_) -> True
+    _ -> False
+  }
+}
+
+pub fn is_document(cat: FileCategory) -> Bool {
+  match cat {
+    Document(_) -> True
+    _ -> False
+  }
+}
+
+pub fn is_data(cat: FileCategory) -> Bool {
+  match cat {
+    Data(_) -> True
+    _ -> False
+  }
+}
+
+pub fn is_image(cat: FileCategory) -> Bool {
+  match cat {
+    Image(_) -> True
+    _ -> False
+  }
+}
+
+pub fn is_config(cat: FileCategory) -> Bool {
+  match cat {
+    Config(_) -> True
+    _ -> False
+  }
+}
+
+pub fn is_known(cat: FileCategory) -> Bool {
+  match cat {
+    Unknown(_) -> False
+    _ -> True
+  }
+}
+
+// ============================================================================
+// サイズ分類: if / else チェーン
+// ============================================================================
+
+// ファイルサイズを分類する。
+// if/else チェーンで閾値を判定する。
+
+pub fn classify_size(bytes: Int) -> String {
+  if bytes > 1073741824 {
+    "large (> 1 GB)"
+  } else if bytes > 1048576 {
+    "medium (1 MB - 1 GB)"
+  } else if bytes > 1024 {
+    "small (1 KB - 1 MB)"
+  } else {
+    "tiny (< 1 KB)"
+  }
+}
+
+// ============================================================================
+// Option ヘルパー
+// ============================================================================
+
+// Option から値を取り出す。None ならデフォルト値を返す。
+// match で Option のバリアントを安全に分解する。
+
+pub fn unwrap_or(opt: Option, default: String) -> String {
+  match opt {
+    Some(value) -> value
+    None -> default
+  }
+}
+
+// 値を Option に包む。空文字列なら None にする。
+// if/else で条件を判定し、適切なバリアントを返す。
+
+pub fn non_empty(s: String) -> Option {
+  if s == "" {
+    None
+  } else {
+    Some(s)
+  }
+}
+
+// Option が値を持つかどうかを判定する。
+
+pub fn is_some(opt: Option) -> Bool {
+  match opt {
+    Some(_) -> True
+    None -> False
+  }
+}
+
+// ============================================================================
+// Result ヘルパー
+// ============================================================================
+
+// Result が成功かどうかを判定する。
+
+pub fn is_ok(result: Result) -> Bool {
+  match result {
+    Ok(_) -> True
+    Error(_) -> False
+  }
+}
+
+// Result の成功値を取り出す。失敗ならデフォルト値を返す。
+
+pub fn ok_or(result: Result, default: String) -> String {
+  match result {
+    Ok(value) -> value
+    Error(_) -> default
+  }
+}
+
+// ============================================================================
+// パイプライン処理: |> 演算子
+// ============================================================================
+
+// 拡張子をタグに変換する。
+// パイプライン |> で処理を連鎖させる。
+
+pub fn extension_to_tag(ext: String) -> String {
+  ext |> categorize |> category_tag
+}
+
+// 拡張子をラベルに変換する。
+
+pub fn extension_to_label(ext: String) -> String {
+  ext |> categorize |> category_label
+}
+
+// ============================================================================
+// ファイルシステム操作（Python FFI 境界）
+// ============================================================================
+
+// ディレクトリの存在を安全に確認する。
+// `try` で Python 例外を Result に変換する。
+// Asatsuyu の純粋領域には例外が入らない。
+
+pub fn check_directory(path: String) -> Result(Bool, PyException) {
+  let p = pathlib.Path(path)
+  let exists = try p.exists()
+  Ok(exists)
+}
+
+// カレントディレクトリを安全に取得する。
+
+pub fn safe_getcwd() -> Result(String, PyException) {
+  let cwd = try os.getcwd()
+  Ok(cwd)
+}
+
+// プラットフォーム情報を取得する。
+
+pub fn get_platform() -> String {
+  sys.platform
+}
+
+// ============================================================================
+// レポート組み立て
+// ============================================================================
+
+// AnalysisResult を文字列に変換する。
+
+pub fn result_message(ar: AnalysisResult) -> String {
+  match ar {
+    AnalysisOk(summary) -> "OK: " <> summary
+    AnalysisFailed(reason) -> "FAILED: " <> reason
+  }
+}
+
+// 分類結果の1行を組み立てる。
+
+pub fn format_entry(ext: String, cat: FileCategory) -> String {
+  let tag = category_tag(cat)
+  let label = category_label(cat)
+  "  [" <> tag <> "] " <> ext <> " -> " <> label
+}
+
+// ============================================================================
+// Result 展開ヘルパー
+// ============================================================================
+
+// Result(String) を安全に取り出す。失敗ならデフォルト値。
+
+pub fn unwrap_string_result(r: Result, default: String) -> String {
+  match r {
+    Ok(value) -> value
+    Error(_) -> default
+  }
+}
+
+// Result(Bool) を安全に取り出す。失敗なら False。
+
+pub fn unwrap_bool_result(r: Result) -> Bool {
+  match r {
+    Ok(value) -> value
+    Error(_) -> False
+  }
+}
+
+// ============================================================================
+// メインエントリポイント
+// ============================================================================
+
+// 全てを組み合わせてレポートを生成する。
+// let で段階的にデータを組み立て、match で結果を分岐する。
+
+pub fn main() {
+  // プラットフォーム情報（FFI 直接アクセス）
+  let platform = get_platform()
+
+  // カレントディレクトリを安全に取得（try → Result）
+  let cwd_result = safe_getcwd()
+
+  // Result をヘルパーで安全に展開
+  let directory = unwrap_string_result(cwd_result, "(unknown)")
+
+  // ディレクトリ存在チェック（try → Result）
+  let dir_check = check_directory(directory)
+
+  // Bool の Result を安全に展開
+  let dir_exists = unwrap_bool_result(dir_check)
+
+  // 条件分岐で分析結果を決定
+  let analysis = if dir_exists {
+    AnalysisOk(directory <> " on " <> platform)
+  } else {
+    AnalysisFailed("directory does not exist")
+  }
+
+  // 各拡張子を分類（パイプラインで処理を連鎖）
+  let py_tag = ".py" |> categorize |> category_tag
+  let rs_tag = ".rs" |> categorize |> category_tag
+  let md_tag = ".md" |> categorize |> category_tag
+
+  // 分類の詳細を表示用に組み立て
+  let py_cat = categorize(".py")
+  let rs_cat = categorize(".rs")
+  let md_cat = categorize(".md")
+  let json_cat = categorize(".json")
+  let png_cat = categorize(".png")
+  let toml_cat = categorize(".toml")
+  let unknown_cat = categorize(".xyz")
+  let binary_cat = categorize("")
+
+  // 述語関数で判定
+  let py_is_source = is_source(py_cat)
+  let md_is_source = is_source(md_cat)
+  let json_is_known = is_known(json_cat)
+  let unknown_is_known = is_known(unknown_cat)
+
+  // サイズ分類
+  let tiny_label = classify_size(512)
+  let large_label = classify_size(2000000000)
+
+  // Option の使用
+  let opt_some = non_empty("hello.py")
+  let opt_none = non_empty("")
+  let extracted = unwrap_or(opt_some, "default")
+  let fallback = unwrap_or(opt_none, "no file")
+  let has_value = is_some(opt_some)
+
+  // Result の使用
+  let result_ok = is_ok(cwd_result)
+
+  // 各エントリを整形
+  let line_py = format_entry(".py", py_cat)
+  let line_rs = format_entry(".rs", rs_cat)
+  let line_md = format_entry(".md", md_cat)
+  let line_json = format_entry(".json", json_cat)
+  let line_png = format_entry(".png", png_cat)
+  let line_toml = format_entry(".toml", toml_cat)
+  let line_unknown = format_entry(".xyz", unknown_cat)
+  let line_binary = format_entry("(none)", binary_cat)
+
+  // 最終レポートを <> で組み立て
+  let header = "=== Asatsuyu File Category Analyzer ==="
+  let status = result_message(analysis)
+
+  header <> "\n"
+    <> "Status: " <> status <> "\n"
+    <> "\nFile Categories:\n"
+    <> line_py <> "\n"
+    <> line_rs <> "\n"
+    <> line_md <> "\n"
+    <> line_json <> "\n"
+    <> line_png <> "\n"
+    <> line_toml <> "\n"
+    <> line_unknown <> "\n"
+    <> line_binary <> "\n"
+    <> "\nSize Classes:\n"
+    <> "  512 bytes -> " <> tiny_label <> "\n"
+    <> "  2 GB -> " <> large_label
+}

@@ -20,7 +20,7 @@ class Error[U]:
 type Result[T, U] = Ok[T] | Error[U]
 
 
-def ok_val(r: Result[Any, Any]) -> int:
+def ok_val[T, U](r: Result[T, U]) -> int:
     match r:
         case Ok(x):
             return x

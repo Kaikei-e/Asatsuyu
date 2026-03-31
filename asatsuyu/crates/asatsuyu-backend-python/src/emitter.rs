@@ -8,7 +8,9 @@ use asatsuyu_ast::{BinOp, UnOp};
 use asatsuyu_hir::ffi::{FfiSymbolKind, FfiTrustLevel, FfiType};
 use asatsuyu_hir::{DefId, DefKind, HirCustomType, HirFieldType, HirTypeExpr, HirVariant};
 use asatsuyu_syntax::Span;
-use asatsuyu_ty::{PrimTy, ThirExpr, ThirFnDef, ThirMatchArm, ThirModule, ThirPattern, Ty};
+use asatsuyu_ty::{
+    PrimTy, ThirExpr, ThirFnDef, ThirMatchArm, ThirModule, ThirPattern, Ty, TyVarId,
+};
 use smol_str::SmolStr;
 
 /// 4-space indentation per PEP 8.
@@ -304,20 +306,34 @@ impl<'a> Emitter<'a> {
     // ── Function ───────────────────────────────────────────────────
 
     fn emit_fn_def(&mut self, fn_def: &ThirFnDef) {
-        // def name(params) -> return_ty:
+        // Collect type variables from the signature for PEP 695 generics.
+        let mut var_ids = Vec::new();
+        for param in &fn_def.params {
+            collect_type_vars(&param.ty, &mut var_ids);
+        }
+        collect_type_vars(&fn_def.return_ty, &mut var_ids);
+        let var_map = build_fn_type_param_map(&var_ids);
+
+        // def name[T, U](params) -> return_ty:
         self.write_indent();
         let name = &self.module.symbol_table.get(fn_def.def_id).name;
-        let _ = write!(self.output, "def {name}(");
+        let _ = write!(self.output, "def {name}");
 
+        if !var_map.is_empty() {
+            let params: Vec<&str> = var_map.iter().map(|(_, n)| n.as_str()).collect();
+            let _ = write!(self.output, "[{}]", params.join(", "));
+        }
+
+        self.output.push('(');
         for (i, param) in fn_def.params.iter().enumerate() {
             if i > 0 {
                 self.output.push_str(", ");
             }
             let param_name = &self.module.symbol_table.get(param.def_id).name;
-            let _ = write!(self.output, "{param_name}: {}", ty_to_python(&param.ty));
+            let _ = write!(self.output, "{param_name}: {}", ty_to_python(&param.ty, &var_map));
         }
 
-        let _ = write!(self.output, ") -> {}:", ty_to_python(&fn_def.return_ty));
+        let _ = write!(self.output, ") -> {}:", ty_to_python(&fn_def.return_ty, &var_map));
         self.write_source_comment(fn_def.span);
         self.output.push('\n');
 
@@ -1016,7 +1032,10 @@ fn unop_to_python(op: UnOp) -> &'static str {
 }
 
 /// Map an Asatsuyu [`Ty`] to its Python type annotation string.
-fn ty_to_python(ty: &Ty) -> String {
+///
+/// `var_map` maps unresolved type variable IDs to PEP 695 parameter names
+/// (e.g. `T`, `U`). When empty, any remaining `Ty::Var` falls back to `object`.
+fn ty_to_python(ty: &Ty, var_map: &[(TyVarId, String)]) -> String {
     match ty {
         Ty::Primitive(PrimTy::Int) => "int".into(),
         Ty::Primitive(PrimTy::Float) => "float".into(),
@@ -1027,15 +1046,55 @@ fn ty_to_python(ty: &Ty) -> String {
             if args.is_empty() {
                 name.to_string()
             } else {
-                let arg_strs: Vec<String> = args.iter().map(ty_to_python).collect();
+                let arg_strs: Vec<String> = args.iter().map(|a| ty_to_python(a, var_map)).collect();
                 format!("{name}[{}]", arg_strs.join(", "))
             }
         }
         Ty::FfiModule { module_name } => module_name.to_string(),
         Ty::FfiInstance { module, class } => format!("{module}.{class}"),
         Ty::Opaque { module, symbol } => format!("\"{module}.{symbol}\""),
-        Ty::Function { .. } | Ty::Var(_) | Ty::Error => "Any".into(),
+        Ty::Var(id) => var_map
+            .iter()
+            .find(|(vid, _)| vid == id)
+            .map_or_else(|| "object".into(), |(_, name)| name.clone()),
+        Ty::Function { .. } | Ty::Error => "object".into(),
     }
+}
+
+/// Collect unique [`TyVarId`]s from a type, preserving insertion order.
+fn collect_type_vars(ty: &Ty, vars: &mut Vec<TyVarId>) {
+    match ty {
+        Ty::Var(id) => {
+            if !vars.contains(id) {
+                vars.push(*id);
+            }
+        }
+        Ty::Named { args, .. } => {
+            for arg in args {
+                collect_type_vars(arg, vars);
+            }
+        }
+        Ty::Function { params, ret } => {
+            for p in params {
+                collect_type_vars(p, vars);
+            }
+            collect_type_vars(ret, vars);
+        }
+        _ => {}
+    }
+}
+
+/// Map type variable IDs to PEP 695 parameter names (`T`, `U`, `V`, `W`, `T4`, …).
+fn build_fn_type_param_map(var_ids: &[TyVarId]) -> Vec<(TyVarId, String)> {
+    const NAMES: &[&str] = &["T", "U", "V", "W"];
+    var_ids
+        .iter()
+        .enumerate()
+        .map(|(i, &id)| {
+            let name = if i < NAMES.len() { NAMES[i].to_string() } else { format!("T{i}") };
+            (id, name)
+        })
+        .collect()
 }
 
 // ── ADT helpers ───────────────────────────────────────────────────

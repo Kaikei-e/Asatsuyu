@@ -20,7 +20,7 @@ class None_:
 type Option[T] = Some[T] | None_
 
 
-def unwrap_or(opt: Option[Any], default: int) -> int:
+def unwrap_or[T](opt: Option[T], default: int) -> int:
     match opt:
         case Some(x):
             return x
