@@ -19,12 +19,17 @@
 ---
 
 Asatsuyu is an experiment in bringing sound static typing to the Python
-ecosystem. Its syntax and semantics are heavily inspired by
-[Gleam](https://gleam.run) — algebraic data types, exhaustive pattern matching,
-the pipeline operator, `Result`/`Option`, and the principle that a language
-should be small and have one obvious way to do things. Asatsuyu applies these
-ideas to a Python compilation target, aiming to let you write safer code while
-still calling Python libraries directly.
+ecosystem through a dedicated compiled language. Its core idea is simple:
+write application logic in a small functional language, compile it to readable
+Python 3.12+ source, and keep direct access to Python libraries through a
+typed boundary built on `.pyi`, typeshed, and PEP 561.
+
+The language draws visible inspiration from
+[Gleam](https://gleam.run) in syntax and ergonomics, but its purpose is
+different. Asatsuyu is designed first and foremost as a **statically typed
+frontend for Python**: the runtime is CPython, the generated output is meant
+to be reviewed and debugged by Python developers, and the hard design problem
+is how to make Python interop explicit, typed, and predictable.
 
 The name comes from the Japanese word **朝露** (morning dew) — something that
 takes shape quietly at dawn, just as Asatsuyu aims to bring structure to the
@@ -55,7 +60,8 @@ and thousands more. But Python's type system is optional and gradual, which
 means type errors surface at runtime rather than at compile time, and
 refactoring large codebases requires significant care.
 
-Asatsuyu explores an approach similar to what TypeScript did for JavaScript:
+Asatsuyu explores an approach for Python similar in spirit to what TypeScript
+did for JavaScript:
 
 - **Write** in a language with sound static types and algebraic data types.
 - **Compile** to clean, human-readable Python 3.12+ source code.
@@ -63,6 +69,18 @@ Asatsuyu explores an approach similar to what TypeScript did for JavaScript:
 
 The generated Python should look like code you could have written by hand —
 dataclasses, `match`/`case`, PEP 695 generics, and nothing more.
+
+What makes Asatsuyu specific is not just "functional syntax for Python." The
+project is centered on three concrete bets:
+
+- **Python remains the operational reality.** Generated code should be
+  inspectable, debuggable, and deployable in ordinary Python environments.
+- **Interop is a language feature, not an afterthought.** Python libraries are
+  accessed through typed FFI, trust levels, and exception normalization at the
+  boundary.
+- **Application logic gets a stricter world than Python alone can offer.**
+  Inside Asatsuyu there is no implicit `Any`, no hidden exception flow, and no
+  fallback to untyped convenience.
 
 ## Planned Language Features
 
@@ -148,9 +166,8 @@ idiomatic Python 3.12+ code.
 4. **Fast feedback.** The compiler is written in Rust. `asatsuyu check` is
    designed to be the fastest path — type-check without code generation.
 
-5. **One way to do it.** Following Gleam's formatter philosophy, there is a
-   single canonical style with zero configuration. Following Go's language
-   design philosophy, the language is deliberately small.
+5. **One way to do it.** There is a single canonical style with zero
+   configuration, and the language is deliberately kept small.
 
 6. **Helpful errors.** Inspired by Elm and Gleam, error messages should explain
    *what went wrong* and *how to fix it*.
@@ -284,8 +301,9 @@ the native extension.
 | **Goal** | Correctness + ecosystem access | Catch bugs in Python | Performance | Performance |
 
 Asatsuyu is not a type checker, a performance tool, or a Python superset. It is
-a separate language that targets Python as its compilation backend — similar to
-how Gleam targets Erlang or Elm targets JavaScript.
+a separate language whose center of gravity is the Python ecosystem: Python
+source is the only backend, CPython is the runtime, and the project lives or
+dies by the quality of its typed boundary to Python libraries.
 
 ## Roadmap
 
@@ -338,12 +356,16 @@ at your option.
 Asatsuyu does not exist in a vacuum. Its design borrows explicitly from several
 languages and tools, and this section documents those debts honestly.
 
-**[Gleam](https://gleam.run)** is the single strongest influence on Asatsuyu's
-design. The surface syntax (`pub fn`, `type ... { }`, `match`, `|>`, `<>`),
+**[Gleam](https://gleam.run)** is the single strongest language influence on
+Asatsuyu. The surface syntax (`pub fn`, `type ... { }`, `match`, `|>`, `<>`),
 the ADT-centric data model, `Result`/`Option` as first-class error handling,
-the opinionated zero-config formatter, and the philosophy of "one way to do it"
-are all drawn directly from Gleam. Where Gleam compiles to Erlang and
-JavaScript, Asatsuyu targets Python — but the language-level ideas are Gleam's.
+and the preference for a small, opinionated language all owe a clear debt to
+Gleam. Asatsuyu does not try to hide that lineage.
+
+Where Asatsuyu diverges is in its center of gravity. Gleam is designed around
+its own targets and runtimes; Asatsuyu is designed around Python as the sole
+backend, CPython as the runtime, readable generated `.py` as an explicit
+artifact, and typeshed-driven interop as a first-class design problem.
 
 **[Elm](https://elm-lang.org)** shaped the approach to error messages (explaining
 *what went wrong* and *how to fix it*) and reinforced the commitment to
