@@ -6,11 +6,11 @@ input_file: crates/asatsuyu-cli/tests/cases/binop-arithmetic/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(2),
+            def_id: Idx::<DefData>(3),
             visibility: Public,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(3),
+                    def_id: Idx::<DefData>(4),
                     ty: Primitive(
                         Int,
                     ),
@@ -23,7 +23,7 @@ ThirModule {
                     },
                 },
                 ThirParam {
-                    def_id: Idx::<DefData>(4),
+                    def_id: Idx::<DefData>(5),
                     ty: Primitive(
                         Int,
                     ),
@@ -46,7 +46,7 @@ ThirModule {
                         lhs: BinaryOp {
                             op: Add,
                             lhs: Var {
-                                def_id: Idx::<DefData>(3),
+                                def_id: Idx::<DefData>(4),
                                 ty: Primitive(
                                     Int,
                                 ),
@@ -61,7 +61,7 @@ ThirModule {
                             rhs: BinaryOp {
                                 op: Mul,
                                 lhs: Var {
-                                    def_id: Idx::<DefData>(4),
+                                    def_id: Idx::<DefData>(5),
                                     ty: Primitive(
                                         Int,
                                     ),
@@ -176,7 +176,7 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 5,
+            len: 6,
             data: [
                 DefData {
                     name: "string_concat",
@@ -191,6 +191,17 @@ ThirModule {
                 },
                 DefData {
                     name: "println",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
                     kind: Builtin,
                     span: Span {
                         file_id: FileId(

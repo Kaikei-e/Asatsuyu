@@ -167,6 +167,9 @@ impl TyCheckCtx {
                         },
                     }
                 }
+                // `list` is a builtin module namespace — field access resolves
+                // individual list operations (map, filter, etc.) in the backend.
+                "list" => TypeScheme::mono(Ty::FfiModule { module_name: SmolStr::from("list") }),
                 _ => continue,
             };
             self.type_env.insert(def_id, scheme);
@@ -816,6 +819,10 @@ impl TyCheckCtx {
         field: &SmolStr,
         span: Span,
     ) -> Ty {
+        if module_name == "list" {
+            return self.resolve_builtin_list_field(field, span);
+        }
+
         let Some(ffi_module) = self.ffi_modules.get(module_name).cloned() else {
             return Ty::Error;
         };
@@ -838,6 +845,107 @@ impl TyCheckCtx {
             FfiSymbolKind::Function(sig) => self.ffi_signature_to_ty(sig),
             FfiSymbolKind::Class(cls) => self.ffi_class_constructor_to_ty(cls, module_name),
             FfiSymbolKind::Constant(ffi_ty) => self.ffi_type_to_ty(ffi_ty),
+        }
+    }
+
+    fn resolve_builtin_list_field(&mut self, field: &SmolStr, span: Span) -> Ty {
+        let list_def_id = self.type_name_to_def_id.get("List").copied().expect("builtin List type");
+        let option_def_id =
+            self.type_name_to_def_id.get("Option").copied().expect("builtin Option type");
+        let elem_ty = self.infer.fresh_var();
+        let ret_ty = self.infer.fresh_var();
+        let list_of_elem = Ty::Named {
+            def_id: list_def_id,
+            name: SmolStr::from("List"),
+            args: vec![elem_ty.clone()],
+        };
+        let list_of_elem_for_head = Ty::Named {
+            def_id: list_def_id,
+            name: SmolStr::from("List"),
+            args: vec![elem_ty.clone()],
+        };
+        let list_of_elem_for_rest = Ty::Named {
+            def_id: list_def_id,
+            name: SmolStr::from("List"),
+            args: vec![elem_ty.clone()],
+        };
+        let option_of_elem = Ty::Named {
+            def_id: option_def_id,
+            name: SmolStr::from("Option"),
+            args: vec![elem_ty.clone()],
+        };
+        let option_of_list = Ty::Named {
+            def_id: option_def_id,
+            name: SmolStr::from("Option"),
+            args: vec![list_of_elem.clone()],
+        };
+
+        match field.as_str() {
+            "map" => Ty::Function {
+                params: vec![
+                    list_of_elem.clone(),
+                    Ty::Function { params: vec![elem_ty.clone()], ret: Box::new(ret_ty.clone()) },
+                ],
+                ret: Box::new(Ty::Named {
+                    def_id: list_def_id,
+                    name: SmolStr::from("List"),
+                    args: vec![ret_ty],
+                }),
+            },
+            "filter" => Ty::Function {
+                params: vec![
+                    list_of_elem.clone(),
+                    Ty::Function {
+                        params: vec![elem_ty.clone()],
+                        ret: Box::new(Ty::Primitive(PrimTy::Bool)),
+                    },
+                ],
+                ret: Box::new(list_of_elem),
+            },
+            "fold" => Ty::Function {
+                params: vec![
+                    list_of_elem.clone(),
+                    ret_ty.clone(),
+                    Ty::Function {
+                        params: vec![ret_ty.clone(), elem_ty.clone()],
+                        ret: Box::new(ret_ty.clone()),
+                    },
+                ],
+                ret: Box::new(ret_ty),
+            },
+            "length" => Ty::Function {
+                params: vec![list_of_elem],
+                ret: Box::new(Ty::Primitive(PrimTy::Int)),
+            },
+            "reverse" => {
+                Ty::Function { params: vec![list_of_elem.clone()], ret: Box::new(list_of_elem) }
+            }
+            "append" => Ty::Function {
+                params: vec![list_of_elem.clone(), list_of_elem.clone()],
+                ret: Box::new(list_of_elem),
+            },
+            "is_empty" => Ty::Function {
+                params: vec![list_of_elem.clone()],
+                ret: Box::new(Ty::Primitive(PrimTy::Bool)),
+            },
+            "contains" => Ty::Function {
+                params: vec![list_of_elem, elem_ty],
+                ret: Box::new(Ty::Primitive(PrimTy::Bool)),
+            },
+            "head" => {
+                Ty::Function { params: vec![list_of_elem_for_head], ret: Box::new(option_of_elem) }
+            }
+            "rest" => {
+                Ty::Function { params: vec![list_of_elem_for_rest], ret: Box::new(option_of_list) }
+            }
+            _ => {
+                self.push_diagnostic(
+                    Diagnostic::error(format!("module `list` has no symbol `{field}`"), span)
+                        .with_code(DiagnosticCode::E0211)
+                        .with_label(span, "not found in this module"),
+                );
+                Ty::Error
+            }
         }
     }
 
@@ -1335,16 +1443,39 @@ impl TyCheckCtx {
                 }
             }
 
-            asatsuyu_hir::HirPattern::List { span, .. } => {
-                // E0304: Unsupported pattern kind.
-                self.push_diagnostic(
-                    Diagnostic::error("list patterns are not yet supported", *span)
-                        .with_code(DiagnosticCode::E0304)
-                        .with_label(*span, "not yet available"),
-                );
-                ThirPattern::Wildcard(*span)
+            asatsuyu_hir::HirPattern::List { elements, rest, span } => {
+                self.check_list_pattern(elements, *rest, expected_ty, *span)
             }
         }
+    }
+
+    fn check_list_pattern(
+        &mut self,
+        elements: &[asatsuyu_hir::HirPattern],
+        rest: Option<DefId>,
+        expected_ty: &Ty,
+        span: Span,
+    ) -> ThirPattern {
+        let elem_ty = self.infer.fresh_var();
+        let list_def_id = self.type_name_to_def_id.get("List").copied().expect("builtin List type");
+        let list_ty = Ty::Named {
+            def_id: list_def_id,
+            name: SmolStr::from("List"),
+            args: vec![elem_ty.clone()],
+        };
+        self.unify_or_error(expected_ty, &list_ty, span, DiagnosticContext::Simple);
+
+        let checked_elements: Vec<ThirPattern> =
+            elements.iter().map(|p| self.check_pattern(p, &elem_ty)).collect();
+
+        let checked_rest = rest.map(|rest_def_id| {
+            let rest_ty = self.infer.resolve(&list_ty);
+            self.type_env.insert(rest_def_id, TypeScheme::mono(rest_ty.clone()));
+            Box::new(ThirPattern::Variable { def_id: rest_def_id, ty: rest_ty, span })
+        });
+
+        let resolved_ty = self.infer.resolve(&list_ty);
+        ThirPattern::List { elements: checked_elements, rest: checked_rest, ty: resolved_ty, span }
     }
 
     // ── Exhaustiveness & reachability ─────────────────────────────
@@ -1352,6 +1483,9 @@ impl TyCheckCtx {
     fn check_match_coverage(&mut self, subject_ty: &Ty, arms: &[ThirMatchArm], match_span: Span) {
         let resolved = self.infer.resolve(subject_ty);
         match &resolved {
+            Ty::Named { name, .. } if name == "List" => {
+                self.check_list_coverage(arms, match_span);
+            }
             Ty::Named { def_id, name, .. } => {
                 self.check_adt_coverage(*def_id, name, arms, match_span);
             }
@@ -1359,6 +1493,64 @@ impl TyCheckCtx {
                 self.check_primitive_coverage(arms, match_span);
             }
             _ => {}
+        }
+    }
+
+    fn check_list_coverage(&mut self, arms: &[ThirMatchArm], match_span: Span) {
+        let mut empty_seen = false;
+        let mut non_empty_seen = false;
+        let mut catchall_seen = false;
+
+        for arm in arms {
+            let arm_is_reachable = !catchall_seen
+                && !(empty_seen && non_empty_seen)
+                && match &arm.pattern {
+                    ThirPattern::Wildcard(_) | ThirPattern::Variable { .. } => true,
+                    ThirPattern::List { elements, rest, .. } => {
+                        if elements.is_empty() && rest.is_none() {
+                            !empty_seen
+                        } else if elements.is_empty() && rest.is_some() {
+                            !(empty_seen && non_empty_seen)
+                        } else {
+                            !non_empty_seen
+                        }
+                    }
+                    _ => true,
+                };
+
+            if !arm_is_reachable {
+                self.push_unreachable_arm(arm.span);
+                continue;
+            }
+
+            match &arm.pattern {
+                ThirPattern::Wildcard(_) | ThirPattern::Variable { .. } => {
+                    catchall_seen = true;
+                }
+                ThirPattern::List { elements, rest, .. } => {
+                    if elements.is_empty() && rest.is_none() {
+                        empty_seen = true;
+                    } else if elements.is_empty() && rest.is_some() {
+                        empty_seen = true;
+                        non_empty_seen = true;
+                    } else {
+                        non_empty_seen = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if !(catchall_seen || (empty_seen && non_empty_seen)) {
+            self.push_diagnostic(
+                Diagnostic::error(
+                    "non-exhaustive list match: cover `[]` and a non-empty list pattern",
+                    match_span,
+                )
+                .with_code(DiagnosticCode::E0300)
+                .with_label(match_span, "not all list shapes are covered")
+                .with_hint("add `[]`, `[x, ..]`, `[..]`, or `_` as needed"),
+            );
         }
     }
 

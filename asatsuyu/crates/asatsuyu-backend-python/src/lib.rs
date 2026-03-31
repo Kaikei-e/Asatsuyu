@@ -1247,4 +1247,59 @@ pub fn get_data(url: String) -> Int {
         assert!(py.contains("Result[T, U]"), "should use T, U not Any: {py}");
         assert!(!py.contains("Any"), "must not contain Any: {py}");
     }
+
+    // ── list module → list comprehension ──────────────────────────
+
+    #[test]
+    fn emit_list_map_as_comprehension() {
+        let py =
+            python_from_source("pub fn f() -> List(Int) { list.map([1, 2, 3], fn(x) { x * 2 }) }");
+        assert!(
+            py.contains("[x * 2 for x in") || py.contains("[(x * 2) for x in"),
+            "list.map should emit list comprehension: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_filter_as_comprehension() {
+        let py = python_from_source(
+            "pub fn f() -> List(Int) { list.filter([1, 2, 3], fn(x) { x > 0 }) }",
+        );
+        assert!(
+            py.contains("[x for x in") && py.contains("if (x > 0)"),
+            "list.filter should emit list comprehension: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_length() {
+        let py = python_from_source("pub fn f() -> Int { list.length([1, 2, 3]) }");
+        assert!(py.contains("len("), "list.length should emit len(): {py}");
+    }
+
+    #[test]
+    fn emit_list_fold_as_loop_in_return_position() {
+        let py = python_from_source(
+            "pub fn add(acc: Int, x: Int) -> Int { acc + x }\n\
+             pub fn f() -> Int { list.fold([1, 2, 3], 0, add) }",
+        );
+        assert!(py.contains("for _fold_item_"), "list.fold should emit a for loop: {py}");
+        assert!(py.contains("return _fold_acc_"), "list.fold should return the accumulator: {py}");
+    }
+
+    #[test]
+    fn emit_list_head_and_rest() {
+        let py = python_from_source(
+            "pub fn heady(items: List(Int)) -> Option(Int) { list.head(items) }\n\
+             pub fn resty(items: List(Int)) -> Option(List(Int)) { list.rest(items) }",
+        );
+        assert!(
+            py.contains("[0] if items else None"),
+            "list.head should emit conditional indexing: {py}"
+        );
+        assert!(
+            py.contains("[1:] if items else None"),
+            "list.rest should emit conditional slicing: {py}"
+        );
+    }
 }

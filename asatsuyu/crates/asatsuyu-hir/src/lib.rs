@@ -87,8 +87,8 @@ mod tests {
         let result = hir_from_source("");
         assert!(!result.has_errors());
         assert!(result.module.functions.is_empty());
-        // Symbol table contains built-in definitions (string_concat, println).
-        assert_eq!(result.module.symbol_table.len(), 2);
+        // Symbol table contains built-in definitions (string_concat, println, list).
+        assert_eq!(result.module.symbol_table.len(), 3);
     }
 
     // ── 2. Minimal function ─────────────────────────────────────────

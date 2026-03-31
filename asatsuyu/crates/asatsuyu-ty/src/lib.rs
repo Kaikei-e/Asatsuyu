@@ -1404,4 +1404,118 @@ pub fn f() -> Result(Bool, PyExc) {
             result.diagnostics,
         );
     }
+
+    // ── List pattern matching ──────────────────────────────────────
+
+    #[test]
+    fn list_pattern_empty() {
+        let src = "pub fn f(items: List(Int)) -> Int {\
+                     match items { [] -> 0  _ -> 1 } }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "empty list pattern should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn list_pattern_head_rest() {
+        let src = "pub fn f(items: List(Int)) -> Int {\
+                     match items { [h, ..] -> h  [] -> 0 } }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "head+rest pattern should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn list_pattern_named_rest() {
+        let src = "pub fn f(items: List(Int)) -> Int {\
+                     match items { [h, ..rest] -> h  [] -> 0 } }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "named rest pattern should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    // ── list module builtins ───────────────────────────────────────
+
+    #[test]
+    fn list_map_type_checks() {
+        let src = "pub fn f() -> List(Int) {\
+                     list.map([1, 2, 3], fn(x) { x * 2 }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.map should type-check: {:?}", result.diagnostics);
+        assert_no_error_ty(&result.module.functions[0].body);
+    }
+
+    #[test]
+    fn list_filter_type_checks() {
+        let src = "pub fn f() -> List(Int) {\
+                     list.filter([1, 2, 3], fn(x) { x > 0 }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.filter should type-check: {:?}", result.diagnostics);
+        assert_no_error_ty(&result.module.functions[0].body);
+    }
+
+    #[test]
+    fn list_length_type_checks() {
+        let src = "pub fn f() -> Int { list.length([1, 2, 3]) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.length should type-check: {:?}", result.diagnostics);
+        assert_no_error_ty(&result.module.functions[0].body);
+    }
+
+    #[test]
+    fn list_fold_type_checks() {
+        // fold with explicit type annotation on accumulator (type inference
+        // for higher-order callback params is a known limitation for MVP).
+        let src = "pub fn add(acc: Int, x: Int) -> Int { acc + x }\n\
+                   pub fn f() -> Int {\
+                     list.fold([1, 2, 3], 0, add) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.fold should type-check: {:?}", result.diagnostics);
+        assert_no_error_ty(&result.module.functions[1].body);
+    }
+
+    #[test]
+    fn list_head_and_rest_type_check() {
+        let src = "pub fn heady(items: List(Int)) -> Option(Int) { list.head(items) }\n\
+                   pub fn resty(items: List(Int)) -> Option(List(Int)) { list.rest(items) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.head/rest should type-check: {:?}", result.diagnostics);
+        assert_no_error_ty(&result.module.functions[0].body);
+        assert_no_error_ty(&result.module.functions[1].body);
+    }
+
+    #[test]
+    fn list_match_requires_empty_and_non_empty() {
+        let src = "pub fn f(items: List(Int)) -> Int { match items { [] -> 0 } }";
+        let result = thir_from_source(src);
+        assert!(result.has_errors(), "single empty-arm list match should be rejected");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0300)),
+            "should emit E0300 for non-exhaustive list match: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn list_match_empty_and_rest_is_exhaustive() {
+        let src = "pub fn f(items: List(Int)) -> Int { match items { [] -> 0  [x, ..] -> x } }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "empty + non-empty list patterns should be exhaustive: {:?}",
+            result.diagnostics
+        );
+    }
 }

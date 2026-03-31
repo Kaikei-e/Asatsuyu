@@ -6,11 +6,11 @@ input_file: crates/asatsuyu-cli/tests/cases/adt-record/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             visibility: Public,
             params: [],
             return_ty: Named {
-                def_id: Idx::<DefData>(2),
+                def_id: Idx::<DefData>(3),
                 name: "Point",
                 args: [],
             },
@@ -18,7 +18,7 @@ ThirModule {
                 exprs: [
                     Call {
                         func: Var {
-                            def_id: Idx::<DefData>(2),
+                            def_id: Idx::<DefData>(3),
                             ty: Function {
                                 params: [
                                     Primitive(
@@ -29,7 +29,7 @@ ThirModule {
                                     ),
                                 ],
                                 ret: Named {
-                                    def_id: Idx::<DefData>(2),
+                                    def_id: Idx::<DefData>(3),
                                     name: "Point",
                                     args: [],
                                 },
@@ -77,7 +77,7 @@ ThirModule {
                             ),
                         ],
                         ty: Named {
-                            def_id: Idx::<DefData>(2),
+                            def_id: Idx::<DefData>(3),
                             name: "Point",
                             args: [],
                         },
@@ -91,7 +91,7 @@ ThirModule {
                     },
                 ],
                 ty: Named {
-                    def_id: Idx::<DefData>(2),
+                    def_id: Idx::<DefData>(3),
                     name: "Point",
                     args: [],
                 },
@@ -106,7 +106,7 @@ ThirModule {
             ty: Function {
                 params: [],
                 ret: Named {
-                    def_id: Idx::<DefData>(2),
+                    def_id: Idx::<DefData>(3),
                     name: "Point",
                     args: [],
                 },
@@ -122,12 +122,12 @@ ThirModule {
     ],
     custom_types: [
         HirCustomType {
-            def_id: Idx::<DefData>(2),
+            def_id: Idx::<DefData>(3),
             visibility: Private,
             type_params: [],
             variants: [
                 HirVariant {
-                    def_id: Idx::<DefData>(2),
+                    def_id: Idx::<DefData>(3),
                     fields: [
                         HirFieldType {
                             label: Some(
@@ -197,7 +197,7 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 4,
+            len: 5,
             data: [
                 DefData {
                     name: "string_concat",
@@ -212,6 +212,17 @@ ThirModule {
                 },
                 DefData {
                     name: "println",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
                     kind: Builtin,
                     span: Span {
                         file_id: FileId(

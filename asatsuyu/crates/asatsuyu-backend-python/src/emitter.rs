@@ -59,6 +59,8 @@ pub(crate) struct Emitter<'a> {
     checked_counter: usize,
     /// Whether any Checked FFI wrapper was emitted (to decide prelude import).
     pub(crate) has_checked_ffi: bool,
+    /// Whether `functools` is needed for expression-position `list.fold`.
+    has_functools: bool,
 }
 
 /// Metadata for a Checked FFI call target.
@@ -82,6 +84,7 @@ impl<'a> Emitter<'a> {
             has_try: false,
             checked_counter: 0,
             has_checked_ffi: false,
+            has_functools: false,
         }
     }
 
@@ -96,6 +99,7 @@ impl<'a> Emitter<'a> {
             has_try: false,
             checked_counter: 0,
             has_checked_ffi: false,
+            has_functools: false,
         }
     }
 
@@ -104,6 +108,8 @@ impl<'a> Emitter<'a> {
         self.has_try = self.module.functions.iter().any(|f| expr_contains_try(&f.body));
         // Pre-scan for Checked FFI calls.
         self.has_checked_ffi = self.scan_for_checked_ffi();
+        self.has_functools =
+            self.module.functions.iter().any(|f| self.expr_contains_list_fold(&f.body));
         if self.has_checked_ffi {
             self.has_try = true; // Checked FFI wrappers use PyException
         }
@@ -183,6 +189,9 @@ impl<'a> Emitter<'a> {
         }
         if has_custom_types {
             self.output.push_str("from dataclasses import dataclass\n");
+        }
+        if self.has_functools {
+            self.output.push_str("import functools\n");
         }
         if self.has_try || self.has_checked_ffi {
             if self.has_checked_ffi {
@@ -372,6 +381,15 @@ impl<'a> Emitter<'a> {
             self.emit_match_stmt(subject, arms, false);
             return;
         }
+        if let ThirExpr::Let { binding, value, .. } = expr
+            && let ThirExpr::Call { func, args, .. } = value.as_ref()
+            && let Some(method) = self.list_module_method(func)
+            && method == "fold"
+            && args.len() == 3
+        {
+            self.emit_list_fold_let_stmt(*binding, args, expr.span());
+            return;
+        }
         // `let x = try expr` → try/except block
         if let ThirExpr::Let { binding, value, .. } = expr
             && let ThirExpr::Try { expr: inner, .. } = value.as_ref()
@@ -410,6 +428,14 @@ impl<'a> Emitter<'a> {
     fn emit_return_stmt(&mut self, expr: &ThirExpr) {
         if let ThirExpr::Match { subject, arms, .. } = expr {
             self.emit_match_stmt(subject, arms, true);
+            return;
+        }
+        if let ThirExpr::Call { func, args, .. } = expr
+            && let Some(method) = self.list_module_method(func)
+            && method == "fold"
+            && args.len() == 3
+        {
+            self.emit_list_fold_return_stmt(args, expr.span());
             return;
         }
         // `try expr` in return position → try/except, then return Ok(value)
@@ -542,6 +568,11 @@ impl<'a> Emitter<'a> {
     }
 
     fn emit_builtin_call(&mut self, func: &ThirExpr, args: &[ThirExpr]) -> bool {
+        // Check for list.* module calls (field access on "list" identifier).
+        if let Some(method) = self.list_module_method(func) {
+            return self.emit_list_call(&method, args);
+        }
+
         let ThirExpr::Var { def_id, .. } = func else {
             return false;
         };
@@ -561,6 +592,200 @@ impl<'a> Emitter<'a> {
         } else {
             false
         }
+    }
+
+    /// If `func` is `list.<method>`, return the method name.
+    fn list_module_method(&self, func: &ThirExpr) -> Option<SmolStr> {
+        let ThirExpr::FieldAccess { receiver, field, .. } = func else {
+            return None;
+        };
+        let ThirExpr::Var { def_id, .. } = receiver.as_ref() else {
+            return None;
+        };
+        let name = self.module.symbol_table.get(*def_id).name.as_str();
+        if name == "list" { Some(field.clone()) } else { None }
+    }
+
+    /// Emit a `list.*` call as idiomatic Python.
+    fn emit_list_call(&mut self, method: &str, args: &[ThirExpr]) -> bool {
+        match method {
+            // list.map(items, fn(x) { expr }) → [expr for x in items]
+            "map" if args.len() == 2 => {
+                if let Some((param, body)) = self.extract_lambda(&args[1]) {
+                    self.output.push('[');
+                    self.emit_expr(body);
+                    self.output.push_str(" for ");
+                    self.output.push_str(&param);
+                    self.output.push_str(" in ");
+                    self.emit_expr(&args[0]);
+                    self.output.push(']');
+                } else {
+                    // Non-lambda: fall back to [f(x) for x in items]
+                    self.output.push('[');
+                    self.emit_expr(&args[1]);
+                    self.output.push_str("(_x) for _x in ");
+                    self.emit_expr(&args[0]);
+                    self.output.push(']');
+                }
+                true
+            }
+            // list.filter(items, fn(x) { cond }) → [x for x in items if cond]
+            "filter" if args.len() == 2 => {
+                if let Some((param, body)) = self.extract_lambda(&args[1]) {
+                    self.output.push('[');
+                    self.output.push_str(&param);
+                    self.output.push_str(" for ");
+                    self.output.push_str(&param);
+                    self.output.push_str(" in ");
+                    self.emit_expr(&args[0]);
+                    self.output.push_str(" if ");
+                    self.emit_expr(body);
+                    self.output.push(']');
+                } else {
+                    self.output.push_str("[_x for _x in ");
+                    self.emit_expr(&args[0]);
+                    self.output.push_str(" if ");
+                    self.emit_expr(&args[1]);
+                    self.output.push_str("(_x)]");
+                }
+                true
+            }
+            // list.length(items) → len(items)
+            "length" if args.len() == 1 => {
+                self.output.push_str("len(");
+                self.emit_expr(&args[0]);
+                self.output.push(')');
+                true
+            }
+            // list.reverse(items) → list(reversed(items))
+            "reverse" if args.len() == 1 => {
+                self.output.push_str("list(reversed(");
+                self.emit_expr(&args[0]);
+                self.output.push_str("))");
+                true
+            }
+            // list.append(a, b) → a + b
+            "append" if args.len() == 2 => {
+                self.output.push('(');
+                self.emit_expr(&args[0]);
+                self.output.push_str(" + ");
+                self.emit_expr(&args[1]);
+                self.output.push(')');
+                true
+            }
+            // list.is_empty(items) → (len(items) == 0)
+            "is_empty" if args.len() == 1 => {
+                self.output.push_str("(len(");
+                self.emit_expr(&args[0]);
+                self.output.push_str(") == 0)");
+                true
+            }
+            // list.contains(items, x) → (x in items)
+            "contains" if args.len() == 2 => {
+                self.output.push('(');
+                self.emit_expr(&args[1]);
+                self.output.push_str(" in ");
+                self.emit_expr(&args[0]);
+                self.output.push(')');
+                true
+            }
+            // list.fold(items, init, f) → functools.reduce-style loop
+            "fold" if args.len() == 3 => {
+                self.output.push_str("functools.reduce(");
+                self.emit_expr(&args[2]);
+                self.output.push_str(", ");
+                self.emit_expr(&args[0]);
+                self.output.push_str(", ");
+                self.emit_expr(&args[1]);
+                self.output.push(')');
+                true
+            }
+            // list.head(items) → (items[0] if items else None)
+            "head" if args.len() == 1 => {
+                self.output.push('(');
+                self.emit_expr(&args[0]);
+                self.output.push_str("[0] if ");
+                self.emit_expr(&args[0]);
+                self.output.push_str(" else None)");
+                true
+            }
+            // list.rest(items) → (items[1:] if items else None)
+            "rest" if args.len() == 1 => {
+                self.output.push('(');
+                self.emit_expr(&args[0]);
+                self.output.push_str("[1:] if ");
+                self.emit_expr(&args[0]);
+                self.output.push_str(" else None)");
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn emit_list_fold_let_stmt(&mut self, binding: DefId, args: &[ThirExpr], span: Span) {
+        let name = self.module.symbol_table.get(binding).name.clone();
+        let item_tmp = format!("_fold_item_{}", self.try_counter);
+        self.try_counter += 1;
+
+        self.write_indent();
+        let _ = write!(self.output, "{name} = ");
+        self.emit_expr(&args[1]);
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.write_indent();
+        let _ = write!(self.output, "for {item_tmp} in ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(":\n");
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{name} = ");
+        self.emit_expr(&args[2]);
+        self.output.push('(');
+        self.output.push_str(name.as_str());
+        self.output.push_str(", ");
+        self.output.push_str(&item_tmp);
+        self.output.push_str(")\n");
+        self.pop_indent();
+    }
+
+    fn emit_list_fold_return_stmt(&mut self, args: &[ThirExpr], span: Span) {
+        let acc_tmp = format!("_fold_acc_{}", self.try_counter);
+        let item_tmp = format!("_fold_item_{}", self.try_counter);
+        self.try_counter += 1;
+
+        self.write_indent();
+        let _ = write!(self.output, "{acc_tmp} = ");
+        self.emit_expr(&args[1]);
+        self.write_source_comment(span);
+        self.output.push('\n');
+        self.write_indent();
+        let _ = write!(self.output, "for {item_tmp} in ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(":\n");
+        self.push_indent();
+        self.write_indent();
+        let _ = write!(self.output, "{acc_tmp} = ");
+        self.emit_expr(&args[2]);
+        self.output.push('(');
+        self.output.push_str(&acc_tmp);
+        self.output.push_str(", ");
+        self.output.push_str(&item_tmp);
+        self.output.push_str(")\n");
+        self.pop_indent();
+        self.write_indent();
+        let _ = writeln!(self.output, "return {acc_tmp}");
+    }
+
+    /// Extract parameter name and body from a single-parameter lambda expression.
+    fn extract_lambda<'b>(&self, expr: &'b ThirExpr) -> Option<(String, &'b ThirExpr)> {
+        let ThirExpr::Lambda { params, body, .. } = expr else {
+            return None;
+        };
+        if params.len() != 1 {
+            return None;
+        }
+        let param_name = self.module.symbol_table.get(params[0].def_id).name.to_string();
+        Some((param_name, body.as_ref()))
     }
 
     // ── Match statement emission ──────────────────────────────────
@@ -740,6 +965,39 @@ impl<'a> Emitter<'a> {
             ThirExpr::Try { expr, .. } => self.expr_contains_checked_ffi(expr),
             ThirExpr::List { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_checked_ffi(e))
+            }
+            ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
+        }
+    }
+
+    fn expr_contains_list_fold(&self, expr: &ThirExpr) -> bool {
+        match expr {
+            ThirExpr::Call { func, args, .. } => {
+                self.list_module_method(func).is_some_and(|m| m == "fold")
+                    || self.expr_contains_list_fold(func)
+                    || args.iter().any(|a| self.expr_contains_list_fold(a))
+            }
+            ThirExpr::Block { exprs, .. } => exprs.iter().any(|e| self.expr_contains_list_fold(e)),
+            ThirExpr::Let { value, .. } => self.expr_contains_list_fold(value),
+            ThirExpr::If { condition, then_body, else_body, .. } => {
+                self.expr_contains_list_fold(condition)
+                    || self.expr_contains_list_fold(then_body)
+                    || else_body.as_ref().is_some_and(|e| self.expr_contains_list_fold(e))
+            }
+            ThirExpr::Match { subject, arms, .. } => {
+                self.expr_contains_list_fold(subject)
+                    || arms.iter().any(|a| self.expr_contains_list_fold(&a.body))
+            }
+            ThirExpr::BinaryOp { lhs, rhs, .. } => {
+                self.expr_contains_list_fold(lhs) || self.expr_contains_list_fold(rhs)
+            }
+            ThirExpr::UnaryOp { expr, .. } | ThirExpr::Lambda { body: expr, .. } => {
+                self.expr_contains_list_fold(expr)
+            }
+            ThirExpr::FieldAccess { receiver, .. } => self.expr_contains_list_fold(receiver),
+            ThirExpr::Try { expr, .. } => self.expr_contains_list_fold(expr),
+            ThirExpr::List { elements, .. } => {
+                elements.iter().any(|e| self.expr_contains_list_fold(e))
             }
             ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
         }
@@ -1043,11 +1301,17 @@ fn ty_to_python(ty: &Ty, var_map: &[(TyVarId, String)]) -> String {
         Ty::Primitive(PrimTy::Bool) => "bool".into(),
         Ty::Primitive(PrimTy::None) => "None".into(),
         Ty::Named { name, args, .. } => {
+            // Map Asatsuyu builtin types to Python builtin names.
+            let py_name = match name.as_str() {
+                "List" => "list",
+                "Dict" => "dict",
+                _ => name.as_str(),
+            };
             if args.is_empty() {
-                name.to_string()
+                py_name.to_string()
             } else {
                 let arg_strs: Vec<String> = args.iter().map(|a| ty_to_python(a, var_map)).collect();
-                format!("{name}[{}]", arg_strs.join(", "))
+                format!("{py_name}[{}]", arg_strs.join(", "))
             }
         }
         Ty::FfiModule { module_name } => module_name.to_string(),

@@ -6,7 +6,7 @@ input_file: crates/asatsuyu-cli/tests/cases/fn-body-block/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(2),
+            def_id: Idx::<DefData>(3),
             visibility: Public,
             params: [],
             return_ty: Primitive(
@@ -15,7 +15,7 @@ ThirModule {
             body: Block {
                 exprs: [
                     Let {
-                        binding: Idx::<DefData>(3),
+                        binding: Idx::<DefData>(4),
                         value: Literal(
                             ThirLiteral {
                                 kind: Int,
@@ -44,7 +44,7 @@ ThirModule {
                         },
                     },
                     Let {
-                        binding: Idx::<DefData>(4),
+                        binding: Idx::<DefData>(5),
                         value: Literal(
                             ThirLiteral {
                                 kind: Int,
@@ -75,7 +75,7 @@ ThirModule {
                     BinaryOp {
                         op: Add,
                         lhs: Var {
-                            def_id: Idx::<DefData>(3),
+                            def_id: Idx::<DefData>(4),
                             ty: Primitive(
                                 Int,
                             ),
@@ -88,7 +88,7 @@ ThirModule {
                             },
                         },
                         rhs: Var {
-                            def_id: Idx::<DefData>(4),
+                            def_id: Idx::<DefData>(5),
                             ty: Primitive(
                                 Int,
                             ),
@@ -142,7 +142,7 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 5,
+            len: 6,
             data: [
                 DefData {
                     name: "string_concat",
@@ -157,6 +157,17 @@ ThirModule {
                 },
                 DefData {
                     name: "println",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
                     kind: Builtin,
                     span: Span {
                         file_id: FileId(
