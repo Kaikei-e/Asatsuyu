@@ -1,0 +1,7 @@
+pub fn main() -> Int {
+  42
+}
+
+pub fn main() -> Int {
+  43
+}

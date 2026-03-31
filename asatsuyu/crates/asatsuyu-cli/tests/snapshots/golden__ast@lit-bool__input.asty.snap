@@ -1,0 +1,86 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/lit-bool/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+                visibility: Public,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Bool",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 17,
+                                end: 21,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 17,
+                            end: 21,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Literal(
+                            Literal {
+                                kind: Bool,
+                                value: "True",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 26,
+                                    end: 30,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 21,
+                        end: 32,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 32,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 33,
+    },
+}

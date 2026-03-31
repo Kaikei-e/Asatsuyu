@@ -1,0 +1,86 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-mismatch/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+                visibility: Public,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "String",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 17,
+                                end: 23,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 17,
+                            end: 23,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Literal(
+                            Literal {
+                                kind: Int,
+                                value: "42",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 28,
+                                    end: 30,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 23,
+                        end: 32,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 32,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 33,
+    },
+}

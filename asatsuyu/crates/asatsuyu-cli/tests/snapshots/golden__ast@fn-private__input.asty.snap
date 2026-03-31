@@ -1,0 +1,86 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/fn-private/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "helper",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 9,
+                    },
+                },
+                visibility: Private,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 15,
+                                end: 18,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 15,
+                            end: 18,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Literal(
+                            Literal {
+                                kind: Int,
+                                value: "42",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 23,
+                                    end: 25,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 18,
+                        end: 27,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 27,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 28,
+    },
+}

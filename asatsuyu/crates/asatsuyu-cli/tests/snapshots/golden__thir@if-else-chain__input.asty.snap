@@ -1,0 +1,314 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/if-else-chain/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                ThirParam {
+                    def_id: Idx::<DefData>(2),
+                    ty: Primitive(
+                        Int,
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 16,
+                        end: 22,
+                    },
+                },
+            ],
+            return_ty: Primitive(
+                String,
+            ),
+            body: Block {
+                exprs: [
+                    If {
+                        condition: BinaryOp {
+                            op: Gt,
+                            lhs: Var {
+                                def_id: Idx::<DefData>(2),
+                                ty: Primitive(
+                                    Int,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 41,
+                                    end: 42,
+                                },
+                            },
+                            rhs: Literal(
+                                ThirLiteral {
+                                    kind: Int,
+                                    value: "0",
+                                    ty: Primitive(
+                                        Int,
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 45,
+                                        end: 46,
+                                    },
+                                },
+                            ),
+                            ty: Primitive(
+                                Bool,
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 40,
+                                end: 46,
+                            },
+                        },
+                        then_body: Block {
+                            exprs: [
+                                Literal(
+                                    ThirLiteral {
+                                        kind: String,
+                                        value: "\"positive\"",
+                                        ty: Primitive(
+                                            String,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 49,
+                                            end: 59,
+                                        },
+                                    },
+                                ),
+                            ],
+                            ty: Primitive(
+                                String,
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 46,
+                                end: 61,
+                            },
+                        },
+                        else_body: Some(
+                            If {
+                                condition: BinaryOp {
+                                    op: Eq,
+                                    lhs: Var {
+                                        def_id: Idx::<DefData>(2),
+                                        ty: Primitive(
+                                            Int,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 70,
+                                            end: 71,
+                                        },
+                                    },
+                                    rhs: Literal(
+                                        ThirLiteral {
+                                            kind: Int,
+                                            value: "0",
+                                            ty: Primitive(
+                                                Int,
+                                            ),
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 75,
+                                                end: 76,
+                                            },
+                                        },
+                                    ),
+                                    ty: Primitive(
+                                        Bool,
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 69,
+                                        end: 76,
+                                    },
+                                },
+                                then_body: Block {
+                                    exprs: [
+                                        Literal(
+                                            ThirLiteral {
+                                                kind: String,
+                                                value: "\"zero\"",
+                                                ty: Primitive(
+                                                    String,
+                                                ),
+                                                span: Span {
+                                                    file_id: FileId(
+                                                        0,
+                                                    ),
+                                                    start: 79,
+                                                    end: 85,
+                                                },
+                                            },
+                                        ),
+                                    ],
+                                    ty: Primitive(
+                                        String,
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 76,
+                                        end: 87,
+                                    },
+                                },
+                                else_body: Some(
+                                    Block {
+                                        exprs: [
+                                            Literal(
+                                                ThirLiteral {
+                                                    kind: String,
+                                                    value: "\"negative\"",
+                                                    ty: Primitive(
+                                                        String,
+                                                    ),
+                                                    span: Span {
+                                                        file_id: FileId(
+                                                            0,
+                                                        ),
+                                                        start: 95,
+                                                        end: 105,
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                        ty: Primitive(
+                                            String,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 92,
+                                            end: 107,
+                                        },
+                                    },
+                                ),
+                                ty: Primitive(
+                                    String,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 66,
+                                    end: 107,
+                                },
+                            },
+                        ),
+                        ty: Primitive(
+                            String,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 35,
+                            end: 107,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    String,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 33,
+                    end: 109,
+                },
+            },
+            ty: Function {
+                params: [
+                    Primitive(
+                        Int,
+                    ),
+                ],
+                ret: Primitive(
+                    String,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 109,
+            },
+        },
+    ],
+    custom_types: [],
+    imports: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "classify",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 15,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 16,
+                        end: 17,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {},
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 110,
+    },
+}

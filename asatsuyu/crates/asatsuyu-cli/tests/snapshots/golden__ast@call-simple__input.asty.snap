@@ -1,0 +1,242 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/call-simple/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "double",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 13,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "x",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 14,
+                                end: 15,
+                            },
+                        },
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 17,
+                                        end: 20,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 17,
+                                    end: 20,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 14,
+                            end: 20,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 25,
+                                end: 28,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 25,
+                            end: 28,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        BinaryOp {
+                            op: Mul,
+                            lhs: Variable(
+                                Ident {
+                                    name: "x",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 33,
+                                        end: 34,
+                                    },
+                                },
+                            ),
+                            rhs: Literal(
+                                Literal {
+                                    kind: Int,
+                                    value: "2",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 37,
+                                        end: 38,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 30,
+                                end: 38,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 28,
+                        end: 40,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 40,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 49,
+                        end: 53,
+                    },
+                },
+                visibility: Public,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 59,
+                                end: 62,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 59,
+                            end: 62,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Call {
+                            func: Variable(
+                                Ident {
+                                    name: "double",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 67,
+                                        end: 73,
+                                    },
+                                },
+                            ),
+                            args: [
+                                Literal(
+                                    Literal {
+                                        kind: Int,
+                                        value: "5",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 74,
+                                            end: 75,
+                                        },
+                                    },
+                                ),
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 64,
+                                end: 76,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 62,
+                        end: 78,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 40,
+                    end: 78,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 79,
+    },
+}

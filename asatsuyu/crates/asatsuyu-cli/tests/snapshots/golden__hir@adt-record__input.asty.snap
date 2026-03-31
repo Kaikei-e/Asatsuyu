@@ -1,0 +1,214 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/adt-record/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(2),
+            visibility: Public,
+            params: [],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Point",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 53,
+                        end: 58,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Call {
+                        func: Var(
+                            Idx::<DefData>(1),
+                            Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 63,
+                                end: 68,
+                            },
+                        ),
+                        args: [
+                            Literal(
+                                HirLiteral {
+                                    kind: Int,
+                                    value: "0",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 69,
+                                        end: 70,
+                                    },
+                                },
+                            ),
+                            Literal(
+                                HirLiteral {
+                                    kind: Int,
+                                    value: "0",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 72,
+                                        end: 73,
+                                    },
+                                },
+                            ),
+                        ],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 60,
+                            end: 74,
+                        },
+                    },
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 58,
+                    end: 76,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 32,
+                end: 76,
+            },
+        },
+    ],
+    custom_types: [
+        HirCustomType {
+            def_id: Idx::<DefData>(1),
+            visibility: Private,
+            type_params: [],
+            variants: [
+                HirVariant {
+                    def_id: Idx::<DefData>(1),
+                    fields: [
+                        HirFieldType {
+                            label: Some(
+                                "x",
+                            ),
+                            type_expr: HirTypeExpr {
+                                name: "Int",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 18,
+                                    end: 21,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 12,
+                                end: 21,
+                            },
+                        },
+                        HirFieldType {
+                            label: Some(
+                                "y",
+                            ),
+                            type_expr: HirTypeExpr {
+                                name: "Int",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 27,
+                                    end: 30,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 21,
+                                end: 30,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 32,
+                    },
+                },
+            ],
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 32,
+            },
+        },
+    ],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "Point",
+                    kind: Type,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 10,
+                    },
+                },
+                DefData {
+                    name: "origin",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 41,
+                        end: 47,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 77,
+    },
+}

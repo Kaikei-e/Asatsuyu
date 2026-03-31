@@ -1,0 +1,171 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/match-wildcard/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                HirParam {
+                    def_id: Idx::<DefData>(2),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "Int",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 17,
+                                end: 20,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 14,
+                        end: 20,
+                    },
+                },
+            ],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 25,
+                        end: 28,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Match {
+                        subject: Var(
+                            Idx::<DefData>(2),
+                            Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 39,
+                                end: 40,
+                            },
+                        ),
+                        arms: [
+                            HirMatchArm {
+                                pattern: Wildcard(
+                                    Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 42,
+                                        end: 48,
+                                    },
+                                ),
+                                guard: None,
+                                body: Literal(
+                                    HirLiteral {
+                                        kind: Int,
+                                        value: "42",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 52,
+                                            end: 54,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 42,
+                                    end: 54,
+                                },
+                            },
+                        ],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 30,
+                            end: 58,
+                        },
+                    },
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 28,
+                    end: 60,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 60,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "always",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 13,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 14,
+                        end: 15,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 61,
+    },
+}

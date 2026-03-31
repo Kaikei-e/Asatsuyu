@@ -1,0 +1,9 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/ffi-json-basic/input.asty
+---
+[E0200] Error: type mismatch: expected `PyOpaque[python.Any]`, found `String`
+  span: 64..71
+  primary [64..71]: expected `PyOpaque[python.Any]`, found `String`
+  secondary [50..63]: parameter 1 expects `PyOpaque[python.Any]`

@@ -1,0 +1,28 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-parse-missing-paren/input.asty
+---
+[E0050] Error: expected Ident
+  span: 13..14
+  primary [13..14]: expected Ident
+---
+[E0053] Error: expected parameter name
+  span: 13..14
+  primary [13..14]: expected parameter name
+---
+[E0057] Error: unexpected token in parameter list
+  span: 13..14
+  primary [13..14]: unexpected token in parameter list
+---
+[E0050] Error: expected RParen
+  span: 17..19
+  primary [17..19]: expected RParen
+---
+[E0054] Error: expected function body
+  span: 17..19
+  primary [17..19]: expected function body
+---
+[E0051] Error: expected item definition
+  span: 20..21
+  primary [20..21]: expected item definition

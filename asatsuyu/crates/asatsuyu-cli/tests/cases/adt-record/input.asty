@@ -1,0 +1,8 @@
+type Point {
+  x: Int
+  y: Int
+}
+
+pub fn origin() -> Point {
+  Point(0, 0)
+}

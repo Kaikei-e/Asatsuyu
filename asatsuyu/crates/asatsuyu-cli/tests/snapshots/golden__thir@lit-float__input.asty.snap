@@ -1,0 +1,99 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/lit-float/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [],
+            return_ty: Primitive(
+                Float,
+            ),
+            body: Block {
+                exprs: [
+                    Literal(
+                        ThirLiteral {
+                            kind: Float,
+                            value: "3.14",
+                            ty: Primitive(
+                                Float,
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 27,
+                                end: 31,
+                            },
+                        },
+                    ),
+                ],
+                ty: Primitive(
+                    Float,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 22,
+                    end: 33,
+                },
+            },
+            ty: Function {
+                params: [],
+                ret: Primitive(
+                    Float,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 33,
+            },
+        },
+    ],
+    custom_types: [],
+    imports: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 2,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {},
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 34,
+    },
+}

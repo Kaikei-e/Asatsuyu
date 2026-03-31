@@ -1,0 +1,9 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-arg-count/input.asty
+---
+[E0203] Error: function expects 1 argument(s), but 2 were given
+  span: 64..79
+  primary [64..79]: 2 argument(s) given here
+  secondary [67..73]: function expects 1 parameter(s)

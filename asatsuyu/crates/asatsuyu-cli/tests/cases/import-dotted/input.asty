@@ -1,0 +1,5 @@
+import io.path
+
+pub fn main() {
+  42
+}

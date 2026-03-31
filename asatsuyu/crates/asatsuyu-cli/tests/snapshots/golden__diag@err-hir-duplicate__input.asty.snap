@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-hir-duplicate/input.asty
+---
+[E0151] Error: duplicate definition `main`
+  span: 38..42
+  primary [38..42]: `main` is redefined here
+  secondary [7..11]: previously defined here
+  hint: rename one of the definitions

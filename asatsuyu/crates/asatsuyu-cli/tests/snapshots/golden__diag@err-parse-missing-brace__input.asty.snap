@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-parse-missing-brace/input.asty
+---
+[E0050] Error: expected RBrace
+  span: 21..21
+  primary [21..21]: expected RBrace

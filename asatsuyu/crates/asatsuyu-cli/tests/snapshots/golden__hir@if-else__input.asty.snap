@@ -1,0 +1,214 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/if-else/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                HirParam {
+                    def_id: Idx::<DefData>(2),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "Int",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 14,
+                                end: 17,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 11,
+                        end: 17,
+                    },
+                },
+            ],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 22,
+                        end: 25,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    If {
+                        condition: BinaryOp {
+                            op: Gt,
+                            lhs: Var(
+                                Idx::<DefData>(2),
+                                Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 33,
+                                    end: 34,
+                                },
+                            ),
+                            rhs: Literal(
+                                HirLiteral {
+                                    kind: Int,
+                                    value: "0",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 37,
+                                        end: 38,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 32,
+                                end: 38,
+                            },
+                        },
+                        then_body: Block {
+                            exprs: [
+                                Var(
+                                    Idx::<DefData>(2),
+                                    Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 41,
+                                        end: 42,
+                                    },
+                                ),
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 38,
+                                end: 44,
+                            },
+                        },
+                        else_body: Some(
+                            Block {
+                                exprs: [
+                                    UnaryOp {
+                                        op: Neg,
+                                        expr: Var(
+                                            Idx::<DefData>(2),
+                                            Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 53,
+                                                end: 54,
+                                            },
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 51,
+                                            end: 54,
+                                        },
+                                    },
+                                ],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 49,
+                                    end: 56,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 27,
+                            end: 56,
+                        },
+                    },
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 25,
+                    end: 58,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 58,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "abs",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 10,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 11,
+                        end: 12,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 59,
+    },
+}

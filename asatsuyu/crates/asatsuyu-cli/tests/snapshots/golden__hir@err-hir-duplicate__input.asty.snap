@@ -1,0 +1,156 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/err-hir-duplicate/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 17,
+                        end: 20,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Literal(
+                        HirLiteral {
+                            kind: Int,
+                            value: "42",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 25,
+                                end: 27,
+                            },
+                        },
+                    ),
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 20,
+                    end: 29,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 29,
+            },
+        },
+        HirFnDef {
+            def_id: Idx::<DefData>(2),
+            visibility: Public,
+            params: [],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 48,
+                        end: 51,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Literal(
+                        HirLiteral {
+                            kind: Int,
+                            value: "43",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 56,
+                                end: 58,
+                            },
+                        },
+                    ),
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 51,
+                    end: 60,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 29,
+                end: 60,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 38,
+                        end: 42,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 61,
+    },
+}

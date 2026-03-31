@@ -1,0 +1,217 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/if-else/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "abs",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 10,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "x",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 11,
+                                end: 12,
+                            },
+                        },
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 14,
+                                        end: 17,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 14,
+                                    end: 17,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 11,
+                            end: 17,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 22,
+                                end: 25,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 22,
+                            end: 25,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        If {
+                            condition: BinaryOp {
+                                op: Gt,
+                                lhs: Variable(
+                                    Ident {
+                                        name: "x",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 33,
+                                            end: 34,
+                                        },
+                                    },
+                                ),
+                                rhs: Literal(
+                                    Literal {
+                                        kind: Int,
+                                        value: "0",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 37,
+                                            end: 38,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 32,
+                                    end: 38,
+                                },
+                            },
+                            then_body: Block {
+                                exprs: [
+                                    Variable(
+                                        Ident {
+                                            name: "x",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 41,
+                                                end: 42,
+                                            },
+                                        },
+                                    ),
+                                ],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 38,
+                                    end: 44,
+                                },
+                            },
+                            else_body: Some(
+                                Block {
+                                    exprs: [
+                                        UnaryOp {
+                                            op: Neg,
+                                            expr: Variable(
+                                                Ident {
+                                                    name: "x",
+                                                    span: Span {
+                                                        file_id: FileId(
+                                                            0,
+                                                        ),
+                                                        start: 53,
+                                                        end: 54,
+                                                    },
+                                                },
+                                            ),
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 51,
+                                                end: 54,
+                                            },
+                                        },
+                                    ],
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 49,
+                                        end: 56,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 27,
+                                end: 56,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 25,
+                        end: 58,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 58,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 59,
+    },
+}

@@ -1,0 +1,228 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/binop-arithmetic/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                HirParam {
+                    def_id: Idx::<DefData>(2),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "Int",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 15,
+                                end: 18,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 12,
+                        end: 18,
+                    },
+                },
+                HirParam {
+                    def_id: Idx::<DefData>(3),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "Int",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 23,
+                                end: 26,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 19,
+                        end: 26,
+                    },
+                },
+            ],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 31,
+                        end: 34,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    BinaryOp {
+                        op: Sub,
+                        lhs: BinaryOp {
+                            op: Add,
+                            lhs: Var(
+                                Idx::<DefData>(2),
+                                Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 39,
+                                    end: 40,
+                                },
+                            ),
+                            rhs: BinaryOp {
+                                op: Mul,
+                                lhs: Var(
+                                    Idx::<DefData>(3),
+                                    Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 43,
+                                        end: 44,
+                                    },
+                                ),
+                                rhs: Literal(
+                                    HirLiteral {
+                                        kind: Int,
+                                        value: "2",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 47,
+                                            end: 48,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 42,
+                                    end: 48,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 36,
+                                end: 48,
+                            },
+                        },
+                        rhs: Literal(
+                            HirLiteral {
+                                kind: Int,
+                                value: "1",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 51,
+                                    end: 52,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 36,
+                            end: 52,
+                        },
+                    },
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 34,
+                    end: 54,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 54,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 4,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "calc",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 12,
+                        end: 13,
+                    },
+                },
+                DefData {
+                    name: "y",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 20,
+                        end: 21,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 55,
+    },
+}

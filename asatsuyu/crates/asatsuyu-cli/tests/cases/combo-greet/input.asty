@@ -1,0 +1,11 @@
+pub fn greet(name: String) -> String {
+  "Hello, " <> name <> "!"
+}
+
+pub fn add(x: Int, y: Int) -> Int {
+  x + y
+}
+
+pub fn main() -> Int {
+  add(1, 2)
+}

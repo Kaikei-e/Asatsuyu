@@ -1,0 +1,838 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/ffi-try-basic/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(7),
+            visibility: Public,
+            params: [
+                ThirParam {
+                    def_id: Idx::<DefData>(8),
+                    ty: Primitive(
+                        String,
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 217,
+                        end: 229,
+                    },
+                },
+            ],
+            return_ty: Named {
+                def_id: Idx::<DefData>(2),
+                name: "Result",
+                args: [
+                    Primitive(
+                        Bool,
+                    ),
+                    Named {
+                        def_id: Idx::<DefData>(5),
+                        name: "PyException",
+                        args: [],
+                    },
+                ],
+            },
+            body: Block {
+                exprs: [
+                    Let {
+                        binding: Idx::<DefData>(9),
+                        value: Call {
+                            func: FieldAccess {
+                                receiver: Var {
+                                    def_id: Idx::<DefData>(1),
+                                    ty: FfiModule {
+                                        module_name: "pathlib",
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 272,
+                                        end: 279,
+                                    },
+                                },
+                                field: "Path",
+                                ty: Function {
+                                    params: [
+                                        Primitive(
+                                            String,
+                                        ),
+                                    ],
+                                    ret: FfiInstance {
+                                        module: "pathlib",
+                                        class: "Path",
+                                    },
+                                },
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 271,
+                                    end: 284,
+                                },
+                            },
+                            args: [
+                                Var {
+                                    def_id: Idx::<DefData>(8),
+                                    ty: Primitive(
+                                        String,
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 285,
+                                        end: 289,
+                                    },
+                                },
+                            ],
+                            ty: FfiInstance {
+                                module: "pathlib",
+                                class: "Path",
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 271,
+                                end: 290,
+                            },
+                        },
+                        ty: Primitive(
+                            None,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 264,
+                            end: 290,
+                        },
+                    },
+                    Let {
+                        binding: Idx::<DefData>(10),
+                        value: Try {
+                            expr: Call {
+                                func: FieldAccess {
+                                    receiver: Var {
+                                        def_id: Idx::<DefData>(9),
+                                        ty: FfiInstance {
+                                            module: "pathlib",
+                                            class: "Path",
+                                        },
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 310,
+                                            end: 311,
+                                        },
+                                    },
+                                    field: "exists",
+                                    ty: Function {
+                                        params: [],
+                                        ret: Primitive(
+                                            Bool,
+                                        ),
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 309,
+                                        end: 318,
+                                    },
+                                },
+                                args: [],
+                                ty: Primitive(
+                                    Bool,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 309,
+                                    end: 320,
+                                },
+                            },
+                            ty: Primitive(
+                                Bool,
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 305,
+                                end: 320,
+                            },
+                        },
+                        ty: Primitive(
+                            None,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 293,
+                            end: 320,
+                        },
+                    },
+                    Call {
+                        func: Var {
+                            def_id: Idx::<DefData>(3),
+                            ty: Function {
+                                params: [
+                                    Var(
+                                        TyVarId(
+                                            2,
+                                        ),
+                                    ),
+                                ],
+                                ret: Named {
+                                    def_id: Idx::<DefData>(2),
+                                    name: "Result",
+                                    args: [
+                                        Var(
+                                            TyVarId(
+                                                2,
+                                            ),
+                                        ),
+                                        Var(
+                                            TyVarId(
+                                                3,
+                                            ),
+                                        ),
+                                    ],
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 323,
+                                end: 325,
+                            },
+                        },
+                        args: [
+                            Var {
+                                def_id: Idx::<DefData>(10),
+                                ty: Primitive(
+                                    Bool,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 326,
+                                    end: 332,
+                                },
+                            },
+                        ],
+                        ty: Named {
+                            def_id: Idx::<DefData>(2),
+                            name: "Result",
+                            args: [
+                                Primitive(
+                                    Bool,
+                                ),
+                                Var(
+                                    TyVarId(
+                                        3,
+                                    ),
+                                ),
+                            ],
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 320,
+                            end: 333,
+                        },
+                    },
+                ],
+                ty: Named {
+                    def_id: Idx::<DefData>(2),
+                    name: "Result",
+                    args: [
+                        Primitive(
+                            Bool,
+                        ),
+                        Var(
+                            TyVarId(
+                                3,
+                            ),
+                        ),
+                    ],
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 259,
+                    end: 335,
+                },
+            },
+            ty: Function {
+                params: [
+                    Primitive(
+                        String,
+                    ),
+                ],
+                ret: Named {
+                    def_id: Idx::<DefData>(2),
+                    name: "Result",
+                    args: [
+                        Primitive(
+                            Bool,
+                        ),
+                        Named {
+                            def_id: Idx::<DefData>(5),
+                            name: "PyException",
+                            args: [],
+                        },
+                    ],
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 196,
+                end: 335,
+            },
+        },
+    ],
+    custom_types: [
+        HirCustomType {
+            def_id: Idx::<DefData>(2),
+            visibility: Private,
+            type_params: [
+                "a",
+                "e",
+            ],
+            variants: [
+                HirVariant {
+                    def_id: Idx::<DefData>(3),
+                    fields: [
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "a",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 53,
+                                    end: 54,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 53,
+                                end: 54,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 47,
+                        end: 55,
+                    },
+                },
+                HirVariant {
+                    def_id: Idx::<DefData>(4),
+                    fields: [
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "e",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 64,
+                                    end: 65,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 64,
+                                end: 65,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 55,
+                        end: 66,
+                    },
+                },
+            ],
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 26,
+                end: 68,
+            },
+        },
+        HirCustomType {
+            def_id: Idx::<DefData>(5),
+            visibility: Private,
+            type_params: [],
+            variants: [
+                HirVariant {
+                    def_id: Idx::<DefData>(6),
+                    fields: [
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "String",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 103,
+                                    end: 109,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 97,
+                                end: 109,
+                            },
+                        },
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "String",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 127,
+                                    end: 133,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 110,
+                                end: 133,
+                            },
+                        },
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "String",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 144,
+                                    end: 150,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 134,
+                                end: 150,
+                            },
+                        },
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "String",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 160,
+                                    end: 166,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 151,
+                                end: 166,
+                            },
+                        },
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "String",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 187,
+                                    end: 193,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 167,
+                                end: 193,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 88,
+                        end: 194,
+                    },
+                },
+            ],
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 68,
+                end: 196,
+            },
+        },
+    ],
+    imports: [
+        HirImport {
+            def_id: Idx::<DefData>(1),
+            kind: Python {
+                module_name: "pathlib",
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 26,
+            },
+        },
+    ],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 11,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "pathlib",
+                    kind: Import,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 19,
+                        end: 26,
+                    },
+                },
+                DefData {
+                    name: "Result",
+                    kind: Type,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 33,
+                        end: 39,
+                    },
+                },
+                DefData {
+                    name: "Ok",
+                    kind: Constructor,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 50,
+                        end: 52,
+                    },
+                },
+                DefData {
+                    name: "Error",
+                    kind: Constructor,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 58,
+                        end: 63,
+                    },
+                },
+                DefData {
+                    name: "PyException",
+                    kind: Type,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 75,
+                        end: 86,
+                    },
+                },
+                DefData {
+                    name: "PyExc",
+                    kind: Constructor,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 91,
+                        end: 96,
+                    },
+                },
+                DefData {
+                    name: "safe_exists",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 205,
+                        end: 216,
+                    },
+                },
+                DefData {
+                    name: "path",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 217,
+                        end: 221,
+                    },
+                },
+                DefData {
+                    name: "p",
+                    kind: LocalBinding,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 268,
+                        end: 269,
+                    },
+                },
+                DefData {
+                    name: "result",
+                    kind: LocalBinding,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 297,
+                        end: 303,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {
+        "pathlib": FfiModule {
+            name: "pathlib",
+            source: Builtin,
+            trust_level: Verified,
+            symbols: [
+                FfiSymbol {
+                    name: "Path",
+                    kind: Class(
+                        FfiClass {
+                            name: "Path",
+                            constructor: Some(
+                                FfiSignature {
+                                    params: [
+                                        FfiParam {
+                                            name: "path",
+                                            ty: Str,
+                                            has_default: true,
+                                        },
+                                    ],
+                                    return_ty: Named {
+                                        module: "pathlib",
+                                        name: "Path",
+                                    },
+                                },
+                            ),
+                            methods: [
+                                (
+                                    "read_text",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "encoding",
+                                                ty: Optional(
+                                                    Str,
+                                                ),
+                                                has_default: true,
+                                            },
+                                        ],
+                                        return_ty: Str,
+                                    },
+                                ),
+                                (
+                                    "write_text",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "data",
+                                                ty: Str,
+                                                has_default: false,
+                                            },
+                                            FfiParam {
+                                                name: "encoding",
+                                                ty: Optional(
+                                                    Str,
+                                                ),
+                                                has_default: true,
+                                            },
+                                        ],
+                                        return_ty: Int,
+                                    },
+                                ),
+                                (
+                                    "exists",
+                                    FfiSignature {
+                                        params: [],
+                                        return_ty: Bool,
+                                    },
+                                ),
+                                (
+                                    "is_file",
+                                    FfiSignature {
+                                        params: [],
+                                        return_ty: Bool,
+                                    },
+                                ),
+                                (
+                                    "is_dir",
+                                    FfiSignature {
+                                        params: [],
+                                        return_ty: Bool,
+                                    },
+                                ),
+                                (
+                                    "joinpath",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "other",
+                                                ty: Str,
+                                                has_default: false,
+                                            },
+                                        ],
+                                        return_ty: Named {
+                                            module: "pathlib",
+                                            name: "Path",
+                                        },
+                                    },
+                                ),
+                                (
+                                    "mkdir",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "mode",
+                                                ty: Int,
+                                                has_default: true,
+                                            },
+                                            FfiParam {
+                                                name: "parents",
+                                                ty: Bool,
+                                                has_default: true,
+                                            },
+                                            FfiParam {
+                                                name: "exist_ok",
+                                                ty: Bool,
+                                                has_default: true,
+                                            },
+                                        ],
+                                        return_ty: NoneType,
+                                    },
+                                ),
+                            ],
+                            properties: [
+                                (
+                                    "name",
+                                    Str,
+                                ),
+                                (
+                                    "stem",
+                                    Str,
+                                ),
+                                (
+                                    "suffix",
+                                    Str,
+                                ),
+                                (
+                                    "parent",
+                                    Named {
+                                        module: "pathlib",
+                                        name: "Path",
+                                    },
+                                ),
+                                (
+                                    "parts",
+                                    Tuple(
+                                        [
+                                            Str,
+                                        ],
+                                    ),
+                                ),
+                            ],
+                        },
+                    ),
+                    trust_level: Some(
+                        Verified,
+                    ),
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 336,
+    },
+}

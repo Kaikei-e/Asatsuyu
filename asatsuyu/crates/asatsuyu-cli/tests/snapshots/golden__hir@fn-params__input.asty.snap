@@ -1,0 +1,128 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/fn-params/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                HirParam {
+                    def_id: Idx::<DefData>(2),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "Int",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 13,
+                                end: 16,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 10,
+                        end: 16,
+                    },
+                },
+            ],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 21,
+                        end: 24,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Var(
+                        Idx::<DefData>(2),
+                        Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 29,
+                            end: 30,
+                        },
+                    ),
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 24,
+                    end: 32,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 32,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "id",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 9,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 10,
+                        end: 11,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 33,
+    },
+}

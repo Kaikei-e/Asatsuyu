@@ -1,0 +1,8 @@
+type Option(a) {
+  Some(a)
+  None
+}
+
+pub fn wrap(x: Int) -> Option {
+  Some(x)
+}

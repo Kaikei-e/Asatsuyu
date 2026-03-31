@@ -1,0 +1,141 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-not-callable/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+                visibility: Public,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 17,
+                                end: 20,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 17,
+                            end: 20,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Let {
+                            name: Ident {
+                                name: "x",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 29,
+                                    end: 30,
+                                },
+                            },
+                            value: Literal(
+                                Literal {
+                                    kind: Int,
+                                    value: "42",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 33,
+                                        end: 35,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 25,
+                                end: 35,
+                            },
+                        },
+                        Call {
+                            func: Variable(
+                                Ident {
+                                    name: "x",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 38,
+                                        end: 39,
+                                    },
+                                },
+                            ),
+                            args: [
+                                Literal(
+                                    Literal {
+                                        kind: Int,
+                                        value: "1",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 40,
+                                            end: 41,
+                                        },
+                                    },
+                                ),
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 35,
+                                end: 42,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 20,
+                        end: 44,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 44,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 45,
+    },
+}

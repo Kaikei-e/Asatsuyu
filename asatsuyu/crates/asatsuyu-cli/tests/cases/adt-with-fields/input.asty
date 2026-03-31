@@ -1,0 +1,7 @@
+type User {
+  User(name: String, age: Int)
+}
+
+pub fn make() -> User {
+  User("Alice", 30)
+}

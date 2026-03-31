@@ -1,0 +1,268 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-non-exhaustive/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        CustomType(
+            CustomType {
+                name: Ident {
+                    name: "Color",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 10,
+                    },
+                },
+                visibility: Private,
+                type_params: [],
+                body: Variants(
+                    [
+                        Variant {
+                            name: Ident {
+                                name: "Red",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 15,
+                                    end: 18,
+                                },
+                            },
+                            fields: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 12,
+                                end: 18,
+                            },
+                        },
+                        Variant {
+                            name: Ident {
+                                name: "Green",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 21,
+                                    end: 26,
+                                },
+                            },
+                            fields: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 18,
+                                end: 26,
+                            },
+                        },
+                        Variant {
+                            name: Ident {
+                                name: "Blue",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 29,
+                                    end: 33,
+                                },
+                            },
+                            fields: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 26,
+                                end: 33,
+                            },
+                        },
+                    ],
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 35,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "name",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 44,
+                        end: 48,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "c",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 49,
+                                end: 50,
+                            },
+                        },
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Color",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 52,
+                                        end: 57,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 52,
+                                    end: 57,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 49,
+                            end: 57,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "String",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 62,
+                                end: 68,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 62,
+                            end: 68,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Match {
+                            subject: Variable(
+                                Ident {
+                                    name: "c",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 79,
+                                        end: 80,
+                                    },
+                                },
+                            ),
+                            arms: [
+                                MatchArm {
+                                    pattern: Constructor {
+                                        name: Ident {
+                                            name: "Red",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 87,
+                                                end: 90,
+                                            },
+                                        },
+                                        fields: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 82,
+                                            end: 90,
+                                        },
+                                    },
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: String,
+                                            value: "\"red\"",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 94,
+                                                end: 99,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 82,
+                                        end: 99,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 70,
+                                end: 103,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 68,
+                        end: 105,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 35,
+                    end: 105,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 106,
+    },
+}

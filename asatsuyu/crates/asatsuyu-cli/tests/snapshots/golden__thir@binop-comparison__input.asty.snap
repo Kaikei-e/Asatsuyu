@@ -1,0 +1,154 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/binop-comparison/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                ThirParam {
+                    def_id: Idx::<DefData>(2),
+                    ty: Primitive(
+                        Int,
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 15,
+                        end: 21,
+                    },
+                },
+            ],
+            return_ty: Primitive(
+                Bool,
+            ),
+            body: Block {
+                exprs: [
+                    BinaryOp {
+                        op: Eq,
+                        lhs: Var {
+                            def_id: Idx::<DefData>(2),
+                            ty: Primitive(
+                                Int,
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 35,
+                                end: 36,
+                            },
+                        },
+                        rhs: Literal(
+                            ThirLiteral {
+                                kind: Int,
+                                value: "0",
+                                ty: Primitive(
+                                    Int,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 40,
+                                    end: 41,
+                                },
+                            },
+                        ),
+                        ty: Primitive(
+                            Bool,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 32,
+                            end: 41,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    Bool,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 30,
+                    end: 43,
+                },
+            },
+            ty: Function {
+                params: [
+                    Primitive(
+                        Int,
+                    ),
+                ],
+                ret: Primitive(
+                    Bool,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 43,
+            },
+        },
+    ],
+    custom_types: [],
+    imports: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "is_zero",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 14,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 15,
+                        end: 16,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {},
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 44,
+    },
+}

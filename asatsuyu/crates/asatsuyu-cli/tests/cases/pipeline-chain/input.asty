@@ -1,0 +1,11 @@
+pub fn double(x: Int) -> Int {
+  x * 2
+}
+
+pub fn inc(x: Int) -> Int {
+  x + 1
+}
+
+pub fn main() -> Int {
+  10 |> double |> inc
+}

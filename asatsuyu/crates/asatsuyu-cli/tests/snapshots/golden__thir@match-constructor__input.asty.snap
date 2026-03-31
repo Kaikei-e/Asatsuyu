@@ -1,0 +1,360 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/match-constructor/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(5),
+            visibility: Public,
+            params: [
+                ThirParam {
+                    def_id: Idx::<DefData>(6),
+                    ty: Named {
+                        def_id: Idx::<DefData>(1),
+                        name: "Color",
+                        args: [],
+                    },
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 49,
+                        end: 57,
+                    },
+                },
+            ],
+            return_ty: Primitive(
+                String,
+            ),
+            body: Block {
+                exprs: [
+                    Match {
+                        subject: Var {
+                            def_id: Idx::<DefData>(6),
+                            ty: Named {
+                                def_id: Idx::<DefData>(1),
+                                name: "Color",
+                                args: [],
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 79,
+                                end: 80,
+                            },
+                        },
+                        arms: [
+                            ThirMatchArm {
+                                pattern: Constructor {
+                                    def_id: Idx::<DefData>(2),
+                                    fields: [],
+                                    ty: Named {
+                                        def_id: Idx::<DefData>(1),
+                                        name: "Color",
+                                        args: [],
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 82,
+                                        end: 90,
+                                    },
+                                },
+                                body: Literal(
+                                    ThirLiteral {
+                                        kind: String,
+                                        value: "\"red\"",
+                                        ty: Primitive(
+                                            String,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 94,
+                                            end: 99,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 82,
+                                    end: 99,
+                                },
+                            },
+                            ThirMatchArm {
+                                pattern: Constructor {
+                                    def_id: Idx::<DefData>(3),
+                                    fields: [],
+                                    ty: Named {
+                                        def_id: Idx::<DefData>(1),
+                                        name: "Color",
+                                        args: [],
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 99,
+                                        end: 109,
+                                    },
+                                },
+                                body: Literal(
+                                    ThirLiteral {
+                                        kind: String,
+                                        value: "\"green\"",
+                                        ty: Primitive(
+                                            String,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 113,
+                                            end: 120,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 99,
+                                    end: 120,
+                                },
+                            },
+                            ThirMatchArm {
+                                pattern: Constructor {
+                                    def_id: Idx::<DefData>(4),
+                                    fields: [],
+                                    ty: Named {
+                                        def_id: Idx::<DefData>(1),
+                                        name: "Color",
+                                        args: [],
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 120,
+                                        end: 129,
+                                    },
+                                },
+                                body: Literal(
+                                    ThirLiteral {
+                                        kind: String,
+                                        value: "\"blue\"",
+                                        ty: Primitive(
+                                            String,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 133,
+                                            end: 139,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 120,
+                                    end: 139,
+                                },
+                            },
+                        ],
+                        ty: Primitive(
+                            String,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 70,
+                            end: 143,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    String,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 68,
+                    end: 145,
+                },
+            },
+            ty: Function {
+                params: [
+                    Named {
+                        def_id: Idx::<DefData>(1),
+                        name: "Color",
+                        args: [],
+                    },
+                ],
+                ret: Primitive(
+                    String,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 35,
+                end: 145,
+            },
+        },
+    ],
+    custom_types: [
+        HirCustomType {
+            def_id: Idx::<DefData>(1),
+            visibility: Private,
+            type_params: [],
+            variants: [
+                HirVariant {
+                    def_id: Idx::<DefData>(2),
+                    fields: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 12,
+                        end: 18,
+                    },
+                },
+                HirVariant {
+                    def_id: Idx::<DefData>(3),
+                    fields: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 18,
+                        end: 26,
+                    },
+                },
+                HirVariant {
+                    def_id: Idx::<DefData>(4),
+                    fields: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 26,
+                        end: 33,
+                    },
+                },
+            ],
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 35,
+            },
+        },
+    ],
+    imports: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 7,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "Color",
+                    kind: Type,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 10,
+                    },
+                },
+                DefData {
+                    name: "Red",
+                    kind: Constructor,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 15,
+                        end: 18,
+                    },
+                },
+                DefData {
+                    name: "Green",
+                    kind: Constructor,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 21,
+                        end: 26,
+                    },
+                },
+                DefData {
+                    name: "Blue",
+                    kind: Constructor,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 29,
+                        end: 33,
+                    },
+                },
+                DefData {
+                    name: "name",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 44,
+                        end: 48,
+                    },
+                },
+                DefData {
+                    name: "c",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 49,
+                        end: 50,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {},
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 146,
+    },
+}

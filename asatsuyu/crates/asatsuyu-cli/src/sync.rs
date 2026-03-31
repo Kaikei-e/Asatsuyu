@@ -141,7 +141,7 @@ fn sync_with_uv(
 }
 
 fn sync_with_pip(
-    pip_path: &Path,
+    _pip_path: &Path,
     pylock_path: &Path,
     env: &PythonEnvironment,
 ) -> Result<SyncReport, SyncError> {
@@ -152,8 +152,11 @@ fn sync_with_pip(
 
     for (name, version) in &packages {
         let spec = format!("{name}=={version}");
-        let output = Command::new(pip_path)
-            .args(["install", &spec, "--python", &env.python_path.to_string_lossy()])
+        // Use `<python> -m pip install` instead of `pip install --python` to
+        // avoid compatibility issues: standard pip doesn't support `--python`
+        // after the subcommand, and uv shims require it before.
+        let output = Command::new(&env.python_path)
+            .args(["-m", "pip", "install", &spec])
             .output()?;
 
         if !output.status.success() {

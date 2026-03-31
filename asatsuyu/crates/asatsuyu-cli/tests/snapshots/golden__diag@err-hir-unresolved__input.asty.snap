@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-hir-unresolved/input.asty
+---
+[E0152] Error: unresolved name `unknown_var`
+  span: 25..36
+  primary [25..36]: not found in this scope

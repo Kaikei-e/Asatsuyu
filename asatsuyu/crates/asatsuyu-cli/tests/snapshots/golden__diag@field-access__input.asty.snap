@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/field-access/input.asty
+---
+[E0151] Error: duplicate definition `User`
+  span: 14..18
+  primary [14..18]: `User` is redefined here
+  secondary [5..9]: previously defined here
+  hint: rename one of the definitions

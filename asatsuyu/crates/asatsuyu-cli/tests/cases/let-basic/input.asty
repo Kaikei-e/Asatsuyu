@@ -1,0 +1,4 @@
+pub fn main() -> Int {
+  let x = 10
+  x
+}

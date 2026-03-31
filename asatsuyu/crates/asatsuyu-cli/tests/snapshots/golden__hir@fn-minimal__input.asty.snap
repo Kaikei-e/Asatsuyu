@@ -1,0 +1,84 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/fn-minimal/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [],
+            return_type: None,
+            body: Block {
+                exprs: [
+                    Literal(
+                        HirLiteral {
+                            kind: Int,
+                            value: "42",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 18,
+                                end: 20,
+                            },
+                        },
+                    ),
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 13,
+                    end: 22,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 22,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 2,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 11,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 23,
+    },
+}

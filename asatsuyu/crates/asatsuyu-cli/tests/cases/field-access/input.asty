@@ -1,0 +1,7 @@
+type User {
+  User(name: String, age: Int)
+}
+
+pub fn get_name(u: User) -> String {
+  u.name
+}

@@ -1,0 +1,196 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/string-concat/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(1),
+            visibility: Public,
+            params: [
+                HirParam {
+                    def_id: Idx::<DefData>(2),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "String",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 22,
+                                end: 28,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 16,
+                        end: 28,
+                    },
+                },
+            ],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "String",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 33,
+                        end: 39,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Call {
+                        func: Var(
+                            Idx::<DefData>(0),
+                            Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 41,
+                                end: 68,
+                            },
+                        ),
+                        args: [
+                            Call {
+                                func: Var(
+                                    Idx::<DefData>(0),
+                                    Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 41,
+                                        end: 61,
+                                    },
+                                ),
+                                args: [
+                                    Literal(
+                                        HirLiteral {
+                                            kind: String,
+                                            value: "\"Hello, \"",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 44,
+                                                end: 53,
+                                            },
+                                        },
+                                    ),
+                                    Var(
+                                        Idx::<DefData>(2),
+                                        Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 57,
+                                            end: 61,
+                                        },
+                                    ),
+                                ],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 41,
+                                    end: 61,
+                                },
+                            },
+                            Literal(
+                                HirLiteral {
+                                    kind: String,
+                                    value: "\"!\"",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 65,
+                                        end: 68,
+                                    },
+                                },
+                            ),
+                        ],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 41,
+                            end: 68,
+                        },
+                    },
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 39,
+                    end: 70,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 70,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 3,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "greeting",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 15,
+                    },
+                },
+                DefData {
+                    name: "name",
+                    kind: Parameter,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 16,
+                        end: 20,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 71,
+    },
+}

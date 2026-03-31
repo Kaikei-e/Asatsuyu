@@ -1,0 +1,209 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/ffi-pathlib-basic/input.asty
+---
+Module {
+    imports: [
+        Python {
+            module_name: Ident {
+                name: "pathlib",
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 19,
+                    end: 26,
+                },
+            },
+            alias: None,
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 26,
+            },
+        },
+    ],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 35,
+                        end: 39,
+                    },
+                },
+                visibility: Public,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Bool",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 45,
+                                end: 49,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 45,
+                            end: 49,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Let {
+                            name: Ident {
+                                name: "p",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 58,
+                                    end: 59,
+                                },
+                            },
+                            value: Call {
+                                func: FieldAccess {
+                                    receiver: Variable(
+                                        Ident {
+                                            name: "pathlib",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 62,
+                                                end: 69,
+                                            },
+                                        },
+                                    ),
+                                    field: Ident {
+                                        name: "Path",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 70,
+                                            end: 74,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 61,
+                                        end: 74,
+                                    },
+                                },
+                                args: [
+                                    Literal(
+                                        Literal {
+                                            kind: String,
+                                            value: "\".\"",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 75,
+                                                end: 78,
+                                            },
+                                        },
+                                    ),
+                                ],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 61,
+                                    end: 79,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 54,
+                                end: 79,
+                            },
+                        },
+                        Call {
+                            func: FieldAccess {
+                                receiver: Variable(
+                                    Ident {
+                                        name: "p",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 82,
+                                            end: 83,
+                                        },
+                                    },
+                                ),
+                                field: Ident {
+                                    name: "exists",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 84,
+                                        end: 90,
+                                    },
+                                },
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 79,
+                                    end: 90,
+                                },
+                            },
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 79,
+                                end: 92,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 49,
+                        end: 94,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 26,
+                    end: 94,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 95,
+    },
+}

@@ -1,0 +1,3 @@
+pub fn is_zero(x: Int) -> Bool {
+  x == 0
+}

@@ -1,0 +1,9 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-not-callable/input.asty
+---
+[E0204] Error: expected function, found `Int`
+  span: 38..39
+  primary [38..39]: this has type `Int`
+  note: only functions can be called

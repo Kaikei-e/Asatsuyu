@@ -1,0 +1,11 @@
+type Result(a, e) {
+  Ok(a)
+  Error(e)
+}
+
+pub fn ok_val(r: Result) -> Int {
+  match r {
+    Ok(x) -> x
+    Error(_) -> 0
+  }
+}

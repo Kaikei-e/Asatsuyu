@@ -1,0 +1,7 @@
+pub fn describe(x: Int) -> String {
+  match x {
+    0 -> "zero"
+    1 -> "one"
+    _ -> "other"
+  }
+}

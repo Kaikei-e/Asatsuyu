@@ -1,0 +1,88 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/import-basic/input.asty
+---
+Module {
+    imports: [
+        Module {
+            module: [
+                Ident {
+                    name: "io",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 9,
+                    },
+                },
+            ],
+            alias: None,
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 9,
+            },
+        },
+    ],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 18,
+                        end: 22,
+                    },
+                },
+                visibility: Public,
+                params: [],
+                return_type: None,
+                body: Block {
+                    exprs: [
+                        Literal(
+                            Literal {
+                                kind: Int,
+                                value: "42",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 29,
+                                    end: 31,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 24,
+                        end: 33,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 9,
+                    end: 33,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 34,
+    },
+}

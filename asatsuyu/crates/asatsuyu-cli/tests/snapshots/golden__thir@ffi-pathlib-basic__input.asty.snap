@@ -1,0 +1,400 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/ffi-pathlib-basic/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(2),
+            visibility: Public,
+            params: [],
+            return_ty: Primitive(
+                Bool,
+            ),
+            body: Block {
+                exprs: [
+                    Let {
+                        binding: Idx::<DefData>(3),
+                        value: Call {
+                            func: FieldAccess {
+                                receiver: Var {
+                                    def_id: Idx::<DefData>(1),
+                                    ty: FfiModule {
+                                        module_name: "pathlib",
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 62,
+                                        end: 69,
+                                    },
+                                },
+                                field: "Path",
+                                ty: Function {
+                                    params: [
+                                        Primitive(
+                                            String,
+                                        ),
+                                    ],
+                                    ret: FfiInstance {
+                                        module: "pathlib",
+                                        class: "Path",
+                                    },
+                                },
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 61,
+                                    end: 74,
+                                },
+                            },
+                            args: [
+                                Literal(
+                                    ThirLiteral {
+                                        kind: String,
+                                        value: "\".\"",
+                                        ty: Primitive(
+                                            String,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 75,
+                                            end: 78,
+                                        },
+                                    },
+                                ),
+                            ],
+                            ty: FfiInstance {
+                                module: "pathlib",
+                                class: "Path",
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 61,
+                                end: 79,
+                            },
+                        },
+                        ty: Primitive(
+                            None,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 54,
+                            end: 79,
+                        },
+                    },
+                    Call {
+                        func: FieldAccess {
+                            receiver: Var {
+                                def_id: Idx::<DefData>(3),
+                                ty: FfiInstance {
+                                    module: "pathlib",
+                                    class: "Path",
+                                },
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 82,
+                                    end: 83,
+                                },
+                            },
+                            field: "exists",
+                            ty: Function {
+                                params: [],
+                                ret: Primitive(
+                                    Bool,
+                                ),
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 79,
+                                end: 90,
+                            },
+                        },
+                        args: [],
+                        ty: Primitive(
+                            Bool,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 79,
+                            end: 92,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    Bool,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 49,
+                    end: 94,
+                },
+            },
+            ty: Function {
+                params: [],
+                ret: Primitive(
+                    Bool,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 26,
+                end: 94,
+            },
+        },
+    ],
+    custom_types: [],
+    imports: [
+        HirImport {
+            def_id: Idx::<DefData>(1),
+            kind: Python {
+                module_name: "pathlib",
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 26,
+            },
+        },
+    ],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 4,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "pathlib",
+                    kind: Import,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 19,
+                        end: 26,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 35,
+                        end: 39,
+                    },
+                },
+                DefData {
+                    name: "p",
+                    kind: LocalBinding,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 58,
+                        end: 59,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {
+        "pathlib": FfiModule {
+            name: "pathlib",
+            source: Builtin,
+            trust_level: Verified,
+            symbols: [
+                FfiSymbol {
+                    name: "Path",
+                    kind: Class(
+                        FfiClass {
+                            name: "Path",
+                            constructor: Some(
+                                FfiSignature {
+                                    params: [
+                                        FfiParam {
+                                            name: "path",
+                                            ty: Str,
+                                            has_default: true,
+                                        },
+                                    ],
+                                    return_ty: Named {
+                                        module: "pathlib",
+                                        name: "Path",
+                                    },
+                                },
+                            ),
+                            methods: [
+                                (
+                                    "read_text",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "encoding",
+                                                ty: Optional(
+                                                    Str,
+                                                ),
+                                                has_default: true,
+                                            },
+                                        ],
+                                        return_ty: Str,
+                                    },
+                                ),
+                                (
+                                    "write_text",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "data",
+                                                ty: Str,
+                                                has_default: false,
+                                            },
+                                            FfiParam {
+                                                name: "encoding",
+                                                ty: Optional(
+                                                    Str,
+                                                ),
+                                                has_default: true,
+                                            },
+                                        ],
+                                        return_ty: Int,
+                                    },
+                                ),
+                                (
+                                    "exists",
+                                    FfiSignature {
+                                        params: [],
+                                        return_ty: Bool,
+                                    },
+                                ),
+                                (
+                                    "is_file",
+                                    FfiSignature {
+                                        params: [],
+                                        return_ty: Bool,
+                                    },
+                                ),
+                                (
+                                    "is_dir",
+                                    FfiSignature {
+                                        params: [],
+                                        return_ty: Bool,
+                                    },
+                                ),
+                                (
+                                    "joinpath",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "other",
+                                                ty: Str,
+                                                has_default: false,
+                                            },
+                                        ],
+                                        return_ty: Named {
+                                            module: "pathlib",
+                                            name: "Path",
+                                        },
+                                    },
+                                ),
+                                (
+                                    "mkdir",
+                                    FfiSignature {
+                                        params: [
+                                            FfiParam {
+                                                name: "mode",
+                                                ty: Int,
+                                                has_default: true,
+                                            },
+                                            FfiParam {
+                                                name: "parents",
+                                                ty: Bool,
+                                                has_default: true,
+                                            },
+                                            FfiParam {
+                                                name: "exist_ok",
+                                                ty: Bool,
+                                                has_default: true,
+                                            },
+                                        ],
+                                        return_ty: NoneType,
+                                    },
+                                ),
+                            ],
+                            properties: [
+                                (
+                                    "name",
+                                    Str,
+                                ),
+                                (
+                                    "stem",
+                                    Str,
+                                ),
+                                (
+                                    "suffix",
+                                    Str,
+                                ),
+                                (
+                                    "parent",
+                                    Named {
+                                        module: "pathlib",
+                                        name: "Path",
+                                    },
+                                ),
+                                (
+                                    "parts",
+                                    Tuple(
+                                        [
+                                            Str,
+                                        ],
+                                    ),
+                                ),
+                            ],
+                        },
+                    ),
+                    trust_level: Some(
+                        Verified,
+                    ),
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 95,
+    },
+}

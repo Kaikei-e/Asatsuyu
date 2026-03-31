@@ -1,0 +1,11 @@
+type Option(a) {
+  Some(a)
+  None
+}
+
+pub fn unwrap_or(opt: Option, default: Int) -> Int {
+  match opt {
+    Some(x) -> x
+    None -> default
+  }
+}

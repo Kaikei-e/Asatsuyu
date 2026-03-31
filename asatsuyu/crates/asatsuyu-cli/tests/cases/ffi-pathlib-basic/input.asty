@@ -1,0 +1,6 @@
+from python import pathlib
+
+pub fn main() -> Bool {
+  let p = pathlib.Path(".")
+  p.exists()
+}

@@ -1,0 +1,206 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-unreachable-arm/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "describe",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 15,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "x",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 16,
+                                end: 17,
+                            },
+                        },
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "Int",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 19,
+                                        end: 22,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 19,
+                                    end: 22,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 16,
+                            end: 22,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "String",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 27,
+                                end: 33,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 27,
+                            end: 33,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Match {
+                            subject: Variable(
+                                Ident {
+                                    name: "x",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 44,
+                                        end: 45,
+                                    },
+                                },
+                            ),
+                            arms: [
+                                MatchArm {
+                                    pattern: Wildcard(
+                                        Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 47,
+                                            end: 53,
+                                        },
+                                    ),
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: String,
+                                            value: "\"any\"",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 57,
+                                                end: 62,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 47,
+                                        end: 62,
+                                    },
+                                },
+                                MatchArm {
+                                    pattern: Literal(
+                                        Literal {
+                                            kind: Int,
+                                            value: "0",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 67,
+                                                end: 68,
+                                            },
+                                        },
+                                    ),
+                                    guard: None,
+                                    body: Literal(
+                                        Literal {
+                                            kind: String,
+                                            value: "\"zero\"",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 72,
+                                                end: 78,
+                                            },
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 62,
+                                        end: 78,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 35,
+                                end: 82,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 33,
+                        end: 84,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 84,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 85,
+    },
+}

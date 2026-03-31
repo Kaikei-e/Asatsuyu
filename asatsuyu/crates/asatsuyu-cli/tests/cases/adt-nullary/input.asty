@@ -1,0 +1,9 @@
+type Color {
+  Red
+  Green
+  Blue
+}
+
+pub fn main() -> Color {
+  Red
+}

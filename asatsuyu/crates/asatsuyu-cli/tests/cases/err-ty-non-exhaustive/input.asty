@@ -1,0 +1,11 @@
+type Color {
+  Red
+  Green
+  Blue
+}
+
+pub fn name(c: Color) -> String {
+  match c {
+    Red -> "red"
+  }
+}

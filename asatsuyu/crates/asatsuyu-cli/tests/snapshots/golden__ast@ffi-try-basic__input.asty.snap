@@ -1,0 +1,702 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/ffi-try-basic/input.asty
+---
+Module {
+    imports: [
+        Python {
+            module_name: Ident {
+                name: "pathlib",
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 19,
+                    end: 26,
+                },
+            },
+            alias: None,
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 26,
+            },
+        },
+    ],
+    definitions: [
+        CustomType(
+            CustomType {
+                name: Ident {
+                    name: "Result",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 33,
+                        end: 39,
+                    },
+                },
+                visibility: Private,
+                type_params: [
+                    Ident {
+                        name: "a",
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 40,
+                            end: 41,
+                        },
+                    },
+                    Ident {
+                        name: "e",
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 43,
+                            end: 44,
+                        },
+                    },
+                ],
+                body: Variants(
+                    [
+                        Variant {
+                            name: Ident {
+                                name: "Ok",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 50,
+                                    end: 52,
+                                },
+                            },
+                            fields: [
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "a",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 53,
+                                                end: 54,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 53,
+                                            end: 54,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 53,
+                                        end: 54,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 47,
+                                end: 55,
+                            },
+                        },
+                        Variant {
+                            name: Ident {
+                                name: "Error",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 58,
+                                    end: 63,
+                                },
+                            },
+                            fields: [
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "e",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 64,
+                                                end: 65,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 64,
+                                            end: 65,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 64,
+                                        end: 65,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 55,
+                                end: 66,
+                            },
+                        },
+                    ],
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 26,
+                    end: 68,
+                },
+            },
+        ),
+        CustomType(
+            CustomType {
+                name: Ident {
+                    name: "PyException",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 75,
+                        end: 86,
+                    },
+                },
+                visibility: Private,
+                type_params: [],
+                body: Variants(
+                    [
+                        Variant {
+                            name: Ident {
+                                name: "PyExc",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 91,
+                                    end: 96,
+                                },
+                            },
+                            fields: [
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "String",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 103,
+                                                end: 109,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 103,
+                                            end: 109,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 97,
+                                        end: 109,
+                                    },
+                                },
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "String",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 127,
+                                                end: 133,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 127,
+                                            end: 133,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 110,
+                                        end: 133,
+                                    },
+                                },
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "String",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 144,
+                                                end: 150,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 144,
+                                            end: 150,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 134,
+                                        end: 150,
+                                    },
+                                },
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "String",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 160,
+                                                end: 166,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 160,
+                                            end: 166,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 151,
+                                        end: 166,
+                                    },
+                                },
+                                VariantField {
+                                    label: None,
+                                    type_ann: Named {
+                                        name: Ident {
+                                            name: "String",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 187,
+                                                end: 193,
+                                            },
+                                        },
+                                        args: [],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 187,
+                                            end: 193,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 167,
+                                        end: 193,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 88,
+                                end: 194,
+                            },
+                        },
+                    ],
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 68,
+                    end: 196,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "safe_exists",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 205,
+                        end: 216,
+                    },
+                },
+                visibility: Public,
+                params: [
+                    Param {
+                        name: Ident {
+                            name: "path",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 217,
+                                end: 221,
+                            },
+                        },
+                        type_ann: Some(
+                            Named {
+                                name: Ident {
+                                    name: "String",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 223,
+                                        end: 229,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 223,
+                                    end: 229,
+                                },
+                            },
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 217,
+                            end: 229,
+                        },
+                    },
+                ],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Result",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 234,
+                                end: 240,
+                            },
+                        },
+                        args: [
+                            Named {
+                                name: Ident {
+                                    name: "Bool",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 241,
+                                        end: 245,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 241,
+                                    end: 245,
+                                },
+                            },
+                            Named {
+                                name: Ident {
+                                    name: "PyException",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 247,
+                                        end: 258,
+                                    },
+                                },
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 247,
+                                    end: 258,
+                                },
+                            },
+                        ],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 234,
+                            end: 259,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Let {
+                            name: Ident {
+                                name: "p",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 268,
+                                    end: 269,
+                                },
+                            },
+                            value: Call {
+                                func: FieldAccess {
+                                    receiver: Variable(
+                                        Ident {
+                                            name: "pathlib",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 272,
+                                                end: 279,
+                                            },
+                                        },
+                                    ),
+                                    field: Ident {
+                                        name: "Path",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 280,
+                                            end: 284,
+                                        },
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 271,
+                                        end: 284,
+                                    },
+                                },
+                                args: [
+                                    Variable(
+                                        Ident {
+                                            name: "path",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 285,
+                                                end: 289,
+                                            },
+                                        },
+                                    ),
+                                ],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 271,
+                                    end: 290,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 264,
+                                end: 290,
+                            },
+                        },
+                        Let {
+                            name: Ident {
+                                name: "result",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 297,
+                                    end: 303,
+                                },
+                            },
+                            value: Try {
+                                expr: Call {
+                                    func: FieldAccess {
+                                        receiver: Variable(
+                                            Ident {
+                                                name: "p",
+                                                span: Span {
+                                                    file_id: FileId(
+                                                        0,
+                                                    ),
+                                                    start: 310,
+                                                    end: 311,
+                                                },
+                                            },
+                                        ),
+                                        field: Ident {
+                                            name: "exists",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 312,
+                                                end: 318,
+                                            },
+                                        },
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 309,
+                                            end: 318,
+                                        },
+                                    },
+                                    args: [],
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 309,
+                                        end: 320,
+                                    },
+                                },
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 305,
+                                    end: 320,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 293,
+                                end: 320,
+                            },
+                        },
+                        Call {
+                            func: Variable(
+                                Ident {
+                                    name: "Ok",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 323,
+                                        end: 325,
+                                    },
+                                },
+                            ),
+                            args: [
+                                Variable(
+                                    Ident {
+                                        name: "result",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 326,
+                                            end: 332,
+                                        },
+                                    },
+                                ),
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 320,
+                                end: 333,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 259,
+                        end: 335,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 196,
+                    end: 335,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 336,
+    },
+}

@@ -1,0 +1,3 @@
+pub fn calc(x: Int, y: Int) -> Int {
+  x + y * 2 - 1
+}

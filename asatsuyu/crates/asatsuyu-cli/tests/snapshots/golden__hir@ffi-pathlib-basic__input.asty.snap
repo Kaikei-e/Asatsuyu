@@ -1,0 +1,203 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/ffi-pathlib-basic/input.asty
+---
+HirModule {
+    imports: [
+        HirImport {
+            def_id: Idx::<DefData>(1),
+            kind: Python {
+                module_name: "pathlib",
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 26,
+            },
+        },
+    ],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(2),
+            visibility: Public,
+            params: [],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Bool",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 45,
+                        end: 49,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Let {
+                        binding: Idx::<DefData>(3),
+                        value: Call {
+                            func: FieldAccess {
+                                receiver: Var(
+                                    Idx::<DefData>(1),
+                                    Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 62,
+                                        end: 69,
+                                    },
+                                ),
+                                field: "Path",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 61,
+                                    end: 74,
+                                },
+                            },
+                            args: [
+                                Literal(
+                                    HirLiteral {
+                                        kind: String,
+                                        value: "\".\"",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 75,
+                                            end: 78,
+                                        },
+                                    },
+                                ),
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 61,
+                                end: 79,
+                            },
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 54,
+                            end: 79,
+                        },
+                    },
+                    Call {
+                        func: FieldAccess {
+                            receiver: Var(
+                                Idx::<DefData>(3),
+                                Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 82,
+                                    end: 83,
+                                },
+                            ),
+                            field: "exists",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 79,
+                                end: 90,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 79,
+                            end: 92,
+                        },
+                    },
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 49,
+                    end: 94,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 26,
+                end: 94,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 4,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "pathlib",
+                    kind: Import,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 19,
+                        end: 26,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 35,
+                        end: 39,
+                    },
+                },
+                DefData {
+                    name: "p",
+                    kind: LocalBinding,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 58,
+                        end: 59,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 95,
+    },
+}

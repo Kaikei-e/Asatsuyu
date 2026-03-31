@@ -1,0 +1,3 @@
+pub fn main() -> Float {
+  3.14
+}

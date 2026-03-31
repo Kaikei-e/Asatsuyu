@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-parse-expected-item/input.asty
+---
+[E0051] Error: expected item definition
+  span: 0..2
+  primary [0..2]: expected item definition
