@@ -144,10 +144,7 @@ fn malformed_crash_corpus_produces_diagnostics() {
         assert!(path.is_file(), "missing malformed corpus file: {name}");
         let source = std::fs::read_to_string(&path).expect("read corpus file");
         let diagnostics = collect_diagnostics(&source);
-        assert!(
-            !diagnostics.is_empty(),
-            "expected diagnostics for malformed corpus input: {name}"
-        );
+        assert!(!diagnostics.is_empty(), "expected diagnostics for malformed corpus input: {name}");
     }
 }
 
@@ -164,9 +161,10 @@ fn crash_corpus_inventory_is_stable() {
     for path in files {
         let name = path.file_name().and_then(|name| name.to_str()).expect("utf-8 corpus filename");
         assert!(
-            name.starts_with("crash-") && std::path::Path::new(name)
-                .extension()
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("asty")),
+            name.starts_with("crash-")
+                && std::path::Path::new(name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("asty")),
             "corpus file must follow crash-{{stage}}-{{description}}.asty: {name}"
         );
         assert!(
