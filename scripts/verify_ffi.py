@@ -19,8 +19,8 @@ import subprocess
 import sys
 from typing import Any
 
-STDLIB_VERIFIED_MODULES: list[str] = ["pathlib", "json", "os", "sys"]
-CHECKED_MODULES: list[str] = ["requests"]
+STDLIB_VERIFIED_MODULES: list[str] = ["pathlib", "os", "sys"]
+CHECKED_MODULES: list[str] = ["json", "requests"]
 
 # pyright completeness threshold for Verified modules.
 COMPLETENESS_THRESHOLD: float = 0.80

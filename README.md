@@ -303,8 +303,8 @@ producing readable Python 3.12+ output.
 - [x] ADT typing and match exhaustiveness checking
 - [x] Python backend (dataclass, match/case, prelude, source map comments)
 - [x] CLI (`check`, `build`, `run`, `new`)
-- [x] Verified FFI (`pathlib`, `json`, `os`) via typeshed stubs
-- [x] Checked FFI (`requests`) with runtime validation via PyO3
+- [x] Verified FFI (`pathlib`, `os`, `sys`) via typed builtin surfaces
+- [x] Checked FFI (`json`, `requests`) with runtime validation via PyO3
 - [x] `try` expression — Python exceptions to `Result` at the boundary
 - [x] CI pipeline (fmt, clippy, test, verify-ffi, maturin-build, pytest)
 - [x] FFI compiler flags (`--ffi-stdlib-only`, `--ffi-runtime`, `--no-emit-package`)
