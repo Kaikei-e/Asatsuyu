@@ -1601,8 +1601,12 @@ fn sync_uses_python_path_from_config() {
         !stderr.contains("no Python environment found"),
         "sync should honor [python] path before PATH discovery:\n{stderr}",
     );
+    // After honoring [python] path, sync proceeds past environment discovery.
+    // On some CI runners pip is globally installed, so tool discovery may
+    // succeed and then pip install fails (because fake-python exits 1 for
+    // `-m pip`).  Either outcome proves the config path was used.
     assert!(
-        stderr.contains("no sync tool found"),
+        stderr.contains("no sync tool found") || stderr.contains("pip install"),
         "sync should reach tool discovery after resolving configured python:\n{stderr}",
     );
 
