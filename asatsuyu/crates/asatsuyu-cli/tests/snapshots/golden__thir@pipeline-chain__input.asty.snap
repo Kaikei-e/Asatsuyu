@@ -6,11 +6,11 @@ input_file: crates/asatsuyu-cli/tests/cases/pipeline-chain/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(1),
+            def_id: Idx::<DefData>(2),
             visibility: Public,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(4),
+                    def_id: Idx::<DefData>(5),
                     ty: Primitive(
                         Int,
                     ),
@@ -31,7 +31,7 @@ ThirModule {
                     BinaryOp {
                         op: Mul,
                         lhs: Var {
-                            def_id: Idx::<DefData>(4),
+                            def_id: Idx::<DefData>(5),
                             ty: Primitive(
                                 Int,
                             ),
@@ -101,11 +101,11 @@ ThirModule {
             },
         },
         ThirFnDef {
-            def_id: Idx::<DefData>(2),
+            def_id: Idx::<DefData>(3),
             visibility: Public,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(5),
+                    def_id: Idx::<DefData>(6),
                     ty: Primitive(
                         Int,
                     ),
@@ -126,7 +126,7 @@ ThirModule {
                     BinaryOp {
                         op: Add,
                         lhs: Var {
-                            def_id: Idx::<DefData>(5),
+                            def_id: Idx::<DefData>(6),
                             ty: Primitive(
                                 Int,
                             ),
@@ -196,7 +196,7 @@ ThirModule {
             },
         },
         ThirFnDef {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             visibility: Public,
             params: [],
             return_ty: Primitive(
@@ -206,7 +206,7 @@ ThirModule {
                 exprs: [
                     Call {
                         func: Var {
-                            def_id: Idx::<DefData>(2),
+                            def_id: Idx::<DefData>(3),
                             ty: Function {
                                 params: [
                                     Primitive(
@@ -228,7 +228,7 @@ ThirModule {
                         args: [
                             Call {
                                 func: Var {
-                                    def_id: Idx::<DefData>(1),
+                                    def_id: Idx::<DefData>(2),
                                     ty: Function {
                                         params: [
                                             Primitive(
@@ -319,10 +319,21 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 6,
+            len: 7,
             data: [
                 DefData {
                     name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
                     kind: Builtin,
                     span: Span {
                         file_id: FileId(

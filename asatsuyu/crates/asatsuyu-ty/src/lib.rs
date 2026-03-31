@@ -301,9 +301,9 @@ mod tests {
         assert_eq!(greet.params.len(), 1);
         assert_eq!(greet.params[0].ty, Ty::Primitive(PrimTy::String));
 
-        let add = &result.module.functions[1];
-        assert_eq!(add.return_ty, Ty::Primitive(PrimTy::Int));
-        assert_eq!(add.params.len(), 2);
+        let main = &result.module.functions[1];
+        assert_eq!(main.return_ty, Ty::Primitive(PrimTy::None));
+        assert_eq!(main.params.len(), 0);
     }
 
     // ── 14. THIR dump ───────────────────────────────────────────────

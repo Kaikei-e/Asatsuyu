@@ -87,8 +87,8 @@ mod tests {
         let result = hir_from_source("");
         assert!(!result.has_errors());
         assert!(result.module.functions.is_empty());
-        // Symbol table contains built-in definitions (e.g., string_concat).
-        assert_eq!(result.module.symbol_table.len(), 1);
+        // Symbol table contains built-in definitions (string_concat, println).
+        assert_eq!(result.module.symbol_table.len(), 2);
     }
 
     // ── 2. Minimal function ─────────────────────────────────────────
@@ -303,9 +303,9 @@ mod tests {
         assert_eq!(greet.params.len(), 1);
         assert!(greet.return_type.is_some());
 
-        let add = &result.module.functions[1];
-        assert_eq!(add.visibility, Visibility::Private);
-        assert_eq!(add.params.len(), 2);
+        let main = &result.module.functions[1];
+        assert_eq!(main.visibility, Visibility::Public);
+        assert_eq!(main.params.len(), 0);
     }
 
     // ── 13. HIR dump (DoD) ──────────────────────────────────────────

@@ -534,6 +534,7 @@ impl LowerCtx {
             SyntaxKind::LambdaExpr => self.lower_lambda_expr(node),
             SyntaxKind::FieldAccessExpr => self.lower_field_access_expr(node),
             SyntaxKind::TryExpr => self.lower_try_expr(node),
+            SyntaxKind::ListExpr => Some(self.lower_list_expr(node)),
             SyntaxKind::ParenExpr => self.lower_paren_expr(node),
             SyntaxKind::NodeError => {
                 let span = span_of(node, self.file_id);
@@ -546,6 +547,16 @@ impl LowerCtx {
             }
             _ => None, // skip unknown / trivia nodes
         }
+    }
+
+    // ── ListExpr ────────────────────────────────────────────────────
+
+    fn lower_list_expr(&mut self, node: &SyntaxNode) -> Expr {
+        debug_assert_eq!(node.kind(), SyntaxKind::ListExpr);
+
+        let elements = node.children().filter_map(|c| self.lower_expr(&c)).collect();
+
+        Expr::List { elements, span: span_of(node, self.file_id) }
     }
 
     // ── LiteralExpr ─────────────────────────────────────────────────

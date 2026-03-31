@@ -7,11 +7,11 @@ HirModule {
     imports: [],
     functions: [
         HirFnDef {
-            def_id: Idx::<DefData>(1),
+            def_id: Idx::<DefData>(2),
             visibility: Public,
             params: [
                 HirParam {
-                    def_id: Idx::<DefData>(3),
+                    def_id: Idx::<DefData>(4),
                     type_ann: Some(
                         HirTypeExpr {
                             name: "Int",
@@ -52,7 +52,7 @@ HirModule {
                     BinaryOp {
                         op: Mul,
                         lhs: Var(
-                            Idx::<DefData>(3),
+                            Idx::<DefData>(4),
                             Span {
                                 file_id: FileId(
                                     0,
@@ -100,7 +100,7 @@ HirModule {
             },
         },
         HirFnDef {
-            def_id: Idx::<DefData>(2),
+            def_id: Idx::<DefData>(3),
             visibility: Public,
             params: [],
             return_type: Some(
@@ -120,7 +120,7 @@ HirModule {
                 exprs: [
                     Call {
                         func: Var(
-                            Idx::<DefData>(1),
+                            Idx::<DefData>(2),
                             Span {
                                 file_id: FileId(
                                     0,
@@ -186,10 +186,21 @@ HirModule {
     custom_types: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 4,
+            len: 5,
             data: [
                 DefData {
                     name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
                     kind: Builtin,
                     span: Span {
                         file_id: FileId(

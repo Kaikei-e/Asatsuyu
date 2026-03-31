@@ -145,6 +145,34 @@ impl TyCheckCtx {
         );
     }
 
+    /// Register type schemes for built-in functions (e.g. `string_concat`, `println`).
+    fn register_builtin_fn_types(&mut self, symbol_table: &SymbolTable) {
+        for (def_id, data) in symbol_table.iter() {
+            if data.kind != DefKind::Builtin {
+                continue;
+            }
+            let scheme = match data.name.as_str() {
+                "string_concat" => TypeScheme::mono(Ty::Function {
+                    params: vec![Ty::Primitive(PrimTy::String), Ty::Primitive(PrimTy::String)],
+                    ret: Box::new(Ty::Primitive(PrimTy::String)),
+                }),
+                "println" => {
+                    let var = self.infer.fresh_var();
+                    let Ty::Var(var_id) = var else { unreachable!() };
+                    TypeScheme {
+                        vars: vec![var_id],
+                        ty: Ty::Function {
+                            params: vec![Ty::Var(var_id)],
+                            ret: Box::new(Ty::Primitive(PrimTy::None)),
+                        },
+                    }
+                }
+                _ => continue,
+            };
+            self.type_env.insert(def_id, scheme);
+        }
+    }
+
     /// Resolve an HIR type expression to a [`Ty`].
     fn resolve_type_expr(&mut self, te: &asatsuyu_hir::HirTypeExpr) -> Ty {
         self.resolve_type_expr_with_params(te, &HashMap::new())
@@ -287,6 +315,9 @@ impl TyCheckCtx {
         for fn_def in &module.functions {
             self.collect_fn_signature(fn_def);
         }
+
+        // Register type schemes for built-in functions.
+        self.register_builtin_fn_types(&module.symbol_table);
 
         // Register FFI module types for Python imports.
         let ffi_resolver = ChainResolver::with_config(ffi_config.clone());
@@ -575,7 +606,31 @@ impl TyCheckCtx {
 
                 ThirExpr::Try { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
             }
+
+            HirExpr::List { elements, span } => self.check_list_expr(elements, *span),
         }
+    }
+
+    fn check_list_expr(&mut self, elements: &[HirExpr], span: Span) -> ThirExpr {
+        let mut checked_elements = Vec::new();
+        let element_ty = self.infer.fresh_var();
+
+        for element in elements {
+            let checked = self.check_expr(element);
+            let curr_ty = self.infer.resolve(checked.ty());
+            self.unify_or_error(&element_ty, &curr_ty, element.span(), DiagnosticContext::Simple);
+            checked_elements.push(checked);
+        }
+
+        let list_def_id = self
+            .type_name_to_def_id
+            .get("List")
+            .copied()
+            .expect("List builtin type must be registered");
+        let list_ty =
+            Ty::Named { def_id: list_def_id, name: SmolStr::from("List"), args: vec![element_ty] };
+
+        ThirExpr::List { elements: checked_elements, ty: list_ty, span }
     }
 
     fn validate_try_positions(&mut self, expr: &ThirExpr, position: TryPosition) {
@@ -645,6 +700,11 @@ impl TyCheckCtx {
             }
             ThirExpr::UnaryOp { expr, .. } | ThirExpr::FieldAccess { receiver: expr, .. } => {
                 self.validate_try_positions(expr, TryPosition::Other);
+            }
+            ThirExpr::List { elements, .. } => {
+                for element in elements {
+                    self.validate_try_positions(element, TryPosition::Other);
+                }
             }
             ThirExpr::Lambda { body, .. } => {
                 self.validate_try_positions(body, TryPosition::Other);

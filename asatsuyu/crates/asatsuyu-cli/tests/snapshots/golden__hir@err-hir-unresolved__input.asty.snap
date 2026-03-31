@@ -7,7 +7,7 @@ HirModule {
     imports: [],
     functions: [
         HirFnDef {
-            def_id: Idx::<DefData>(1),
+            def_id: Idx::<DefData>(2),
             visibility: Public,
             params: [],
             return_type: Some(
@@ -26,7 +26,7 @@ HirModule {
             body: Block {
                 exprs: [
                     Var(
-                        Idx::<DefData>(2),
+                        Idx::<DefData>(3),
                         Span {
                             file_id: FileId(
                                 0,
@@ -56,10 +56,21 @@ HirModule {
     custom_types: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 3,
+            len: 4,
             data: [
                 DefData {
                     name: "string_concat",
+                    kind: Builtin,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
                     kind: Builtin,
                     span: Span {
                         file_id: FileId(

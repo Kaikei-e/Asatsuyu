@@ -160,7 +160,8 @@ fn build_greet_asty() {
     let content = std::fs::read_to_string(dir.join("python/greet/greet.py"))
         .expect("generated .py should exist");
     assert!(content.contains("def greet(name: str) -> str:"), "content: {content}");
-    assert!(content.contains("def add(x: int, y: int) -> int:"), "content: {content}");
+    assert!(content.contains("def main() -> None:"), "content: {content}");
+    assert!(content.contains("print(greet(\"world\"))"), "content: {content}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

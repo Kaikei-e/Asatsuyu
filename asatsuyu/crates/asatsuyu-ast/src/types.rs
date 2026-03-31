@@ -291,6 +291,8 @@ pub enum Expr {
     FieldAccess { receiver: Box<Expr>, field: Ident, span: Span },
     /// A try expression: `try expr`. Captures Python exceptions as Result errors.
     Try { expr: Box<Expr>, span: Span },
+    /// A list literal: `[1, 2, 3]`.
+    List { elements: Vec<Expr>, span: Span },
 }
 
 impl Expr {
@@ -310,7 +312,8 @@ impl Expr {
             | Self::Let { span, .. }
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
-            | Self::Try { span, .. } => *span,
+            | Self::Try { span, .. }
+            | Self::List { span, .. } => *span,
         }
     }
 }

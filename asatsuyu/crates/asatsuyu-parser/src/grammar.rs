@@ -656,6 +656,11 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
             p.finish_node();
         }
 
+        // List literal: `[expr, expr]`
+        SyntaxKind::LBracket => {
+            parse_list_expr(p);
+        }
+
         // Literal atoms
         SyntaxKind::IntLit
         | SyntaxKind::FloatLit
@@ -787,6 +792,30 @@ fn parse_if_expr(p: &mut Parser<'_>) {
         }
     }
 
+    p.finish_node();
+}
+
+/// ```text
+/// ListExpr = '[' (Expr (',' Expr)* ','?)? ']'
+/// ```
+fn parse_list_expr(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::ListExpr);
+    p.bump(); // consume `[`
+
+    while !p.at(SyntaxKind::RBracket) && !p.at_eof() {
+        let prev = p.pos();
+        parse_expr_bp(p, 0);
+        if p.at(SyntaxKind::Comma) {
+            p.bump();
+        } else if !p.at(SyntaxKind::RBracket) {
+            if p.pos() == prev {
+                p.error_and_bump("unexpected token in list literal", DiagnosticCode::E0057);
+            }
+            break;
+        }
+    }
+
+    p.expect(SyntaxKind::RBracket);
     p.finish_node();
 }
 

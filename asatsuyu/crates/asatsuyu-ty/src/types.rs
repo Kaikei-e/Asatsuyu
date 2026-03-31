@@ -265,6 +265,8 @@ pub enum ThirExpr {
     FieldAccess { receiver: Box<ThirExpr>, field: SmolStr, ty: Ty, span: Span },
     /// A try expression: `try expr`. The type is the success type (unwrapped).
     Try { expr: Box<ThirExpr>, ty: Ty, span: Span },
+    /// A list literal: `[1, 2, 3]`.
+    List { elements: Vec<ThirExpr>, ty: Ty, span: Span },
 }
 
 impl ThirExpr {
@@ -283,7 +285,8 @@ impl ThirExpr {
             | Self::Let { ty, .. }
             | Self::Lambda { ty, .. }
             | Self::FieldAccess { ty, .. }
-            | Self::Try { ty, .. } => ty,
+            | Self::Try { ty, .. }
+            | Self::List { ty, .. } => ty,
         }
     }
 
@@ -302,7 +305,8 @@ impl ThirExpr {
             | Self::Let { span, .. }
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
-            | Self::Try { span, .. } => *span,
+            | Self::Try { span, .. }
+            | Self::List { span, .. } => *span,
         }
     }
 }

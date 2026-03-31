@@ -79,8 +79,14 @@ impl HirLowerCtx {
             kind: DefKind::Builtin,
             span: Span::dummy(),
         });
+        let println_id = symbol_table.alloc(DefData {
+            name: SmolStr::from("println"),
+            kind: DefKind::Builtin,
+            span: Span::dummy(),
+        });
         let mut scopes = ScopeStack::new();
         scopes.define(SmolStr::from("string_concat"), string_concat_id);
+        scopes.define(SmolStr::from("println"), println_id);
         Self { symbol_table, diagnostics: Vec::new(), scopes, string_concat_id }
     }
 
@@ -473,6 +479,11 @@ impl HirLowerCtx {
             Expr::Try { expr, span } => {
                 let hir_expr = self.lower_expr(expr);
                 HirExpr::Try { expr: Box::new(hir_expr), span: *span }
+            }
+
+            Expr::List { elements, span } => {
+                let hir_elements = elements.iter().map(|e| self.lower_expr(e)).collect();
+                HirExpr::List { elements: hir_elements, span: *span }
             }
         }
     }

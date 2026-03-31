@@ -512,6 +512,16 @@ impl<'a> Emitter<'a> {
                 // Statement-level try is handled in emit_stmt/emit_try_stmt.
                 self.emit_expr(expr);
             }
+            ThirExpr::List { elements, .. } => {
+                self.output.push('[');
+                for (i, element) in elements.iter().enumerate() {
+                    if i > 0 {
+                        self.output.push_str(", ");
+                    }
+                    self.emit_expr(element);
+                }
+                self.output.push(']');
+            }
         }
     }
 
@@ -525,6 +535,11 @@ impl<'a> Emitter<'a> {
             self.emit_expr(&args[0]);
             self.output.push_str(" + ");
             self.emit_expr(&args[1]);
+            self.output.push(')');
+            true
+        } else if name == "println" && args.len() == 1 {
+            self.output.push_str("print(");
+            self.emit_expr(&args[0]);
             self.output.push(')');
             true
         } else {
@@ -707,6 +722,9 @@ impl<'a> Emitter<'a> {
             }
             ThirExpr::FieldAccess { receiver, .. } => self.expr_contains_checked_ffi(receiver),
             ThirExpr::Try { expr, .. } => self.expr_contains_checked_ffi(expr),
+            ThirExpr::List { elements, .. } => {
+                elements.iter().any(|e| self.expr_contains_checked_ffi(e))
+            }
             ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
         }
     }
@@ -1119,6 +1137,7 @@ fn expr_contains_try(expr: &ThirExpr) -> bool {
         ThirExpr::UnaryOp { expr, .. } => expr_contains_try(expr),
         ThirExpr::Lambda { body, .. } => expr_contains_try(body),
         ThirExpr::FieldAccess { receiver, .. } => expr_contains_try(receiver),
+        ThirExpr::List { elements, .. } => elements.iter().any(expr_contains_try),
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
     }
 }

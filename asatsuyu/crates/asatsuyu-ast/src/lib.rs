@@ -289,10 +289,10 @@ mod tests {
         assert_eq!(greet.params.len(), 1);
         assert!(greet.return_type.is_some());
 
-        let add = get_fn(&result.module, 1);
-        assert_eq!(add.name.name.as_str(), "add");
-        assert_eq!(add.visibility, Visibility::Private);
-        assert_eq!(add.params.len(), 2);
+        let main = get_fn(&result.module, 1);
+        assert_eq!(main.name.name.as_str(), "main");
+        assert_eq!(main.visibility, Visibility::Public);
+        assert_eq!(main.params.len(), 0);
     }
 
     // ── 12. Error recovery input ────────────────────────────────────

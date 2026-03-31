@@ -61,6 +61,7 @@ fn find_in_expr(expr: &ThirExpr, offset: u32) -> Option<NodeInfo<'_>> {
         ThirExpr::Let { value, .. } | ThirExpr::Lambda { body: value, .. } => {
             find_in_expr(value, offset)
         }
+        ThirExpr::List { elements, .. } => elements.iter().find_map(|e| find_in_expr(e, offset)),
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => None,
     };
 
@@ -183,6 +184,11 @@ fn collect_refs_in_expr(expr: &ThirExpr, target: DefId, spans: &mut Vec<Span>) {
                 }
             }
             collect_refs_in_expr(body, target, spans);
+        }
+        ThirExpr::List { elements, .. } => {
+            for e in elements {
+                collect_refs_in_expr(e, target, spans);
+            }
         }
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => {}
     }
