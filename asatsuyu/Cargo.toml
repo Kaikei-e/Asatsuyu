@@ -60,6 +60,10 @@ tempfile = "3"
 # Format-preserving TOML editing (CLI dependency management)
 toml_edit = "0.22"
 
+# LSP (CLI only)
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["io-std", "rt-multi-thread", "macros"] }
+
 # Testing
 insta = { version = "1.47", features = ["glob"] }
 

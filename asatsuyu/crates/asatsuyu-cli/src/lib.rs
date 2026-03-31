@@ -6,6 +6,7 @@
 mod diagnostic_report;
 mod json_diagnostic;
 mod lockfile;
+mod lsp;
 mod project;
 mod python_env;
 mod sync;
@@ -190,6 +191,8 @@ enum Commands {
         #[command(flatten)]
         python: PythonArgs,
     },
+    /// Start the Language Server Protocol server (stdio transport)
+    Lsp,
     /// Format Asatsuyu source files
     Fmt {
         /// Paths to `.asty` source files (optional when inside a project)
@@ -337,6 +340,10 @@ pub fn run() -> ExitCode {
             cmd_sync(output.error_format, python.python_path.as_deref())
         }
         Commands::New { name } => cmd_new(&name),
+        Commands::Lsp => {
+            lsp::start_lsp();
+            ExitCode::SUCCESS
+        }
         Commands::Fmt { paths, check } => {
             let resolved = match resolve_fmt_paths(&paths) {
                 Ok(p) => p,

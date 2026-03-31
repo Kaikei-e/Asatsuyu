@@ -167,10 +167,8 @@ mod tests {
 
     #[test]
     fn format_preserves_comments_between_match_arms() {
-        let input =
-            "fn classify(x: Int) {\n  match x {\n    // zero\n    0 -> 0\n    // fallback\n    _ -> 1\n  }\n}\n";
-        let expected =
-            "fn classify(x: Int) {\n  match x {\n    // zero\n    0 -> 0\n    // fallback\n    _ -> 1\n  }\n}\n";
+        let input = "fn classify(x: Int) {\n  match x {\n    // zero\n    0 -> 0\n    // fallback\n    _ -> 1\n  }\n}\n";
+        let expected = "fn classify(x: Int) {\n  match x {\n    // zero\n    0 -> 0\n    // fallback\n    _ -> 1\n  }\n}\n";
         assert_eq!(fmt(input), expected);
         assert_idempotent(input);
     }
