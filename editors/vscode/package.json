@@ -26,9 +26,27 @@
         "extensions": [
           ".asty"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "scopeName": "source.asatsuyu"
       }
-    ]
+    ],
+    "grammars": [
+      {
+        "language": "asatsuyu",
+        "scopeName": "source.asatsuyu",
+        "path": "./syntaxes/asatsuyu.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Asatsuyu",
+      "properties": {
+        "asatsuyu.serverPath": {
+          "type": "string",
+          "default": "asatsuyu",
+          "description": "Path to the Asatsuyu language server executable."
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",

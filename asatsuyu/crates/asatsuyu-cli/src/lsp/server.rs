@@ -4,18 +4,22 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use asatsuyu_hir::DefKind;
 use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_syntax::{FileId, LineIndex};
 use asatsuyu_ty::ThirModule;
 use tokio::sync::RwLock;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
+    CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    DidSaveTextDocumentParams, DocumentFormattingParams, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverContents, HoverParams, HoverProviderCapability,
-    InitializeParams, InitializeResult, InitializedParams, Location, MarkupContent, MarkupKind,
-    MessageType, OneOf, Position, ServerCapabilities, ServerInfo, TextDocumentSyncCapability,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, Url,
+    DidSaveTextDocumentParams, DocumentFormattingParams, DocumentSymbol, DocumentSymbolParams,
+    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents,
+    HoverParams, HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams,
+    Location, MarkupContent, MarkupKind, MessageType, OneOf, Position, PrepareRenameResponse,
+    ReferenceParams, RenameOptions, RenameParams, ServerCapabilities, ServerInfo, SymbolKind,
+    TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextEdit, Url, WorkspaceEdit,
 };
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
@@ -113,6 +117,17 @@ impl LanguageServer for Backend {
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 definition_provider: Some(OneOf::Left(true)),
                 document_formatting_provider: Some(OneOf::Left(true)),
+                completion_provider: Some(CompletionOptions {
+                    trigger_characters: Some(vec![".".to_owned()]),
+                    ..Default::default()
+                }),
+                rename_provider: Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options:
+                        tower_lsp::lsp_types::WorkDoneProgressOptions::default(),
+                })),
+                references_provider: Some(OneOf::Left(true)),
+                document_symbol_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -254,10 +269,187 @@ impl LanguageServer for Backend {
         let eof_span = asatsuyu_syntax::Span::new(FileId(0), 0, file_state.source.len() as u32);
         let full_range = convert::span_to_range(eof_span, &file_state.line_index);
 
-        Ok(Some(vec![TextEdit {
-            range: full_range,
-            new_text: result.formatted,
-        }]))
+        Ok(Some(vec![TextEdit { range: full_range, new_text: result.formatted }]))
+    }
+
+    // ── Completion ──────────────────────────────────────────────
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = &params.text_document_position.text_document.uri;
+        let pos = params.text_document_position.position;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let offset = position_to_offset(pos, &file_state.source);
+        let entries = analysis::collect_completions(thir, offset);
+
+        let items: Vec<CompletionItem> = entries
+            .into_iter()
+            .map(|entry| CompletionItem {
+                label: entry.name.to_string(),
+                kind: Some(def_kind_to_completion_kind(entry.kind)),
+                detail: entry.ty.map(|t| format!("{t}")),
+                ..Default::default()
+            })
+            .collect();
+
+        Ok(Some(CompletionResponse::Array(items)))
+    }
+
+    // ── Rename ──────────────────────────────────────────────────
+
+    async fn prepare_rename(
+        &self,
+        params: TextDocumentPositionParams,
+    ) -> Result<Option<PrepareRenameResponse>> {
+        let uri = &params.text_document.uri;
+        let pos = params.position;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let offset = position_to_offset(pos, &file_state.source);
+        let Some(info) = analysis::find_node_at_offset(thir, offset) else {
+            return Ok(None);
+        };
+
+        // Only allow rename on named nodes (Var, FnDef).
+        let def_id = match info {
+            analysis::NodeInfo::Var { def_id, .. } | analysis::NodeInfo::FnDef { def_id, .. } => {
+                def_id
+            }
+            analysis::NodeInfo::Expr { .. } => return Ok(None),
+        };
+
+        let def = thir.symbol_table.get(def_id);
+        let range = convert::span_to_range(def.span, &file_state.line_index);
+        Ok(Some(PrepareRenameResponse::Range(range)))
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = &params.text_document_position.text_document.uri;
+        let pos = params.text_document_position.position;
+        let new_name = &params.new_name;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let offset = position_to_offset(pos, &file_state.source);
+        let Some(info) = analysis::find_node_at_offset(thir, offset) else {
+            return Ok(None);
+        };
+
+        let def_id = match info {
+            analysis::NodeInfo::Var { def_id, .. } | analysis::NodeInfo::FnDef { def_id, .. } => {
+                def_id
+            }
+            analysis::NodeInfo::Expr { .. } => return Ok(None),
+        };
+
+        let ref_spans = analysis::find_all_references(thir, def_id);
+        let edits: Vec<TextEdit> = ref_spans
+            .into_iter()
+            .map(|span| TextEdit {
+                range: convert::span_to_range(span, &file_state.line_index),
+                new_text: new_name.clone(),
+            })
+            .collect();
+
+        let mut changes = HashMap::new();
+        changes.insert(uri.clone(), edits);
+        Ok(Some(WorkspaceEdit { changes: Some(changes), ..Default::default() }))
+    }
+
+    // ── References ──────────────────────────────────────────────
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = &params.text_document_position.text_document.uri;
+        let pos = params.text_document_position.position;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let offset = position_to_offset(pos, &file_state.source);
+        let Some(info) = analysis::find_node_at_offset(thir, offset) else {
+            return Ok(None);
+        };
+
+        let def_id = match info {
+            analysis::NodeInfo::Var { def_id, .. } | analysis::NodeInfo::FnDef { def_id, .. } => {
+                def_id
+            }
+            analysis::NodeInfo::Expr { .. } => return Ok(None),
+        };
+
+        let ref_spans = analysis::find_all_references(thir, def_id);
+        let locations: Vec<Location> = ref_spans
+            .into_iter()
+            .map(|span| Location {
+                uri: uri.clone(),
+                range: convert::span_to_range(span, &file_state.line_index),
+            })
+            .collect();
+
+        Ok(Some(locations))
+    }
+
+    // ── Document symbols ────────────────────────────────────────
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
+        let uri = &params.text_document.uri;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let entries = analysis::collect_document_symbols(thir);
+        #[allow(deprecated)] // `deprecated` field is required but deprecated in LSP spec
+        let symbols: Vec<DocumentSymbol> = entries
+            .into_iter()
+            .map(|entry| {
+                let range = convert::span_to_range(entry.span, &file_state.line_index);
+                DocumentSymbol {
+                    name: entry.name.to_string(),
+                    detail: None,
+                    kind: def_kind_to_symbol_kind(entry.kind),
+                    tags: None,
+                    deprecated: None,
+                    range,
+                    selection_range: range,
+                    children: None,
+                }
+            })
+            .collect();
+
+        Ok(Some(DocumentSymbolResponse::Nested(symbols)))
     }
 }
 
@@ -308,6 +500,38 @@ fn uri_to_path(uri: &Url) -> Option<PathBuf> {
     uri.to_file_path().ok()
 }
 
+/// Map `DefKind` to LSP `CompletionItemKind`.
+fn def_kind_to_completion_kind(kind: DefKind) -> CompletionItemKind {
+    match kind {
+        DefKind::Function | DefKind::Builtin => CompletionItemKind::FUNCTION,
+        DefKind::Parameter | DefKind::LocalBinding => CompletionItemKind::VARIABLE,
+        DefKind::Constructor => CompletionItemKind::CONSTRUCTOR,
+        DefKind::Type => CompletionItemKind::STRUCT,
+        DefKind::Import => CompletionItemKind::MODULE,
+    }
+}
+
+/// Map `DefKind` to LSP `SymbolKind`.
+fn def_kind_to_symbol_kind(kind: DefKind) -> SymbolKind {
+    match kind {
+        DefKind::Function | DefKind::Builtin => SymbolKind::FUNCTION,
+        DefKind::Parameter | DefKind::LocalBinding => SymbolKind::VARIABLE,
+        DefKind::Constructor => SymbolKind::CONSTRUCTOR,
+        DefKind::Type => SymbolKind::STRUCT,
+        DefKind::Import => SymbolKind::MODULE,
+    }
+}
+
+// ── Server startup ──────────────────────────────────────────────
+
+pub(super) async fn run_server() {
+    let stdin = tokio::io::stdin();
+    let stdout = tokio::io::stdout();
+
+    let (service, socket) = LspService::new(Backend::new);
+    Server::new(stdin, stdout, socket).serve(service).await;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,19 +548,10 @@ mod tests {
     fn formatting_range_covers_entire_document() {
         let source = "a\n";
         let index = LineIndex::new(source);
+        #[allow(clippy::cast_possible_truncation)]
         let eof_span = asatsuyu_syntax::Span::new(FileId(0), 0, source.len() as u32);
         let range = convert::span_to_range(eof_span, &index);
         assert_eq!(range.start, Position { line: 0, character: 0 });
         assert_eq!(range.end, Position { line: 1, character: 0 });
     }
-}
-
-// ── Server startup ──────────────────────────────────────────────
-
-pub(super) async fn run_server() {
-    let stdin = tokio::io::stdin();
-    let stdout = tokio::io::stdout();
-
-    let (service, socket) = LspService::new(Backend::new);
-    Server::new(stdin, stdout, socket).serve(service).await;
 }

@@ -1,0 +1,72 @@
+{
+  "scopeName": "source.asatsuyu",
+  "name": "Asatsuyu",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#function-definition"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#constants"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.asatsuyu",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.asatsuyu",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": []
+        }
+      ]
+    },
+    "function-definition": {
+      "patterns": [
+        {
+          "match": "\\b(fn)\\b\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.function.asatsuyu"
+            },
+            "2": {
+              "name": "entity.name.function.asatsuyu"
+            }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.asatsuyu",
+          "match": "\\b(pub|let|type|match|if|else|import|from|python|as|try)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.asatsuyu",
+          "match": "\\b(True|False)\\b"
+        }
+      ]
+    }
+  }
+}
