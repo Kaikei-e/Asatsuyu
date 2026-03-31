@@ -17,11 +17,11 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 WORKSPACE = PROJECT_ROOT / "asatsuyu"
-EXAMPLES = WORKSPACE / "examples"
+FIXTURE_PROJECTS = WORKSPACE / "fixtures" / "projects"
 
-# Only Verified-FFI examples (setuptools-based, no native extension needed).
-# Note: ffi_json.asty is excluded because json.dumps accepts Any (Checked FFI).
-VERIFIED_EXAMPLES = ["hello.asty", "greet.asty", "ffi_pathlib.asty"]
+# Package-install smoke tests for executable fixture projects.
+# Excludes requests_client because it is Checked FFI with third-party dependency.
+INSTALLABLE_FIXTURES = ["hello_cli", "pathlib_walk", "stdlib_ffi", "build_install"]
 
 
 def build_cli() -> Path:
@@ -37,11 +37,10 @@ def build_cli() -> Path:
     return binary
 
 
-def test_package(cli_path: Path, example_name: str, tmp_dir: Path) -> None:
+def test_package(cli_path: Path, fixture_name: str, tmp_dir: Path) -> None:
     """Build, install, and import a generated package."""
-    source = EXAMPLES / example_name
-    stem = source.stem
-    out_dir = tmp_dir / f"dist-{stem}"
+    source = FIXTURE_PROJECTS / fixture_name / "src" / "main.asty"
+    out_dir = tmp_dir / f"dist-{fixture_name}"
 
     # 1. Build package
     result = subprocess.run(
@@ -50,10 +49,10 @@ def test_package(cli_path: Path, example_name: str, tmp_dir: Path) -> None:
         text=True,
         cwd=WORKSPACE,
     )
-    assert result.returncode == 0, f"build failed for {example_name}: {result.stderr}"
+    assert result.returncode == 0, f"build failed for {fixture_name}: {result.stderr}"
 
     # 2. Create venv
-    venv_dir = tmp_dir / f"venv-{stem}"
+    venv_dir = tmp_dir / f"venv-{fixture_name}"
     subprocess.run(
         [
             sys.executable,
@@ -89,25 +88,33 @@ def test_package(cli_path: Path, example_name: str, tmp_dir: Path) -> None:
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"pip install failed for {stem}: {result.stderr}"
+    assert result.returncode == 0, f"pip install failed for {fixture_name}: {result.stderr}"
 
-    # 5. Import test
+    # 5. Import test. Generated packages expose `<pkg>/<pkg>.py`.
     result = subprocess.run(
-        [str(python), "-c", f"import {stem}; print('OK: {stem}')"],
+        [
+            str(python),
+            "-c",
+            (
+                "import importlib; "
+                f"importlib.import_module('{fixture_name}.{fixture_name}'); "
+                f"print('OK: {fixture_name}')"
+            ),
+        ],
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"import failed for {stem}: {result.stderr}"
-    print(f"  PASS: {example_name} ({stem})")
+    assert result.returncode == 0, f"import failed for {fixture_name}: {result.stderr}"
+    print(f"  PASS: {fixture_name}")
 
 
 def main() -> None:
     cli = build_cli()
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
-        for example in VERIFIED_EXAMPLES:
-            test_package(cli, example, tmp_path)
-    print(f"\nOK: all {len(VERIFIED_EXAMPLES)} package install tests passed")
+        for fixture in INSTALLABLE_FIXTURES:
+            test_package(cli, fixture, tmp_path)
+    print(f"\nOK: all {len(INSTALLABLE_FIXTURES)} fixture package install tests passed")
 
 
 if __name__ == "__main__":
