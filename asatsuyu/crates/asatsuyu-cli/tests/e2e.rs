@@ -310,6 +310,7 @@ fn new_creates_project() {
 
     // Verify asatsuyu.toml content.
     let toml = std::fs::read_to_string(dir.join("demo/asatsuyu.toml")).unwrap();
+    assert!(toml.contains("schema_version = 1"), "toml schema_version: {toml}");
     assert!(toml.contains("name = \"demo\""), "toml name: {toml}");
 
     // Verify main.asty content.

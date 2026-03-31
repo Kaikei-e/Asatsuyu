@@ -339,9 +339,10 @@ custom-key = "value"
     #[test]
     fn parse_config_generated_by_cmd_new() {
         let toml =
-            "[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n";
+            "schema_version = 1\n\n[project]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n";
         let config = parse_config(toml).unwrap();
         assert_eq!(config.name(), "demo");
+        assert_eq!(config.schema_version, 1);
         assert_eq!(config.python_version(), Some(">=3.12"));
     }
 

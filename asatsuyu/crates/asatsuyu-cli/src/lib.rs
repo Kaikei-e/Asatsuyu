@@ -490,7 +490,7 @@ fn cmd_new(name: &str) -> ExitCode {
 
     // asatsuyu.toml
     let toml = format!(
-        "[project]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n",
+        "schema_version = 1\n\n[project]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[python]\nversion = \">=3.12\"\n",
     );
     if let Err(e) = std::fs::write(project_dir.join("asatsuyu.toml"), toml) {
         eprintln!("error: cannot write asatsuyu.toml: {e}");
