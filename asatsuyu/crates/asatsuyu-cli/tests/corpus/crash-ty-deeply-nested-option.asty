@@ -1,0 +1,8 @@
+type Option(a) {
+  Some(a)
+  None
+}
+
+fn f() -> Option(Option(Option(Option(Option(Option(Option(Option(Int)))))))) {
+  Some(Some(Some(Some(Some(Some(Some(Some(42))))))))
+}

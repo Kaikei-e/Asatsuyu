@@ -1,0 +1,10 @@
+type Option {
+  Option
+}
+
+type Result {
+  Result
+}
+
+fn Int() { 42 }
+fn String() { "hello" }

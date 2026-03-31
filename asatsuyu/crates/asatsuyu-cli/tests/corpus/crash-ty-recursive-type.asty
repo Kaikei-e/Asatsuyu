@@ -1,0 +1,7 @@
+type Loop {
+  Loop(inner: Loop)
+}
+
+fn f() {
+  Loop(Loop(Loop(Loop(Loop(Loop(Loop(Loop(Loop(Loop(Loop(42)))))))))))
+}

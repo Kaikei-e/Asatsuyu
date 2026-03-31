@@ -1,0 +1,5 @@
+fn valid() { 42 }
+
+pub fn also_valid(x: Int) -> Int { x }
+
+@@@ !!! $$$ %%% ^^^ &&& *** ~~~

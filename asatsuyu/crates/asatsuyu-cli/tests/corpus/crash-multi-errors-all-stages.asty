@@ -1,0 +1,11 @@
+fn f( {
+  let = 42
+  match {
+  if True
+  unknown_function()
+  1 + "hello"
+}
+
+type { Bad }
+
+from python import

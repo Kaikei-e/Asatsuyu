@@ -13,7 +13,14 @@ use crate::parser::{Parser, TOP_LEVEL_RECOVERY, TokenSet};
 pub(crate) fn parse_source_file(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::SourceFile);
     while !p.at_eof() {
+        let prev = p.pos();
         parse_top_level(p);
+        if p.pos() == prev {
+            // `parse_top_level` made no progress (e.g. a stray keyword that
+            // error recovery refuses to skip because it *is* a recovery point).
+            // Force-consume the token to guarantee termination.
+            p.error_and_bump("unexpected token", DiagnosticCode::E0051);
+        }
     }
     // Trailing trivia (whitespace / newlines at file end) belongs to SourceFile.
     p.eat_trivia();

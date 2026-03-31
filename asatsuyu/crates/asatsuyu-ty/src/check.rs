@@ -1464,10 +1464,9 @@ impl TyCheckCtx {
     }
 
     fn builtin_named_ty(&self, name: &str, args: Vec<Ty>) -> Ty {
-        let def_id = *self
-            .type_name_to_def_id
-            .get(name)
-            .expect("builtin collection type should be registered");
+        let Some(&def_id) = self.type_name_to_def_id.get(name) else {
+            return Ty::Error;
+        };
         Ty::Named { def_id, name: name.into(), args }
     }
 

@@ -1,0 +1,7 @@
+fn f() -> List(Int) {
+  [1, 2, 3]
+}
+
+fn g() -> Dict(String, Int) {
+  {}
+}
