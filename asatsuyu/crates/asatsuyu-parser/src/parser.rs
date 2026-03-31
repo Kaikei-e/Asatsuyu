@@ -1,7 +1,7 @@
 //! Core parser infrastructure: token navigation, trivia handling, and error recovery.
 
 use asatsuyu_lexer::Token;
-use asatsuyu_syntax::{Diagnostic, FileId, Span, SyntaxKind};
+use asatsuyu_syntax::{Diagnostic, DiagnosticCode, FileId, Span, SyntaxKind};
 use rowan::{GreenNode, GreenNodeBuilder};
 
 use crate::language::raw;
@@ -168,7 +168,8 @@ impl<'a> Parser<'a> {
     }
 
     /// If the current token matches `kind`, consume it and return `true`.
-    /// Otherwise, emit a diagnostic and return `false` (the token is **not** consumed).
+    /// Otherwise, emit a diagnostic with code [`DiagnosticCode::E0050`] and
+    /// return `false` (the token is **not** consumed).
     pub(crate) fn expect(&mut self, kind: SyntaxKind) -> bool {
         if self.at(kind) {
             self.bump();
@@ -177,6 +178,7 @@ impl<'a> Parser<'a> {
             let span = self.current_span();
             self.diagnostics.push(
                 Diagnostic::error(format!("expected {kind:?}"), span)
+                    .with_code(DiagnosticCode::E0050)
                     .with_label(span, format!("expected {kind:?}")),
             );
             false
@@ -186,9 +188,10 @@ impl<'a> Parser<'a> {
     // ── Error recovery ───────────────────────────────────────────────
 
     /// Wrap the current token in a `NodeError` node and emit a diagnostic.
-    pub(crate) fn error_and_bump(&mut self, message: &str) {
+    pub(crate) fn error_and_bump(&mut self, message: &str, code: DiagnosticCode) {
         let span = self.current_span();
-        self.diagnostics.push(Diagnostic::error(message, span).with_label(span, message));
+        self.diagnostics
+            .push(Diagnostic::error(message, span).with_code(code).with_label(span, message));
         self.builder.start_node(raw(SyntaxKind::NodeError));
         self.bump();
         self.builder.finish_node();
@@ -196,9 +199,10 @@ impl<'a> Parser<'a> {
 
     /// Skip tokens until a synchronization point (`fn`, `pub`, or EOF),
     /// wrapping everything skipped in a `NodeError` node.
-    pub(crate) fn error_recover(&mut self, message: &str) {
+    pub(crate) fn error_recover(&mut self, message: &str, code: DiagnosticCode) {
         let span = self.current_span();
-        self.diagnostics.push(Diagnostic::error(message, span).with_label(span, message));
+        self.diagnostics
+            .push(Diagnostic::error(message, span).with_code(code).with_label(span, message));
         self.builder.start_node(raw(SyntaxKind::NodeError));
         while !self.at_eof() && !self.at_recovery_point() {
             self.bump();
@@ -215,9 +219,15 @@ impl<'a> Parser<'a> {
     /// diagnostic is emitted but **nothing is consumed** — this lets the
     /// caller handle the token (e.g. a closing `}` that belongs to an
     /// outer scope).
-    pub(crate) fn error_recover_until(&mut self, message: &str, recovery: TokenSet) {
+    pub(crate) fn error_recover_until(
+        &mut self,
+        message: &str,
+        recovery: TokenSet,
+        code: DiagnosticCode,
+    ) {
         let span = self.current_span();
-        self.diagnostics.push(Diagnostic::error(message, span).with_label(span, message));
+        self.diagnostics
+            .push(Diagnostic::error(message, span).with_code(code).with_label(span, message));
 
         let stop = recovery.union(CLOSING_DELIMITERS).union(TOP_LEVEL_RECOVERY);
 

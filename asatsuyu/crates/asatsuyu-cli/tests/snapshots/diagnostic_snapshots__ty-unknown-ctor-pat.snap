@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0153] Error: unresolved constructor `Cherry`
+  span: 107..113
+  primary [107..113]: unknown constructor
+  hint: constructors must be defined in a type declaration

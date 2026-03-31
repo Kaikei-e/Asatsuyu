@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0151] Error: duplicate definition `Box`
+  span: 20..23
+  secondary [9..12]: previously defined here
+  hint: rename one of the definitions

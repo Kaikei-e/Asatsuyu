@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0053] Error: expected parameter list
+  span: 8..9
+  primary [8..9]: expected parameter list

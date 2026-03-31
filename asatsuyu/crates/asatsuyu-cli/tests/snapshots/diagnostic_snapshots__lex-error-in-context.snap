@@ -1,0 +1,12 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0001] Error: unexpected character
+  span: 12..13
+  primary [12..13]: invalid token
+  hint: check for misplaced special characters or unsupported Unicode
+---
+[E0055] Error: expected expression
+  span: 12..13
+  primary [12..13]: expected expression

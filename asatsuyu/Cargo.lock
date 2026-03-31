@@ -117,6 +117,7 @@ dependencies = [
  "asatsuyu-syntax",
  "asatsuyu-ty",
  "clap",
+ "insta",
  "miette",
 ]
 

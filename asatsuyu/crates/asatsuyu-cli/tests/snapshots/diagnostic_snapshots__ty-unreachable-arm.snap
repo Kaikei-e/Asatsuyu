@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0301] Warning: unreachable match arm
+  span: 38..49
+  primary [38..49]: this arm can never be reached
+  note: a previous arm already covers all remaining patterns

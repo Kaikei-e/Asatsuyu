@@ -3,7 +3,7 @@
 //! Each `parse_*` function corresponds to a grammar production and builds
 //! a subtree in the rowan green tree via the [`Parser`](crate::parser::Parser).
 
-use asatsuyu_syntax::SyntaxKind;
+use asatsuyu_syntax::{DiagnosticCode, SyntaxKind};
 
 use crate::parser::{Parser, TOP_LEVEL_RECOVERY, TokenSet};
 
@@ -32,9 +32,9 @@ fn parse_top_level(p: &mut Parser<'_>) {
         SyntaxKind::ImportKw => parse_import(p),
         SyntaxKind::FromKw => parse_from_python_import(p),
         SyntaxKind::LetKw => {
-            p.error_recover("not yet implemented");
+            p.error_recover("not yet implemented", DiagnosticCode::E0062);
         }
-        _ => p.error_recover("expected item definition"),
+        _ => p.error_recover("expected item definition", DiagnosticCode::E0051),
     }
 }
 
@@ -59,6 +59,7 @@ fn parse_fn_def(p: &mut Parser<'_>) {
         p.error_recover_until(
             "expected function name",
             TokenSet::new(&[SyntaxKind::LParen, SyntaxKind::LBrace, SyntaxKind::Arrow]),
+            DiagnosticCode::E0052,
         );
     }
 
@@ -69,6 +70,7 @@ fn parse_fn_def(p: &mut Parser<'_>) {
         p.error_recover_until(
             "expected parameter list",
             TokenSet::new(&[SyntaxKind::LBrace, SyntaxKind::Arrow]),
+            DiagnosticCode::E0053,
         );
     }
 
@@ -81,7 +83,7 @@ fn parse_fn_def(p: &mut Parser<'_>) {
     if p.at(SyntaxKind::LBrace) {
         parse_block_expr(p);
     } else {
-        p.error_recover_until("expected function body", TokenSet::EMPTY);
+        p.error_recover_until("expected function body", TokenSet::EMPTY, DiagnosticCode::E0054);
     }
 
     p.finish_node();
@@ -126,7 +128,7 @@ fn parse_type_def(p: &mut Parser<'_>) {
         parse_type_body(p);
         p.expect(SyntaxKind::RBrace);
     } else {
-        p.error_recover_until("expected type body", TokenSet::EMPTY);
+        p.error_recover_until("expected type body", TokenSet::EMPTY, DiagnosticCode::E0058);
     }
 
     p.finish_node();
@@ -178,7 +180,7 @@ fn parse_type_body(p: &mut Parser<'_>) {
             if p.at(SyntaxKind::Ident) {
                 parse_record_field(p);
             } else {
-                p.error_and_bump("expected field definition");
+                p.error_and_bump("expected field definition", DiagnosticCode::E0057);
             }
             debug_assert!(p.pos() > prev, "parse_type_body: no progress (record)");
         }
@@ -188,7 +190,7 @@ fn parse_type_body(p: &mut Parser<'_>) {
             if p.at(SyntaxKind::Ident) {
                 parse_variant(p);
             } else {
-                p.error_and_bump("expected variant definition");
+                p.error_and_bump("expected variant definition", DiagnosticCode::E0057);
             }
             debug_assert!(p.pos() > prev, "parse_type_body: no progress (variant)");
         }
@@ -285,7 +287,7 @@ fn parse_import(p: &mut Parser<'_>) {
 
     // Module path: at least one identifier
     if !p.expect(SyntaxKind::Ident) {
-        p.error_recover_until("expected module name", TokenSet::EMPTY);
+        p.error_recover_until("expected module name", TokenSet::EMPTY, DiagnosticCode::E0061);
         p.finish_node();
         return;
     }
@@ -294,7 +296,11 @@ fn parse_import(p: &mut Parser<'_>) {
     while p.at(SyntaxKind::Dot) {
         p.bump(); // consume `.`
         if !p.expect(SyntaxKind::Ident) {
-            p.error_recover_until("expected module name after `.`", TokenSet::EMPTY);
+            p.error_recover_until(
+                "expected module name after `.`",
+                TokenSet::EMPTY,
+                DiagnosticCode::E0061,
+            );
             p.finish_node();
             return;
         }
@@ -304,7 +310,11 @@ fn parse_import(p: &mut Parser<'_>) {
     if p.at(SyntaxKind::AsKw) {
         p.bump(); // consume `as`
         if !p.expect(SyntaxKind::Ident) {
-            p.error_recover_until("expected alias name after `as`", TokenSet::EMPTY);
+            p.error_recover_until(
+                "expected alias name after `as`",
+                TokenSet::EMPTY,
+                DiagnosticCode::E0061,
+            );
         }
     }
 
@@ -322,7 +332,11 @@ fn parse_from_python_import(p: &mut Parser<'_>) {
 
     // Expect `python` keyword
     if !p.at(SyntaxKind::PythonKw) {
-        p.error_recover_until("expected `python` after `from`", TokenSet::EMPTY);
+        p.error_recover_until(
+            "expected `python` after `from`",
+            TokenSet::EMPTY,
+            DiagnosticCode::E0061,
+        );
         p.finish_node();
         return;
     }
@@ -330,14 +344,22 @@ fn parse_from_python_import(p: &mut Parser<'_>) {
 
     // Expect `import` keyword
     if !p.expect(SyntaxKind::ImportKw) {
-        p.error_recover_until("expected `import` after `from python`", TokenSet::EMPTY);
+        p.error_recover_until(
+            "expected `import` after `from python`",
+            TokenSet::EMPTY,
+            DiagnosticCode::E0061,
+        );
         p.finish_node();
         return;
     }
 
     // Module name: a single identifier
     if !p.expect(SyntaxKind::Ident) {
-        p.error_recover_until("expected module name after `import`", TokenSet::EMPTY);
+        p.error_recover_until(
+            "expected module name after `import`",
+            TokenSet::EMPTY,
+            DiagnosticCode::E0061,
+        );
         p.finish_node();
         return;
     }
@@ -346,7 +368,11 @@ fn parse_from_python_import(p: &mut Parser<'_>) {
     if p.at(SyntaxKind::AsKw) {
         p.bump(); // consume `as`
         if !p.expect(SyntaxKind::Ident) {
-            p.error_recover_until("expected alias name after `as`", TokenSet::EMPTY);
+            p.error_recover_until(
+                "expected alias name after `as`",
+                TokenSet::EMPTY,
+                DiagnosticCode::E0061,
+            );
         }
     }
 
@@ -379,7 +405,7 @@ fn parse_param_list_with_mode(p: &mut Parser<'_>, require_type_ann: bool) {
         } else if !p.at(SyntaxKind::RParen) {
             // Not comma, not `)` — stuck
             if p.pos() == prev {
-                p.error_and_bump("unexpected token in parameter list");
+                p.error_and_bump("unexpected token in parameter list", DiagnosticCode::E0057);
             }
             break;
         }
@@ -400,7 +426,7 @@ fn parse_param(p: &mut Parser<'_>, require_type_ann: bool) {
 
     // Parameter name
     if !p.expect(SyntaxKind::Ident) {
-        p.error_recover_until("expected parameter name", PARAM_FOLLOW);
+        p.error_recover_until("expected parameter name", PARAM_FOLLOW, DiagnosticCode::E0053);
         p.finish_node();
         return;
     }
@@ -411,10 +437,14 @@ fn parse_param(p: &mut Parser<'_>, require_type_ann: bool) {
         if p.at(SyntaxKind::Ident) {
             parse_type_expr(p);
         } else {
-            p.error_recover_until("expected parameter type", PARAM_FOLLOW);
+            p.error_recover_until("expected parameter type", PARAM_FOLLOW, DiagnosticCode::E0053);
         }
     } else if require_type_ann {
-        p.error_recover_until("expected `:` after parameter name", PARAM_FOLLOW);
+        p.error_recover_until(
+            "expected `:` after parameter name",
+            PARAM_FOLLOW,
+            DiagnosticCode::E0053,
+        );
     }
 
     p.finish_node();
@@ -429,7 +459,11 @@ fn parse_return_type(p: &mut Parser<'_>) {
     if p.at(SyntaxKind::Ident) {
         parse_type_expr(p);
     } else {
-        p.error_recover_until("expected return type", TokenSet::new(&[SyntaxKind::LBrace]));
+        p.error_recover_until(
+            "expected return type",
+            TokenSet::new(&[SyntaxKind::LBrace]),
+            DiagnosticCode::E0059,
+        );
     }
     p.finish_node();
 }
@@ -449,7 +483,7 @@ fn parse_block_expr(p: &mut Parser<'_>) {
             parse_expr(p);
         }
         if p.pos() == prev {
-            p.error_and_bump("unexpected token in block");
+            p.error_and_bump("unexpected token in block", DiagnosticCode::E0057);
         }
     }
 
@@ -470,6 +504,7 @@ fn parse_let_stmt(p: &mut Parser<'_>) {
         p.error_recover_until(
             "expected binding name",
             TokenSet::new(&[SyntaxKind::Eq, SyntaxKind::RBrace]),
+            DiagnosticCode::E0055,
         );
     }
 
@@ -492,6 +527,7 @@ fn parse_lambda_expr(p: &mut Parser<'_>) {
         p.error_recover_until(
             "expected parameter list",
             TokenSet::new(&[SyntaxKind::LBrace, SyntaxKind::Arrow]),
+            DiagnosticCode::E0053,
         );
     }
 
@@ -502,7 +538,7 @@ fn parse_lambda_expr(p: &mut Parser<'_>) {
     if p.at(SyntaxKind::LBrace) {
         parse_block_expr(p);
     } else {
-        p.error_recover_until("expected lambda body", TokenSet::EMPTY);
+        p.error_recover_until("expected lambda body", TokenSet::EMPTY, DiagnosticCode::E0054);
     }
 
     p.finish_node();
@@ -629,7 +665,7 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
 
         // Error: not a valid expression start
         _ => {
-            p.error_and_bump("expected expression");
+            p.error_and_bump("expected expression", DiagnosticCode::E0055);
             return;
         }
     }
@@ -696,7 +732,7 @@ fn parse_arg_list(p: &mut Parser<'_>) {
             p.bump();
         } else if !p.at(SyntaxKind::RParen) {
             if p.pos() == prev {
-                p.error_and_bump("unexpected token in argument list");
+                p.error_and_bump("unexpected token in argument list", DiagnosticCode::E0057);
             }
             break;
         }
@@ -723,6 +759,7 @@ fn parse_if_expr(p: &mut Parser<'_>) {
         p.error_recover_until(
             "expected block after `if` condition",
             TokenSet::new(&[SyntaxKind::ElseKw]),
+            DiagnosticCode::E0060,
         );
     }
 
@@ -735,7 +772,11 @@ fn parse_if_expr(p: &mut Parser<'_>) {
         } else if p.at(SyntaxKind::LBrace) {
             parse_block_expr(p);
         } else {
-            p.error_recover_until("expected block or `if` after `else`", TokenSet::EMPTY);
+            p.error_recover_until(
+                "expected block or `if` after `else`",
+                TokenSet::EMPTY,
+                DiagnosticCode::E0060,
+            );
         }
     }
 
@@ -805,7 +846,7 @@ fn parse_pattern(p: &mut Parser<'_>) {
 
         SyntaxKind::LBracket => parse_list_pat(p),
 
-        _ => p.error_and_bump("expected pattern"),
+        _ => p.error_and_bump("expected pattern", DiagnosticCode::E0056),
     }
 }
 
@@ -851,7 +892,7 @@ fn parse_constructor_pat(p: &mut Parser<'_>) {
             p.bump();
         } else if !p.at(SyntaxKind::RParen) {
             if p.pos() == prev {
-                p.error_and_bump("unexpected token in constructor pattern");
+                p.error_and_bump("unexpected token in constructor pattern", DiagnosticCode::E0057);
             }
             break;
         }
@@ -875,7 +916,7 @@ fn parse_list_pat(p: &mut Parser<'_>) {
             p.bump();
         } else if !p.at(SyntaxKind::RBracket) && !p.at(SyntaxKind::DotDot) {
             if p.pos() == prev {
-                p.error_and_bump("unexpected token in list pattern");
+                p.error_and_bump("unexpected token in list pattern", DiagnosticCode::E0057);
             }
             break;
         }
@@ -920,7 +961,11 @@ fn parse_match_arm(p: &mut Parser<'_>) {
         p.bump();
         true
     } else {
-        p.error_recover_until("expected `->` after pattern", TokenSet::new(&[SyntaxKind::Arrow]));
+        p.error_recover_until(
+            "expected `->` after pattern",
+            TokenSet::new(&[SyntaxKind::Arrow]),
+            DiagnosticCode::E0050,
+        );
         // If we recovered to `->`, consume it
         if p.at(SyntaxKind::Arrow) {
             p.bump();
@@ -955,6 +1000,7 @@ fn parse_match_expr(p: &mut Parser<'_>) {
         let span = p.current_span();
         p.diagnostics_mut().push(
             asatsuyu_syntax::Diagnostic::error("expected block after match subject", span)
+                .with_code(DiagnosticCode::E0060)
                 .with_label(span, "expected `{`"),
         );
     }
@@ -964,10 +1010,10 @@ fn parse_match_expr(p: &mut Parser<'_>) {
         if at_pattern_start(p) {
             parse_match_arm(p);
         } else {
-            p.error_and_bump("expected pattern");
+            p.error_and_bump("expected pattern", DiagnosticCode::E0056);
         }
         if p.pos() == prev {
-            p.error_and_bump("unexpected token in match");
+            p.error_and_bump("unexpected token in match", DiagnosticCode::E0057);
             break;
         }
     }

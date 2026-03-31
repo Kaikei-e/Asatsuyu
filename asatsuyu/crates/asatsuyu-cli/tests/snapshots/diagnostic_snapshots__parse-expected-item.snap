@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0051] Error: expected item definition
+  span: 0..3
+  primary [0..3]: expected item definition

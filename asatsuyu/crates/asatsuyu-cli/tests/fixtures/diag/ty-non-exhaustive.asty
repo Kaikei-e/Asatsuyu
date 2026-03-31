@@ -1,0 +1,10 @@
+pub type Color {
+  Red
+  Blue
+  Green
+}
+fn f(c: Color) -> Int {
+  match c {
+    Red -> 1
+  }
+}

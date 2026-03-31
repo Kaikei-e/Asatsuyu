@@ -1,0 +1,11 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0055] Error: expected expression
+  span: 20..21
+  primary [20..21]: expected expression
+---
+[E0050] Error: expected RBrace
+  span: 22..22
+  primary [22..22]: expected RBrace

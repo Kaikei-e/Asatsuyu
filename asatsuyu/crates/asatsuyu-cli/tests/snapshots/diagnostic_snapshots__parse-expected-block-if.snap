@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0060] Error: expected block after `if` condition
+  span: 17..19
+  primary [17..19]: expected block after `if` condition

@@ -9,7 +9,7 @@
 use logos::Logos;
 use smol_str::SmolStr;
 
-use asatsuyu_syntax::{Diagnostic, FileId, Span, SyntaxKind};
+use asatsuyu_syntax::{Diagnostic, DiagnosticCode, FileId, Span, SyntaxKind};
 
 /// Internal token enum for the `logos` lexer.
 ///
@@ -236,7 +236,10 @@ pub fn lex(source: &str, file_id: FileId) -> (Vec<Token>, Vec<Diagnostic>) {
             tokens.push(Token { kind: SyntaxKind::from(lex_token), span, text });
         } else {
             diagnostics.push(
-                Diagnostic::error("unexpected character", span).with_label(span, "invalid token"),
+                Diagnostic::error("unexpected character", span)
+                    .with_code(DiagnosticCode::E0001)
+                    .with_label(span, "invalid token")
+                    .with_hint("check for misplaced special characters or unsupported Unicode"),
             );
             tokens.push(Token { kind: SyntaxKind::Error, span, text });
         }

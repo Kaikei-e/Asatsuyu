@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0058] Error: expected type body
+  span: 9..9
+  primary [9..9]: expected type body

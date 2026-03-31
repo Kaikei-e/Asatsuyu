@@ -1,0 +1,11 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0050] Error: expected Ident
+  span: 7..7
+  primary [7..7]: expected Ident
+---
+[E0061] Error: expected module name
+  span: 7..7
+  primary [7..7]: expected module name

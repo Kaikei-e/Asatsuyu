@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0054] Error: expected function body
+  span: 10..10
+  primary [10..10]: expected function body

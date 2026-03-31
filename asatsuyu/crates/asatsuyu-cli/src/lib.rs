@@ -642,11 +642,7 @@ impl std::fmt::Display for CliError {
                 Ok(())
             }
             Self::InvalidFfiStubPath { path, reason } => {
-                write!(
-                    f,
-                    "invalid --ffi-stub-path `{}`: {reason}",
-                    path.display()
-                )
+                write!(f, "invalid --ffi-stub-path `{}`: {reason}", path.display())
             }
         }
     }

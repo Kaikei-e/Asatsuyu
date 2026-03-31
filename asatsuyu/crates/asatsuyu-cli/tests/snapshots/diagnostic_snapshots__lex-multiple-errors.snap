@@ -1,0 +1,22 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0001] Error: unexpected character
+  span: 0..1
+  primary [0..1]: invalid token
+  hint: check for misplaced special characters or unsupported Unicode
+---
+[E0001] Error: unexpected character
+  span: 2..3
+  primary [2..3]: invalid token
+  hint: check for misplaced special characters or unsupported Unicode
+---
+[E0001] Error: unexpected character
+  span: 4..5
+  primary [4..5]: invalid token
+  hint: check for misplaced special characters or unsupported Unicode
+---
+[E0051] Error: expected item definition
+  span: 0..1
+  primary [0..1]: expected item definition

@@ -1,0 +1,8 @@
+pub type Box(a) {
+  Box(a)
+}
+fn f(x: Box(Int)) -> Int {
+  match x {
+    Box(a, b) -> a
+  }
+}

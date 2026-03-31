@@ -19,3 +19,6 @@ asatsuyu-ty = { workspace = true }
 asatsuyu-backend-python = { workspace = true }
 clap = { workspace = true }
 miette = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

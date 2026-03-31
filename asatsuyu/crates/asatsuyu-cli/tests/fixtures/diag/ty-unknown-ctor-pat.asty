@@ -1,0 +1,11 @@
+pub type Fruit {
+  Apple
+  Banana
+}
+fn f(x: Fruit) -> Int {
+  match x {
+    Apple -> 1
+    Banana -> 2
+    Cherry -> 3
+  }
+}

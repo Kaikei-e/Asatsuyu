@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0052] Error: expected function name
+  span: 3..4
+  primary [3..4]: expected function name

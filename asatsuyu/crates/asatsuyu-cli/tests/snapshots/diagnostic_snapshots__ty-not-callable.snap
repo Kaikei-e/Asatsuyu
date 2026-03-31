@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0204] Error: expected function, found `Int`
+  span: 31..32
+  primary [31..32]: this has type `Int`
+  note: only functions can be called

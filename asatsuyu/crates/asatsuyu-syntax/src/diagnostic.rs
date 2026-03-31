@@ -4,83 +4,125 @@ use crate::Span;
 
 /// Machine-readable diagnostic codes.
 ///
-/// Convention: `E` + 4-digit number, grouped by phase.
-/// - E0001–E0099: syntax / parse errors (reserved)
-/// - E0100–E0199: name resolution / HIR errors (reserved)
+/// Convention: `E` + 4-digit number, grouped by compiler phase.
+/// - E0001–E0049: lexer errors
+/// - E0050–E0099: parser errors
+/// - E0100–E0149: AST lowering errors
+/// - E0150–E0199: name resolution / HIR errors
 /// - E0200–E0299: type checking errors
 /// - E0300–E0399: match / pattern errors
 /// - E0400–E0499: backend errors (reserved)
+///
+/// Codes are stable: once assigned, the meaning of a code never changes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u16)]
 pub enum DiagnosticCode {
-    // ── Type checking ──────────────────────────────────────────────
-    /// Type mismatch: expected vs found.
-    E0200,
-    /// Infinite type (occurs check failure).
-    E0201,
-    /// Unknown type annotation.
-    E0202,
-    /// Argument count mismatch.
-    E0203,
-    /// Expected function, found non-callable type.
-    E0204,
-    /// Arithmetic operator requires numeric type.
-    E0205,
-    /// Negation requires numeric type.
-    E0206,
-    /// Logical operator requires Bool.
-    E0207,
-    /// Unknown Python module in FFI import.
-    E0208,
-    /// Field access on opaque FFI type.
-    E0209,
-    /// Field access on type that does not support it.
-    E0210,
-    /// Unknown member on FFI module or class.
-    E0211,
-    /// `try` expression outside a function returning `Result`.
-    E0212,
-    /// `try` expression in a position the backend cannot lower safely.
-    E0213,
-    /// `match` subject is an opaque FFI type.
-    E0214,
+    // ── Lexer ─────────────────────────────────────────────────────────
+    /// Unexpected character.
+    E0001 = 1,
 
-    // ── Match / pattern ────────────────────────────────────────────
-    /// Non-exhaustive match.
-    E0300,
-    /// Unreachable match arm.
-    E0301,
-    /// Unknown constructor in pattern.
-    E0302,
-    /// Constructor pattern field count mismatch.
-    E0303,
+    // ── Parser ────────────────────────────────────────────────────────
+    /// Expected a specific token (generic `expect()` failure).
+    E0050 = 50,
+    /// Expected an item definition at top level.
+    E0051 = 51,
+    /// Expected function name.
+    E0052 = 52,
+    /// Expected parameter (name, list, or type).
+    E0053 = 53,
+    /// Expected function or lambda body.
+    E0054 = 54,
+    /// Expected expression.
+    E0055 = 55,
+    /// Expected pattern.
+    E0056 = 56,
+    /// Unexpected token in context (block, parameter list, argument list, etc.).
+    E0057 = 57,
+    /// Expected type body.
+    E0058 = 58,
+    /// Expected return type.
+    E0059 = 59,
+    /// Expected block after condition or match subject.
+    E0060 = 60,
+    /// Expected import path component.
+    E0061 = 61,
+    /// Feature not yet implemented (e.g. top-level `let`).
+    E0062 = 62,
+
+    // ── AST lowering ──────────────────────────────────────────────────
+    /// Unexpected syntax (`NodeError` encountered during CST → AST lowering).
+    E0100 = 100,
+    /// Empty import path.
+    E0101 = 101,
+    /// Missing module name in Python import.
+    E0102 = 102,
+    /// Missing function body.
+    E0103 = 103,
+    /// Incomplete binary expression.
+    E0104 = 104,
+    /// Incomplete pipeline expression.
+    E0105 = 105,
     /// Unsupported pattern kind.
-    E0304,
+    E0106 = 106,
+
+    // ── HIR / name resolution ─────────────────────────────────────────
+    /// Duplicate binding in the same scope.
+    E0150 = 150,
+    /// Duplicate definition at module level.
+    E0151 = 151,
+    /// Unresolved name.
+    E0152 = 152,
+    /// Unresolved constructor.
+    E0153 = 153,
+
+    // ── Type checking ─────────────────────────────────────────────────
+    /// Type mismatch: expected vs found.
+    E0200 = 200,
+    /// Infinite type (occurs check failure).
+    E0201 = 201,
+    /// Unknown type annotation.
+    E0202 = 202,
+    /// Argument count mismatch.
+    E0203 = 203,
+    /// Expected function, found non-callable type.
+    E0204 = 204,
+    /// Arithmetic operator requires numeric type.
+    E0205 = 205,
+    /// Negation requires numeric type.
+    E0206 = 206,
+    /// Logical operator requires Bool.
+    E0207 = 207,
+    /// Unknown Python module in FFI import.
+    E0208 = 208,
+    /// Field access on opaque FFI type.
+    E0209 = 209,
+    /// Field access on type that does not support it.
+    E0210 = 210,
+    /// Unknown member on FFI module or class.
+    E0211 = 211,
+    /// `try` expression outside a function returning `Result`.
+    E0212 = 212,
+    /// `try` expression in a position the backend cannot lower safely.
+    E0213 = 213,
+    /// `match` subject is an opaque FFI type.
+    E0214 = 214,
+
+    // ── Match / pattern ───────────────────────────────────────────────
+    /// Non-exhaustive match.
+    E0300 = 300,
+    /// Unreachable match arm.
+    E0301 = 301,
+    /// Unknown constructor in pattern.
+    E0302 = 302,
+    /// Constructor pattern field count mismatch.
+    E0303 = 303,
+    /// Unsupported pattern kind.
+    E0304 = 304,
 }
 
 impl fmt::Display for DiagnosticCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::E0200 => write!(f, "E0200"),
-            Self::E0201 => write!(f, "E0201"),
-            Self::E0202 => write!(f, "E0202"),
-            Self::E0203 => write!(f, "E0203"),
-            Self::E0204 => write!(f, "E0204"),
-            Self::E0205 => write!(f, "E0205"),
-            Self::E0206 => write!(f, "E0206"),
-            Self::E0207 => write!(f, "E0207"),
-            Self::E0208 => write!(f, "E0208"),
-            Self::E0209 => write!(f, "E0209"),
-            Self::E0210 => write!(f, "E0210"),
-            Self::E0211 => write!(f, "E0211"),
-            Self::E0212 => write!(f, "E0212"),
-            Self::E0213 => write!(f, "E0213"),
-            Self::E0214 => write!(f, "E0214"),
-            Self::E0300 => write!(f, "E0300"),
-            Self::E0301 => write!(f, "E0301"),
-            Self::E0302 => write!(f, "E0302"),
-            Self::E0303 => write!(f, "E0303"),
-            Self::E0304 => write!(f, "E0304"),
-        }
+        write!(f, "E{:04}", *self as u16)
     }
 }
 
@@ -89,6 +131,8 @@ impl fmt::Display for DiagnosticCode {
 pub enum Severity {
     Error,
     Warning,
+    /// Informational note, typically attached to a related diagnostic.
+    Note,
 }
 
 /// Visual style of a source label in diagnostic output.
@@ -108,10 +152,31 @@ pub struct Label {
     pub style: LabelStyle,
 }
 
-/// A compiler diagnostic (error or warning) with source location and context.
+/// A compiler diagnostic (error, warning, or note) with source location and context.
 ///
 /// Designed to produce Gleam-quality error messages. The `miette` integration
 /// for terminal rendering lives in `asatsuyu-cli`.
+///
+/// # Diagnostic contract (v1)
+///
+/// ## Codes
+/// - Every diagnostic SHOULD have a [`DiagnosticCode`]. Codes are stable:
+///   once assigned, the meaning of a code never changes.
+/// - See [`DiagnosticCode`] for the range allocation by compiler phase.
+///
+/// ## Labels
+/// - **Primary**: points to the exact source of the error. At most one per
+///   diagnostic. Message should describe what was found vs. expected.
+/// - **Secondary**: points to related context (e.g. "previously defined here").
+///   Zero or more per diagnostic.
+///
+/// ## Hints
+/// - Actionable suggestions the user can follow to fix the error.
+/// - Use imperative mood: "add a type annotation", "rename the binding".
+///
+/// ## Notes
+/// - Background information that explains *why* the error exists.
+/// - Use declarative mood: "Int and String are not compatible".
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
     pub severity: Severity,
@@ -141,6 +206,19 @@ impl Diagnostic {
     pub fn warning(message: impl Into<String>, span: Span) -> Self {
         Self {
             severity: Severity::Warning,
+            code: None,
+            message: message.into(),
+            span,
+            labels: Vec::new(),
+            hints: Vec::new(),
+            notes: Vec::new(),
+        }
+    }
+
+    /// Creates an informational note diagnostic at the given span.
+    pub fn note(message: impl Into<String>, span: Span) -> Self {
+        Self {
+            severity: Severity::Note,
             code: None,
             message: message.into(),
             span,
@@ -211,6 +289,12 @@ mod tests {
     }
 
     #[test]
+    fn diagnostic_note() {
+        let diag = Diagnostic::note("type was inferred here", Span::dummy());
+        assert_eq!(diag.severity, Severity::Note);
+    }
+
+    #[test]
     fn diagnostic_builder() {
         let file = FileId(0);
         let diag = Diagnostic::error("type mismatch", Span::new(file, 10, 15))
@@ -231,7 +315,17 @@ mod tests {
 
     #[test]
     fn diagnostic_code_display() {
+        assert_eq!(DiagnosticCode::E0001.to_string(), "E0001");
+        assert_eq!(DiagnosticCode::E0050.to_string(), "E0050");
         assert_eq!(DiagnosticCode::E0200.to_string(), "E0200");
         assert_eq!(DiagnosticCode::E0300.to_string(), "E0300");
+    }
+
+    #[test]
+    fn diagnostic_code_repr_matches_display() {
+        // Verify that repr(u16) discriminants produce the correct display strings.
+        assert_eq!(DiagnosticCode::E0001 as u16, 1);
+        assert_eq!(DiagnosticCode::E0200 as u16, 200);
+        assert_eq!(DiagnosticCode::E0304 as u16, 304);
     }
 }

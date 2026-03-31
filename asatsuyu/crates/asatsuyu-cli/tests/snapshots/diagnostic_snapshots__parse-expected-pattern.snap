@@ -1,0 +1,11 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0056] Error: expected pattern
+  span: 25..27
+  primary [25..27]: expected pattern
+---
+[E0050] Error: expected `->` after pattern
+  span: 32..33
+  primary [32..33]: expected `->` after pattern

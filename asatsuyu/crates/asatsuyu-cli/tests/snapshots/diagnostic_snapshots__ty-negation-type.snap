@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0206] Error: negation requires numeric type, found `String`
+  span: 15..24
+  primary [15..24]: this has type `String`
+  note: negation works with Int and Float

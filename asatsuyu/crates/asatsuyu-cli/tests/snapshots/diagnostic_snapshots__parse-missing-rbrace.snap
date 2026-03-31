@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0050] Error: expected RBrace
+  span: 15..15
+  primary [15..15]: expected RBrace

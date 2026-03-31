@@ -509,12 +509,7 @@ fn check_rejects_missing_ffi_stub_path() {
     let _ = std::fs::remove_dir_all(&missing);
 
     let output = asatsuyu()
-        .args([
-            "check",
-            &example("hello.asty"),
-            "--ffi-stub-path",
-            &missing.display().to_string(),
-        ])
+        .args(["check", &example("hello.asty"), "--ffi-stub-path", &missing.display().to_string()])
         .output()
         .unwrap();
 
@@ -526,4 +521,33 @@ fn check_rejects_missing_ffi_stub_path() {
         "stderr should mention invalid stub path: {stderr}"
     );
     assert!(stderr.contains("does not exist"), "stderr should explain failure: {stderr}");
+}
+
+// ── 18. check and build produce the same diagnostics ──────────────
+
+#[test]
+fn check_and_build_produce_same_diagnostic_codes() {
+    let dir = workspace_root().join("target/test-check-build-contract");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let src = dir.join("contract.asty");
+    std::fs::write(&src, "fn f() -> Int { \"hello\" }\n").unwrap();
+    let src_str = src.display().to_string();
+
+    let check_output = asatsuyu().args(["check", &src_str]).output().unwrap();
+    let build_output = asatsuyu()
+        .args(["build", &src_str, "-o", &dir.join("out").display().to_string()])
+        .output()
+        .unwrap();
+
+    let check_stderr = String::from_utf8_lossy(&check_output.stderr);
+    let build_stderr = String::from_utf8_lossy(&build_output.stderr);
+
+    // Both should fail with the same diagnostic code.
+    assert!(!check_output.status.success(), "check should fail");
+    assert!(!build_output.status.success(), "build should fail");
+    assert!(check_stderr.contains("E0200"), "check should contain E0200: {check_stderr}");
+    assert!(build_stderr.contains("E0200"), "build should contain E0200: {build_stderr}");
+
+    let _ = std::fs::remove_dir_all(&dir);
 }

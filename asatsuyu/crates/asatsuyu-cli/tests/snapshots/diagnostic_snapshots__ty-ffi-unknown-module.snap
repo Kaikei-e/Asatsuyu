@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0208] Error: unknown Python module `nonexistent`
+  span: 0..30
+  primary [0..30]: not found in FFI registry

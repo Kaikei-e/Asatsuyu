@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0202] Error: unknown type `Xyz`
+  span: 8..11
+  primary [8..11]: not found in this scope
+  hint: built-in types: Int, Float, String, Bool, None

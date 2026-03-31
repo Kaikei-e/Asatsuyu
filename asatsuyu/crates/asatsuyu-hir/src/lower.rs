@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use asatsuyu_ast::{self, Definition, Expr, Import, Module, Pattern, TypeBody};
-use asatsuyu_syntax::{Diagnostic, Span};
+use asatsuyu_syntax::{Diagnostic, DiagnosticCode, Span};
 use smol_str::SmolStr;
 
 use crate::types::{
@@ -92,16 +92,14 @@ impl HirLowerCtx {
         std::mem::take(&mut self.symbol_table)
     }
 
-    fn push_error(&mut self, message: impl Into<String>, span: Span) {
-        self.diagnostics.push(Diagnostic::error(message, span));
-    }
-
     fn define_local(&mut self, name: &SmolStr, id: DefId, span: Span) {
         if let Some(prev_id) = self.scopes.define(name.clone(), id) {
             let prev = self.symbol_table.get(prev_id);
             self.diagnostics.push(
                 Diagnostic::error(format!("duplicate binding `{name}`"), span)
-                    .with_secondary_label(prev.span, "previously bound here"),
+                    .with_code(DiagnosticCode::E0150)
+                    .with_secondary_label(prev.span, "previously bound here")
+                    .with_hint("each name can only be bound once in the same scope"),
             );
         }
     }
@@ -113,7 +111,9 @@ impl HirLowerCtx {
             let prev = self.symbol_table.get(prev_id);
             self.diagnostics.push(
                 Diagnostic::error(format!("duplicate definition `{name}`"), span)
-                    .with_secondary_label(prev.span, "previously defined here"),
+                    .with_code(DiagnosticCode::E0151)
+                    .with_secondary_label(prev.span, "previously defined here")
+                    .with_hint("rename one of the definitions"),
             );
         }
     }
@@ -352,6 +352,7 @@ impl HirLowerCtx {
 
     // ── Expression lowering ─────────────────────────────────────────
 
+    #[allow(clippy::too_many_lines)]
     fn lower_expr(&mut self, expr: &Expr) -> HirExpr {
         match expr {
             Expr::Literal(lit) => HirExpr::Literal(HirLiteral {
@@ -364,7 +365,11 @@ impl HirLowerCtx {
                 if let Some(def_id) = self.scopes.resolve(&ident.name) {
                     HirExpr::Var(def_id, ident.span)
                 } else {
-                    self.push_error(format!("unresolved name `{}`", ident.name), ident.span);
+                    self.diagnostics.push(
+                        Diagnostic::error(format!("unresolved name `{}`", ident.name), ident.span)
+                            .with_code(DiagnosticCode::E0152)
+                            .with_label(ident.span, "not found in this scope"),
+                    );
                     // Allocate a dummy definition so downstream phases don't crash.
                     let dummy_id = self.symbol_table.alloc(DefData {
                         name: ident.name.clone(),
@@ -555,7 +560,15 @@ impl HirLowerCtx {
                 let def_id = if let Some(id) = self.scopes.resolve(&name.name) {
                     id
                 } else {
-                    self.push_error(format!("unresolved constructor `{}`", name.name), name.span);
+                    self.diagnostics.push(
+                        Diagnostic::error(
+                            format!("unresolved constructor `{}`", name.name),
+                            name.span,
+                        )
+                        .with_code(DiagnosticCode::E0153)
+                        .with_label(name.span, "unknown constructor")
+                        .with_hint("constructors must be defined in a type declaration"),
+                    );
                     self.symbol_table.alloc(DefData {
                         name: name.name.clone(),
                         kind: DefKind::Constructor,

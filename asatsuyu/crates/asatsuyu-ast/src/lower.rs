@@ -7,7 +7,7 @@
 #![allow(clippy::redundant_closure_for_method_calls)]
 
 use asatsuyu_parser::{SyntaxNode, SyntaxToken};
-use asatsuyu_syntax::{Diagnostic, FileId, Span, SyntaxKind};
+use asatsuyu_syntax::{Diagnostic, DiagnosticCode, FileId, Span, SyntaxKind};
 use smol_str::SmolStr;
 
 use crate::types::{
@@ -33,8 +33,9 @@ impl LowerCtx {
         self.diagnostics
     }
 
-    fn push_error(&mut self, message: impl Into<String>, span: Span) {
-        self.diagnostics.push(Diagnostic::error(message, span));
+    fn push_error(&mut self, message: impl Into<String>, span: Span, code: DiagnosticCode) {
+        self.diagnostics
+            .push(Diagnostic::error(message, span).with_code(code).with_label(span, "here"));
     }
 }
 
@@ -115,7 +116,7 @@ impl LowerCtx {
                 }
                 SyntaxKind::NodeError => {
                     let span = span_of(&child, self.file_id);
-                    self.push_error("unexpected syntax", span);
+                    self.push_error("unexpected syntax", span, DiagnosticCode::E0100);
                 }
                 _ => {} // trivia / other tokens — skip
             }
@@ -141,7 +142,7 @@ impl LowerCtx {
 
         if idents.is_empty() {
             let span = span_of(node, self.file_id);
-            self.push_error("empty import path", span);
+            self.push_error("empty import path", span, DiagnosticCode::E0101);
             return None;
         }
 
@@ -183,7 +184,7 @@ impl LowerCtx {
 
         if idents.is_empty() {
             let span = span_of(node, self.file_id);
-            self.push_error("missing module name in Python import", span);
+            self.push_error("missing module name in Python import", span, DiagnosticCode::E0102);
             return None;
         }
 
@@ -234,7 +235,7 @@ impl LowerCtx {
             self.lower_block_expr(&block)
         } else {
             let span = span_of(node, self.file_id);
-            self.push_error("missing function body", span);
+            self.push_error("missing function body", span, DiagnosticCode::E0103);
             Expr::Block { exprs: Vec::new(), span }
         };
 
@@ -536,7 +537,11 @@ impl LowerCtx {
             SyntaxKind::ParenExpr => self.lower_paren_expr(node),
             SyntaxKind::NodeError => {
                 let span = span_of(node, self.file_id);
-                self.push_error("unexpected syntax in expression position", span);
+                self.push_error(
+                    "unexpected syntax in expression position",
+                    span,
+                    DiagnosticCode::E0100,
+                );
                 None
             }
             _ => None, // skip unknown / trivia nodes
@@ -656,7 +661,7 @@ impl LowerCtx {
         let children: Vec<SyntaxNode> = node.children().collect();
         if children.len() < 2 {
             let span = span_of(node, self.file_id);
-            self.push_error("incomplete binary expression", span);
+            self.push_error("incomplete binary expression", span, DiagnosticCode::E0104);
             return None;
         }
 
@@ -739,7 +744,7 @@ impl LowerCtx {
         let children: Vec<SyntaxNode> = node.children().collect();
         if children.len() < 2 {
             let span = span_of(node, self.file_id);
-            self.push_error("incomplete pipeline expression", span);
+            self.push_error("incomplete pipeline expression", span, DiagnosticCode::E0105);
             return None;
         }
 
@@ -910,7 +915,7 @@ impl LowerCtx {
             }
             _ => {
                 let span = span_of(node, self.file_id);
-                self.push_error("unsupported pattern kind", span);
+                self.push_error("unsupported pattern kind", span, DiagnosticCode::E0106);
                 None
             }
         }

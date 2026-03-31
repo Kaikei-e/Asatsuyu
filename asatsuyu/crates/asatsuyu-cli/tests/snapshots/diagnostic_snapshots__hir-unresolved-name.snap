@@ -1,0 +1,7 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0152] Error: unresolved name `unknown`
+  span: 9..16
+  primary [9..16]: not found in this scope

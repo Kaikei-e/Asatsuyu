@@ -1,0 +1,8 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0300] Error: non-exhaustive match on `Color`: missing Blue, Green
+  span: 63..92
+  primary [63..92]: not all variants are covered
+  hint: add arms for: Blue, Green

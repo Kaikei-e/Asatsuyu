@@ -24,6 +24,7 @@ impl SourceDiagnostic {
         let severity = match d.severity {
             Severity::Error => MietteSeverity::Error,
             Severity::Warning => MietteSeverity::Warning,
+            Severity::Note => MietteSeverity::Advice,
         };
 
         let mut diag = MietteDiagnostic::new(&d.message).with_severity(severity);
