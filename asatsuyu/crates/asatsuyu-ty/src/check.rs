@@ -62,6 +62,8 @@ enum DiagnosticContext {
     IfElseBranch { then_span: Span },
     /// Match arm types differ.
     MatchArm { first_arm_span: Span },
+    /// Assignment value type differs from binding type.
+    Assignment { binding_span: Span },
 }
 
 #[derive(Clone, Copy)]
@@ -89,6 +91,11 @@ pub(crate) struct TyCheckCtx {
     ffi_modules: HashMap<SmolStr, FfiModule>,
     /// Return type of the function currently being checked (for `try` validation).
     current_fn_return_ty: Option<Ty>,
+    /// Module symbol table (cloned from HIR) for mutation rule lookups.
+    module_symbols: SymbolTable,
+    /// `DefId`s introduced in the current function/lambda scope.
+    /// Used to detect assignment to captured variables inside lambdas.
+    local_defs: HashSet<DefId>,
     /// Synthetic symbol table used to allocate builtin collection type ids.
     builtin_types: SymbolTable,
     diagnostics: Vec<Diagnostic>,
@@ -106,6 +113,8 @@ impl TyCheckCtx {
             unannotated_returns: HashSet::new(),
             ffi_modules: HashMap::new(),
             current_fn_return_ty: None,
+            module_symbols: SymbolTable::new(),
+            local_defs: HashSet::new(),
             builtin_types: SymbolTable::new(),
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
@@ -279,6 +288,18 @@ impl TyCheckCtx {
                                 format!("first arm has type `{exp}`"),
                             );
                         }
+                        DiagnosticContext::Assignment { binding_span } => {
+                            diag = diag
+                                .with_code(DiagnosticCode::E0217)
+                                .with_secondary_label(
+                                    binding_span,
+                                    format!("binding has type `{exp}`"),
+                                )
+                                .with_hint("assign a value with the same type as the binding")
+                                .with_note(
+                                    "reassignment must preserve the original binding type",
+                                );
+                        }
                     }
 
                     self.push_diagnostic(diag);
@@ -440,6 +461,8 @@ impl TyCheckCtx {
 impl TyCheckCtx {
     /// Type-check the entire module, producing THIR.
     pub(crate) fn check_module(&mut self, module: &HirModule) -> ThirModule {
+        // Store module symbol table for mutation rule lookups.
+        self.module_symbols = clone_symbol_table(&module.symbol_table);
         let functions = module.functions.iter().map(|f| self.check_fn_def(f)).collect();
         let custom_types = module.custom_types.clone();
         let imports = module.imports.clone();
@@ -477,11 +500,18 @@ impl TyCheckCtx {
         // Set current function return type context for `try` expression validation.
         self.current_fn_return_ty = Some(declared_ret.clone());
 
+        // Initialize local_defs with parameter DefIds for lambda capture tracking.
+        let saved_local_defs = std::mem::take(&mut self.local_defs);
+        for p in &fn_def.params {
+            self.local_defs.insert(p.def_id);
+        }
+
         // Check the body.
         let body = self.check_expr(&fn_def.body);
         let body_ty = self.infer.resolve(body.ty());
 
-        // Clear return type context.
+        // Restore local_defs and clear return type context.
+        self.local_defs = saved_local_defs;
         self.current_fn_return_ty = None;
 
         // `try` lowering is currently only implemented for statement position,
@@ -570,6 +600,7 @@ impl TyCheckCtx {
                 let env_fvs = self.env_free_vars();
                 let scheme = self.infer.generalize(&value_ty, &env_fvs);
                 self.type_env.insert(*binding, scheme);
+                self.local_defs.insert(*binding);
                 ThirExpr::Let {
                     binding: *binding,
                     value: Box::new(checked_value),
@@ -579,16 +610,7 @@ impl TyCheckCtx {
                 }
             }
 
-            HirExpr::Assign { target, value, span } => {
-                let checked_value = self.check_expr(value);
-                // Mutability enforcement is Issue 94 — for now just type-check the value.
-                ThirExpr::Assign {
-                    target: *target,
-                    value: Box::new(checked_value),
-                    ty: Ty::Primitive(PrimTy::None),
-                    span: *span,
-                }
-            }
+            HirExpr::Assign { target, value, span } => self.check_assign(*target, value, *span),
 
             HirExpr::Lambda { params, return_type, body, span } => {
                 self.check_lambda(params, return_type.as_ref(), body, *span)
@@ -1006,6 +1028,79 @@ impl TyCheckCtx {
         Ty::Error
     }
 
+    // ── Assign ─────────────────────────────────────────────────────
+
+    fn check_assign(&mut self, target: DefId, value: &HirExpr, span: Span) -> ThirExpr {
+        let checked_value = self.check_expr(value);
+        let target_def = self.module_symbols.get(target);
+        let target_name = target_def.name.clone();
+        let target_span = target_def.span;
+        let target_kind = target_def.kind;
+        let target_mutable = target_def.is_mutable;
+
+        // Rule 1: Cannot reassign function parameters.
+        if target_kind == DefKind::Parameter {
+            self.push_diagnostic(
+                Diagnostic::error(format!("cannot assign to parameter `{target_name}`"), span)
+                    .with_code(DiagnosticCode::E0216)
+                    .with_label(span, "assignment to parameter")
+                    .with_secondary_label(target_span, "parameter defined here")
+                    .with_hint(format!(
+                        "consider using a local binding: `let mut {target_name} = {target_name}`"
+                    ))
+                    .with_note("parameters cannot be reassigned in Asatsuyu"),
+            );
+        }
+        // Rule 2: Cannot assign to immutable binding.
+        else if !target_mutable {
+            self.push_diagnostic(
+                Diagnostic::error(
+                    format!("cannot assign to immutable binding `{target_name}`"),
+                    span,
+                )
+                .with_code(DiagnosticCode::E0215)
+                .with_label(span, "assignment to immutable binding")
+                .with_secondary_label(target_span, "defined as immutable here")
+                .with_hint(format!("make this binding mutable: `let mut {target_name}`"))
+                .with_note("only `let mut` bindings may be reassigned"),
+            );
+        }
+
+        // Rule 3: Cannot assign to captured variable in lambda.
+        if !self.local_defs.contains(&target) {
+            self.push_diagnostic(
+                Diagnostic::error(
+                    format!("cannot assign to `{target_name}` captured from outer scope"),
+                    span,
+                )
+                .with_code(DiagnosticCode::E0218)
+                .with_label(span, "assignment to captured variable")
+                .with_secondary_label(target_span, "defined in outer scope")
+                .with_hint("introduce a new `let mut` binding inside the lambda instead")
+                .with_note("closures cannot mutate variables captured from an enclosing scope"),
+            );
+        }
+
+        // Rule 4: Assignment type must match binding type.
+        if let Some(scheme) = self.type_env.get(&target) {
+            let expected = self.infer.instantiate(scheme);
+            let found = self.infer.resolve(checked_value.ty());
+            self.unify_or_error(
+                &expected,
+                &found,
+                span,
+                DiagnosticContext::Assignment { binding_span: target_span },
+            );
+        }
+
+        ThirExpr::Assign {
+            target,
+            value: Box::new(checked_value),
+            ty: Ty::Primitive(PrimTy::None),
+            span,
+        }
+    }
+
     // ── Lambda ─────────────────────────────────────────────────────
 
     fn check_lambda(
@@ -1030,8 +1125,19 @@ impl TyCheckCtx {
             })
             .collect();
 
+        // Save and replace local_defs for lambda scope boundary.
+        // Variables from outer scope are not in the new set, so assignments
+        // to them will be detected as captured-variable mutations.
+        let saved_local_defs = std::mem::take(&mut self.local_defs);
+        for p in params {
+            self.local_defs.insert(p.def_id);
+        }
+
         let checked_body = self.check_expr(body);
         let body_ty = self.infer.resolve(checked_body.ty());
+
+        // Restore outer scope's local_defs.
+        self.local_defs = saved_local_defs;
 
         // Remove lambda params from type_env to prevent them from polluting
         // the environment during generalization of let-bound values.

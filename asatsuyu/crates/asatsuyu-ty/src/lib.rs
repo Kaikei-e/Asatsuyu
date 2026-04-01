@@ -1532,4 +1532,165 @@ pub fn f() -> Result(Bool, PyExc) {
             result.diagnostics
         );
     }
+
+    // ── Mutation rules (Issue 94) ────────────────────────────────────
+
+    #[test]
+    fn assign_to_mutable_let_is_ok() {
+        let result = thir_from_source("pub fn main() { let mut x = 0\n x = 1 }");
+        assert!(
+            !result.has_errors(),
+            "mutable let should allow reassignment: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_to_immutable_let_is_error() {
+        let result = thir_from_source("pub fn main() { let x = 0\n x = 1 }");
+        assert!(result.has_errors(), "immutable let should reject reassignment");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0215)),
+            "should emit E0215: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_to_parameter_is_error() {
+        let result = thir_from_source("pub fn f(x: Int) { x = 1 }");
+        assert!(result.has_errors(), "parameter reassignment should be rejected");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0216)),
+            "should emit E0216: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_type_mismatch_is_error() {
+        let result = thir_from_source("pub fn main() { let mut x = 0\n x = \"hello\" }");
+        assert!(result.has_errors(), "type mismatch on reassignment should be rejected");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0217)),
+            "should emit E0217: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_type_match_is_ok() {
+        let result = thir_from_source("pub fn main() { let mut x = 0\n x = 42 }");
+        assert!(
+            !result.has_errors(),
+            "same-type reassignment should be accepted: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_captured_var_in_lambda_is_error() {
+        let result =
+            thir_from_source("pub fn main() { let mut x = 0\n let f = fn() { x = 1 }\n f() }");
+        assert!(result.has_errors(), "captured variable mutation in lambda should be rejected");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0218)),
+            "should emit E0218: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_lambda_local_is_ok() {
+        let result =
+            thir_from_source("pub fn main() { let f = fn() { let mut y = 0\n y = 1 }\n f() }");
+        assert!(
+            !result.has_errors(),
+            "lambda-local mutable should allow reassignment: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn assign_immutable_has_hint_for_mut() {
+        let result = thir_from_source("pub fn main() { let x = 0\n x = 1 }");
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0215))
+            .expect("should have E0215");
+        assert!(
+            diag.hints.iter().any(|h| h.contains("let mut")),
+            "E0215 hint should suggest `let mut`: {:?}",
+            diag.hints
+        );
+        assert!(
+            diag.notes.iter().any(|n| n.contains("only `let mut` bindings")),
+            "E0215 should explain mutable-only reassignment: {:?}",
+            diag.notes
+        );
+    }
+
+    #[test]
+    fn assign_parameter_has_hint_for_local_binding() {
+        let result = thir_from_source("pub fn f(x: Int) { x = 1 }");
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0216))
+            .expect("should have E0216");
+        assert!(
+            diag.hints.iter().any(|h| h.contains("let mut")),
+            "E0216 hint should suggest local binding: {:?}",
+            diag.hints
+        );
+    }
+
+    #[test]
+    fn assign_type_mismatch_has_hint_and_note() {
+        let result = thir_from_source("pub fn main() { let mut x = 0\n x = \"hello\" }");
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0217))
+            .expect("should have E0217");
+        assert!(
+            diag.hints.iter().any(|h| h.contains("same type as the binding")),
+            "E0217 should suggest preserving the binding type: {:?}",
+            diag.hints
+        );
+        assert!(
+            diag.notes.iter().any(|n| n.contains("preserve the original binding type")),
+            "E0217 should explain reassignment type invariance: {:?}",
+            diag.notes
+        );
+    }
+
+    #[test]
+    fn assign_captured_var_has_hint() {
+        let result =
+            thir_from_source("pub fn main() { let mut x = 0\n let f = fn() { x = 1 }\n f() }");
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == Some(asatsuyu_syntax::DiagnosticCode::E0218))
+            .expect("should have E0218");
+        assert!(
+            diag.hints.iter().any(|h| h.contains("inside the lambda")),
+            "E0218 should suggest introducing a lambda-local binding: {:?}",
+            diag.hints
+        );
+    }
 }

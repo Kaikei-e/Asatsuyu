@@ -108,6 +108,14 @@ pub enum DiagnosticCode {
     E0213 = 213,
     /// `match` subject is an opaque FFI type.
     E0214 = 214,
+    /// Cannot assign to immutable binding (missing `mut`).
+    E0215 = 215,
+    /// Cannot reassign a function parameter.
+    E0216 = 216,
+    /// Assignment type mismatch: value type differs from binding type.
+    E0217 = 217,
+    /// Cannot assign to a variable captured from an outer scope inside a lambda.
+    E0218 = 218,
 
     // ── Match / pattern ───────────────────────────────────────────────
     /// Non-exhaustive match.
