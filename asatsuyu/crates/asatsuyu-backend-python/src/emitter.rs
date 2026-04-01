@@ -390,6 +390,16 @@ impl<'a> Emitter<'a> {
             self.emit_list_fold_let_stmt(*binding, args, expr.span());
             return;
         }
+        // `x = list.fold(...)` (reassignment to mutable local)
+        if let ThirExpr::Assign { target, value, .. } = expr
+            && let ThirExpr::Call { func, args, .. } = value.as_ref()
+            && let Some(method) = self.list_module_method(func)
+            && method == "fold"
+            && args.len() == 3
+        {
+            self.emit_list_fold_let_stmt(*target, args, expr.span());
+            return;
+        }
         // `let x = try expr` → try/except block
         if let ThirExpr::Let { binding, value, .. } = expr
             && let ThirExpr::Try { expr: inner, .. } = value.as_ref()
@@ -403,6 +413,14 @@ impl<'a> Emitter<'a> {
             && let Some(info) = self.checked_ffi_target(func)
         {
             self.emit_checked_ffi_let_stmt(*binding, func, args, &info, expr.span());
+            return;
+        }
+        // `x = <checked_ffi_call>` (reassignment to mutable local)
+        if let ThirExpr::Assign { target, value, .. } = expr
+            && let ThirExpr::Call { func, args, .. } = value.as_ref()
+            && let Some(info) = self.checked_ffi_target(func)
+        {
+            self.emit_checked_ffi_let_stmt(*target, func, args, &info, expr.span());
             return;
         }
         // bare `try expr` as a statement
@@ -428,6 +446,12 @@ impl<'a> Emitter<'a> {
     fn emit_return_stmt(&mut self, expr: &ThirExpr) {
         if let ThirExpr::Match { subject, arms, .. } = expr {
             self.emit_match_stmt(subject, arms, true);
+            return;
+        }
+        if matches!(expr, ThirExpr::Let { .. } | ThirExpr::Assign { .. }) {
+            self.emit_stmt(expr);
+            self.write_indent();
+            self.output.push_str("return None\n");
             return;
         }
         if let ThirExpr::Call { func, args, .. } = expr

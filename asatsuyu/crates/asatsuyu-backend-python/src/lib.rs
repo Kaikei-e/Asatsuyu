@@ -1089,6 +1089,90 @@ pub fn get_data(url: String) -> Int {
         insta::assert_snapshot!(py);
     }
 
+    // ── Issue 95: mutable locals and assignment emission ───────────
+
+    #[test]
+    fn snap_mutable_locals_codegen() {
+        let source = "\
+pub fn accumulate() -> Int {
+  let mut sum = 0
+  sum = sum + 10
+  sum = sum + 20
+  sum
+}";
+        let py = python_from_source(source);
+        insta::assert_snapshot!(py);
+    }
+
+    #[test]
+    fn mutable_let_emits_same_as_immutable_let() {
+        let mutable_source = "pub fn f() -> Int { let mut x = 42\n x }";
+        let immutable_source = "pub fn f() -> Int { let x = 42\n x }";
+        let mutable_py = python_from_source(mutable_source);
+        let immutable_py = python_from_source(immutable_source);
+        assert_eq!(mutable_py, immutable_py, "Python output should be identical for mut/non-mut");
+    }
+
+    #[test]
+    fn assign_emits_python_assignment() {
+        let source = "pub fn f() -> Int { let mut x = 0\n x = 1\n x }";
+        let py = python_from_source(source);
+        assert!(py.contains("x = 0"), "should emit initial binding: {py}");
+        assert!(py.contains("x = 1"), "should emit reassignment: {py}");
+        assert!(py.contains("return x"), "should return the variable: {py}");
+    }
+
+    #[test]
+    fn trailing_assign_emits_statement_then_return_none() {
+        let source = "pub fn f() { let mut x = 0\n x = 1 }";
+        let py = python_from_source(source);
+        assert!(py.contains("x = 1"), "should emit trailing assignment as a statement: {py}");
+        assert!(py.contains("return None"), "statement-typed trailing assign should return None: {py}");
+        assert!(!py.contains("return x = 1"), "must not emit invalid Python assignment in return position: {py}");
+    }
+
+    #[test]
+    fn trailing_let_emits_statement_then_return_none() {
+        let source = "pub fn f() { let x = 1 }";
+        let py = python_from_source(source);
+        assert!(py.contains("x = 1"), "should emit trailing let as a statement: {py}");
+        assert!(py.contains("return None"), "statement-typed trailing let should return None: {py}");
+        assert!(!py.contains("return x = 1"), "must not emit invalid Python assignment in return position: {py}");
+    }
+
+    #[test]
+    fn assign_checked_ffi_uses_statement_routing() {
+        let source = "\
+from python import requests
+pub fn refresh(url: String) -> String {
+  let mut response = requests.get(url)
+  response = requests.get(url)
+  response.text
+}";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("_asatsuyu_runtime.call_function(_checked_runtime_requests, \"get\", url)"),
+            "should route reassignment through checked runtime calls: {py}"
+        );
+        assert!(py.contains("response = _checked_"), "should assign validated checked value back to response: {py}");
+        assert!(py.contains("try:"), "checked reassignment should stay in try/except form: {py}");
+    }
+
+    #[test]
+    fn assign_list_fold_uses_statement_routing() {
+        let source = "\
+pub fn add(acc: Int, x: Int) -> Int { acc + x }
+pub fn accumulate() -> Int {
+  let mut total = 0
+  total = list.fold([1, 2, 3], total, add)
+  total
+}";
+        let py = python_from_source(source);
+        assert!(py.contains("total = 0"), "should seed the accumulator variable: {py}");
+        assert!(py.contains("for _fold_item_"), "list.fold reassignment should lower to a for loop: {py}");
+        assert!(py.contains("total = add(total, _fold_item_"), "loop body should reassign the target variable: {py}");
+    }
+
     // ── Issue 50: golden emission tests (auto-discovered) ─────────
 
     #[test]

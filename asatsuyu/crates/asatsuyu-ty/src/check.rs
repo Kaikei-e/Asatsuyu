@@ -296,9 +296,7 @@ impl TyCheckCtx {
                                     format!("binding has type `{exp}`"),
                                 )
                                 .with_hint("assign a value with the same type as the binding")
-                                .with_note(
-                                    "reassignment must preserve the original binding type",
-                                );
+                                .with_note("reassignment must preserve the original binding type");
                         }
                     }
 
