@@ -4,6 +4,7 @@
 
 use asatsuyu_hir::{DefId, DefKind};
 use asatsuyu_syntax::Span;
+use asatsuyu_syntax::{KEYWORDS, KeywordClass, KeywordSpec};
 use asatsuyu_ty::{ThirExpr, ThirModule, ThirPattern, Ty};
 use smol_str::SmolStr;
 
@@ -278,6 +279,20 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
     entries
 }
 
+/// Shared keyword vocabulary used as the basis for LSP keyword-aware features.
+///
+/// Issue 89 freezes the keyword taxonomy in `asatsuyu-syntax`; Issue 90 can
+/// build completion items directly from this table.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(super) fn completion_keyword_specs() -> impl Iterator<Item = &'static KeywordSpec> {
+    KEYWORDS.iter().filter(|spec| {
+        matches!(
+            spec.class,
+            KeywordClass::Hard | KeywordClass::Literal | KeywordClass::Contextual
+        )
+    })
+}
+
 /// Walk an expression tree and collect let-bound names and pattern variables
 /// that are defined before `offset`.
 fn collect_locals_in_expr(
@@ -423,4 +438,20 @@ pub(super) fn collect_document_symbols(module: &ThirModule) -> Vec<DocumentSymbo
     }
 
     symbols
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lsp_keyword_specs_share_syntax_table() {
+        let keywords: Vec<_> = completion_keyword_specs().collect();
+        assert!(keywords.iter().any(|spec| spec.text == "fn"));
+        assert!(keywords.iter().any(|spec| spec.text == "python"));
+        assert!(keywords.iter().any(|spec| spec.text == "as"));
+        assert!(!keywords.iter().any(|spec| spec.text == "mut"));
+        assert!(!keywords.iter().any(|spec| spec.text == "async"));
+        assert!(!keywords.iter().any(|spec| spec.text == "await"));
+    }
 }

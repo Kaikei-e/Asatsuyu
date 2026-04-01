@@ -9,7 +9,7 @@
 use logos::Logos;
 use smol_str::SmolStr;
 
-use asatsuyu_syntax::{Diagnostic, DiagnosticCode, FileId, Span, SyntaxKind};
+use asatsuyu_syntax::{Diagnostic, DiagnosticCode, FileId, Span, SyntaxKind, kind_of_text};
 
 /// Internal token enum for the `logos` lexer.
 ///
@@ -23,42 +23,6 @@ use asatsuyu_syntax::{Diagnostic, DiagnosticCode, FileId, Span, SyntaxKind};
 /// - `#[token("_")]` beats `#[regex("[a-zA-Z_]...")]` for single `_`
 #[derive(Logos, Debug, Clone, Copy, PartialEq)]
 enum LexToken {
-    // === Keywords ===
-    #[token("fn")]
-    FnKw,
-    #[token("pub")]
-    PubKw,
-    #[token("let")]
-    LetKw,
-    #[token("type")]
-    TypeKw,
-    #[token("match")]
-    MatchKw,
-    #[token("if")]
-    IfKw,
-    #[token("else")]
-    ElseKw,
-    #[token("import")]
-    ImportKw,
-    #[token("from")]
-    FromKw,
-    #[token("python")]
-    PythonKw,
-    #[token("as")]
-    AsKw,
-    #[token("True")]
-    TrueKw,
-    #[token("False")]
-    FalseKw,
-    #[token("try")]
-    TryKw,
-    #[token("mut")]
-    MutKw,
-    #[token("async")]
-    AsyncKw,
-    #[token("await")]
-    AwaitKw,
-
     // === Literals ===
     // Float before Int in source for clarity; logos uses longest-match so
     // "3.14" matches FloatLit (5 chars) over IntLit (1 char).
@@ -153,23 +117,6 @@ enum LexToken {
 impl From<LexToken> for SyntaxKind {
     fn from(token: LexToken) -> SyntaxKind {
         match token {
-            LexToken::FnKw => SyntaxKind::FnKw,
-            LexToken::PubKw => SyntaxKind::PubKw,
-            LexToken::LetKw => SyntaxKind::LetKw,
-            LexToken::TypeKw => SyntaxKind::TypeKw,
-            LexToken::MatchKw => SyntaxKind::MatchKw,
-            LexToken::IfKw => SyntaxKind::IfKw,
-            LexToken::ElseKw => SyntaxKind::ElseKw,
-            LexToken::ImportKw => SyntaxKind::ImportKw,
-            LexToken::FromKw => SyntaxKind::FromKw,
-            LexToken::PythonKw => SyntaxKind::PythonKw,
-            LexToken::AsKw => SyntaxKind::AsKw,
-            LexToken::TrueKw => SyntaxKind::TrueKw,
-            LexToken::FalseKw => SyntaxKind::FalseKw,
-            LexToken::TryKw => SyntaxKind::TryKw,
-            LexToken::MutKw => SyntaxKind::MutKw,
-            LexToken::AsyncKw => SyntaxKind::AsyncKw,
-            LexToken::AwaitKw => SyntaxKind::AwaitKw,
             LexToken::IntLit => SyntaxKind::IntLit,
             LexToken::FloatLit => SyntaxKind::FloatLit,
             LexToken::StringLit => SyntaxKind::StringLit,
@@ -239,7 +186,11 @@ pub fn lex(source: &str, file_id: FileId) -> (Vec<Token>, Vec<Diagnostic>) {
         let span = Span::new(file_id, range.start as u32, range.end as u32);
 
         if let Ok(lex_token) = result {
-            tokens.push(Token { kind: SyntaxKind::from(lex_token), span, text });
+            let kind = match lex_token {
+                LexToken::Ident => kind_of_text(text.as_str()).unwrap_or(SyntaxKind::Ident),
+                other => SyntaxKind::from(other),
+            };
+            tokens.push(Token { kind, span, text });
         } else {
             diagnostics.push(
                 Diagnostic::error("unexpected character", span)

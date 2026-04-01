@@ -1123,6 +1123,18 @@ _ -> 0 } }"#;
         );
     }
 
+    #[test]
+    fn error_match_fat_arrow_not_supported() {
+        let source = "fn f() { match x { 1 => 2 } }";
+        let result = parse(FID, source);
+        assert!(result.has_errors());
+        assert!(
+            result.diagnostics().iter().any(|d| d.message.contains("`->`")),
+            "should reject `=>` and request `->`: {:?}",
+            result.diagnostics()
+        );
+    }
+
     // ── 70. Match with if-expression in arm body ────────────────────
 
     #[test]
@@ -1459,6 +1471,12 @@ _ -> 0 } }"#;
     #[test]
     fn reserved_keyword_await_rejected_as_ident() {
         let result = parse(FID, "fn f() { await }");
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn let_pattern_binding_rejected_in_frozen_grammar() {
+        let result = parse(FID, "fn f() { let [x] = xs }");
         assert!(result.has_errors());
     }
 }

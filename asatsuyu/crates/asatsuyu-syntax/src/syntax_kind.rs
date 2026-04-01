@@ -236,26 +236,42 @@ impl SyntaxKind {
     #[inline]
     #[must_use]
     pub fn is_keyword(self) -> bool {
-        matches!(
-            self,
-            Self::FnKw
-                | Self::PubKw
-                | Self::LetKw
-                | Self::TypeKw
-                | Self::MatchKw
-                | Self::IfKw
-                | Self::ElseKw
-                | Self::ImportKw
-                | Self::FromKw
-                | Self::PythonKw
-                | Self::AsKw
-                | Self::TrueKw
-                | Self::FalseKw
-                | Self::TryKw
-                | Self::MutKw
-                | Self::AsyncKw
-                | Self::AwaitKw
-        )
+        crate::keyword::class_of(self).is_some()
+    }
+
+    /// Returns `true` if this is a hard keyword (always reserved, never an identifier).
+    #[inline]
+    #[must_use]
+    pub fn is_hard_keyword(self) -> bool {
+        matches!(crate::keyword::class_of(self), Some(crate::keyword::KeywordClass::Hard))
+    }
+
+    /// Returns `true` if this is a literal keyword (`True`, `False`).
+    #[inline]
+    #[must_use]
+    pub fn is_literal_keyword(self) -> bool {
+        matches!(crate::keyword::class_of(self), Some(crate::keyword::KeywordClass::Literal))
+    }
+
+    /// Returns `true` if this is a contextual keyword (`python`, `as`).
+    #[inline]
+    #[must_use]
+    pub fn is_contextual_keyword(self) -> bool {
+        matches!(crate::keyword::class_of(self), Some(crate::keyword::KeywordClass::Contextual))
+    }
+
+    /// Returns `true` if this is a reserved keyword (`mut`, `async`, `await`).
+    #[inline]
+    #[must_use]
+    pub fn is_reserved_keyword(self) -> bool {
+        matches!(crate::keyword::class_of(self), Some(crate::keyword::KeywordClass::Reserved))
+    }
+
+    /// Returns the source text for this keyword kind, or `None` if not a keyword.
+    #[inline]
+    #[must_use]
+    pub fn keyword_text(self) -> Option<&'static str> {
+        crate::keyword::text_of(self)
     }
 
     /// Returns `true` if this kind represents a token (as opposed to a node).
@@ -377,5 +393,64 @@ mod tests {
 
         // __LAST is neither
         assert!(!SyntaxKind::__LAST.is_node());
+    }
+
+    #[test]
+    fn keyword_class_methods() {
+        // Hard
+        assert!(SyntaxKind::FnKw.is_hard_keyword());
+        assert!(SyntaxKind::LetKw.is_hard_keyword());
+        assert!(SyntaxKind::TryKw.is_hard_keyword());
+        assert!(!SyntaxKind::TrueKw.is_hard_keyword());
+        assert!(!SyntaxKind::AsKw.is_hard_keyword());
+        assert!(!SyntaxKind::MutKw.is_hard_keyword());
+
+        // Literal
+        assert!(SyntaxKind::TrueKw.is_literal_keyword());
+        assert!(SyntaxKind::FalseKw.is_literal_keyword());
+        assert!(!SyntaxKind::FnKw.is_literal_keyword());
+
+        // Contextual
+        assert!(SyntaxKind::PythonKw.is_contextual_keyword());
+        assert!(SyntaxKind::AsKw.is_contextual_keyword());
+        assert!(!SyntaxKind::FnKw.is_contextual_keyword());
+
+        // Reserved
+        assert!(SyntaxKind::MutKw.is_reserved_keyword());
+        assert!(SyntaxKind::AsyncKw.is_reserved_keyword());
+        assert!(SyntaxKind::AwaitKw.is_reserved_keyword());
+        assert!(!SyntaxKind::FnKw.is_reserved_keyword());
+
+        // Non-keywords
+        assert!(!SyntaxKind::Ident.is_hard_keyword());
+        assert!(!SyntaxKind::Ident.is_literal_keyword());
+        assert!(!SyntaxKind::Ident.is_contextual_keyword());
+        assert!(!SyntaxKind::Ident.is_reserved_keyword());
+    }
+
+    #[test]
+    fn keyword_text_method() {
+        assert_eq!(SyntaxKind::FnKw.keyword_text(), Some("fn"));
+        assert_eq!(SyntaxKind::TrueKw.keyword_text(), Some("True"));
+        assert_eq!(SyntaxKind::PythonKw.keyword_text(), Some("python"));
+        assert_eq!(SyntaxKind::MutKw.keyword_text(), Some("mut"));
+        assert_eq!(SyntaxKind::Ident.keyword_text(), None);
+        assert_eq!(SyntaxKind::Plus.keyword_text(), None);
+    }
+
+    #[test]
+    fn is_keyword_consistent_with_table() {
+        // Every SyntaxKind that is_keyword() returns true for must appear
+        // in the KEYWORDS table, and vice versa.
+        for raw in 0..SyntaxKind::__LAST as u16 {
+            let kind = SyntaxKind::from(raw);
+            let in_table = crate::keyword::class_of(kind).is_some();
+            assert_eq!(
+                kind.is_keyword(),
+                in_table,
+                "{kind:?}: is_keyword()={} but in_table={in_table}",
+                kind.is_keyword()
+            );
+        }
     }
 }
