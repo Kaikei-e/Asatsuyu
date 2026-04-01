@@ -253,6 +253,7 @@ HirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -264,6 +265,7 @@ HirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -275,6 +277,7 @@ HirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -286,6 +289,7 @@ HirModule {
                 DefData {
                     name: "Option",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -297,6 +301,7 @@ HirModule {
                 DefData {
                     name: "Some",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -308,6 +313,7 @@ HirModule {
                 DefData {
                     name: "None",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -319,6 +325,7 @@ HirModule {
                 DefData {
                     name: "unwrap_or",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -330,6 +337,7 @@ HirModule {
                 DefData {
                     name: "opt",
                     kind: Parameter,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -341,6 +349,7 @@ HirModule {
                 DefData {
                     name: "default",
                     kind: Parameter,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -352,6 +361,7 @@ HirModule {
                 DefData {
                     name: "x",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

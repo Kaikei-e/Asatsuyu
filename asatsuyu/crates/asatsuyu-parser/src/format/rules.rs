@@ -155,7 +155,7 @@ pub(crate) fn format_node(f: &mut Formatter, node: &SyntaxNode) {
         SyntaxKind::LiteralExpr => format_literal_expr(f, node),
         SyntaxKind::IdentExpr => format_ident_expr(f, node),
         SyntaxKind::CallExpr => format_call_expr(f, node),
-        SyntaxKind::PipelineExpr => format_binary_like(f, node, "|>"),
+        SyntaxKind::PipelineExpr => format_pipeline_expr(f, node),
         SyntaxKind::BinaryExpr => format_binary_expr(f, node),
         SyntaxKind::UnaryExpr => format_unary_expr(f, node),
         SyntaxKind::FieldAccessExpr => format_field_access_expr(f, node),
@@ -708,6 +708,51 @@ fn format_binary_like(f: &mut Formatter, node: &SyntaxNode, op_text: &str) {
             }
         }
     }
+}
+
+fn format_pipeline_expr(f: &mut Formatter, node: &SyntaxNode) {
+    let stages = flatten_pipeline_stages(node);
+    if should_format_pipeline_multiline(&stages) {
+        if let Some((first, rest)) = stages.split_first() {
+            format_node(f, first);
+            for stage in rest {
+                f.write_newline();
+                f.write_indent();
+                f.write_str("|> ");
+                format_node(f, stage);
+            }
+        }
+        return;
+    }
+
+    format_binary_like(f, node, "|>");
+}
+
+fn flatten_pipeline_stages(node: &SyntaxNode) -> Vec<SyntaxNode> {
+    let mut stages = Vec::new();
+    collect_pipeline_stages(node, &mut stages);
+    stages
+}
+
+fn collect_pipeline_stages(node: &SyntaxNode, stages: &mut Vec<SyntaxNode>) {
+    if node.kind() == SyntaxKind::PipelineExpr {
+        let children: Vec<SyntaxNode> = node.children().collect();
+        if children.len() == 2 {
+            collect_pipeline_stages(&children[0], stages);
+            collect_pipeline_stages(&children[1], stages);
+            return;
+        }
+    }
+    stages.push(node.clone());
+}
+
+fn should_format_pipeline_multiline(stages: &[SyntaxNode]) -> bool {
+    stages.len() > 1 && stages.iter().any(pipeline_stage_is_complex)
+}
+
+fn pipeline_stage_is_complex(stage: &SyntaxNode) -> bool {
+    matches!(stage.kind(), SyntaxKind::ListExpr | SyntaxKind::LambdaExpr)
+        || stage.descendants().any(|node| node.kind() == SyntaxKind::LambdaExpr)
 }
 
 fn is_binary_operator(kind: SyntaxKind) -> bool {

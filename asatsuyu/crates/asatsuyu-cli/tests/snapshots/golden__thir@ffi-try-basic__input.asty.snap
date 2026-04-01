@@ -103,6 +103,7 @@ ThirModule {
                                 end: 290,
                             },
                         },
+                        is_mutable: false,
                         ty: Primitive(
                             None,
                         ),
@@ -171,6 +172,7 @@ ThirModule {
                                 end: 320,
                             },
                         },
+                        is_mutable: false,
                         ty: Primitive(
                             None,
                         ),
@@ -546,6 +548,7 @@ ThirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -557,6 +560,7 @@ ThirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -568,6 +572,7 @@ ThirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -579,6 +584,7 @@ ThirModule {
                 DefData {
                     name: "pathlib",
                     kind: Import,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -590,6 +596,7 @@ ThirModule {
                 DefData {
                     name: "Result",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -601,6 +608,7 @@ ThirModule {
                 DefData {
                     name: "Ok",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -612,6 +620,7 @@ ThirModule {
                 DefData {
                     name: "Error",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -623,6 +632,7 @@ ThirModule {
                 DefData {
                     name: "PyException",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -634,6 +644,7 @@ ThirModule {
                 DefData {
                     name: "PyExc",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -645,6 +656,7 @@ ThirModule {
                 DefData {
                     name: "safe_exists",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -656,6 +668,7 @@ ThirModule {
                 DefData {
                     name: "path",
                     kind: Parameter,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -667,6 +680,7 @@ ThirModule {
                 DefData {
                     name: "p",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -678,6 +692,7 @@ ThirModule {
                 DefData {
                     name: "result",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

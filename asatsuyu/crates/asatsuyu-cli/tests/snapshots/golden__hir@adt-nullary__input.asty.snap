@@ -109,6 +109,7 @@ HirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -120,6 +121,7 @@ HirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -131,6 +133,7 @@ HirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -142,6 +145,7 @@ HirModule {
                 DefData {
                     name: "Color",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -153,6 +157,7 @@ HirModule {
                 DefData {
                     name: "Red",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -164,6 +169,7 @@ HirModule {
                 DefData {
                     name: "Green",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -175,6 +181,7 @@ HirModule {
                 DefData {
                     name: "Blue",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -186,6 +193,7 @@ HirModule {
                 DefData {
                     name: "main",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

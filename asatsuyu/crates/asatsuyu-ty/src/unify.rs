@@ -458,6 +458,7 @@ mod tests {
         st.alloc(asatsuyu_hir::DefData {
             name: smol_str::SmolStr::from(name),
             kind: asatsuyu_hir::DefKind::Type,
+            is_mutable: false,
             span: asatsuyu_syntax::Span::dummy(),
         })
     }

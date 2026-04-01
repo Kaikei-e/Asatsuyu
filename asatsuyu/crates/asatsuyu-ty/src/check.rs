@@ -133,6 +133,7 @@ impl TyCheckCtx {
         let def_id = self.builtin_types.alloc(DefData {
             name: SmolStr::from(name),
             kind: DefKind::Type,
+            is_mutable: false,
             span: Span::dummy(),
         });
         self.type_name_to_def_id.insert(SmolStr::from(name), def_id);
@@ -563,7 +564,7 @@ impl TyCheckCtx {
 
             HirExpr::Match { subject, arms, span } => self.check_match(subject, arms, *span),
 
-            HirExpr::Let { binding, value, span } => {
+            HirExpr::Let { binding, value, is_mutable, span } => {
                 let checked_value = self.check_expr(value);
                 let value_ty = self.infer.resolve(checked_value.ty());
                 let env_fvs = self.env_free_vars();
@@ -572,6 +573,7 @@ impl TyCheckCtx {
                 ThirExpr::Let {
                     binding: *binding,
                     value: Box::new(checked_value),
+                    is_mutable: *is_mutable,
                     ty: Ty::Primitive(PrimTy::None),
                     span: *span,
                 }

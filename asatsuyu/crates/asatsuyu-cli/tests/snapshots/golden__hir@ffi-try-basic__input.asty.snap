@@ -129,6 +129,7 @@ HirModule {
                                 end: 290,
                             },
                         },
+                        is_mutable: false,
                         span: Span {
                             file_id: FileId(
                                 0,
@@ -178,6 +179,7 @@ HirModule {
                                 end: 320,
                             },
                         },
+                        is_mutable: false,
                         span: Span {
                             file_id: FileId(
                                 0,
@@ -458,6 +460,7 @@ HirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -469,6 +472,7 @@ HirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -480,6 +484,7 @@ HirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -491,6 +496,7 @@ HirModule {
                 DefData {
                     name: "pathlib",
                     kind: Import,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -502,6 +508,7 @@ HirModule {
                 DefData {
                     name: "Result",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -513,6 +520,7 @@ HirModule {
                 DefData {
                     name: "Ok",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -524,6 +532,7 @@ HirModule {
                 DefData {
                     name: "Error",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -535,6 +544,7 @@ HirModule {
                 DefData {
                     name: "PyException",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -546,6 +556,7 @@ HirModule {
                 DefData {
                     name: "PyExc",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -557,6 +568,7 @@ HirModule {
                 DefData {
                     name: "safe_exists",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -568,6 +580,7 @@ HirModule {
                 DefData {
                     name: "path",
                     kind: Parameter,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -579,6 +592,7 @@ HirModule {
                 DefData {
                     name: "p",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -590,6 +604,7 @@ HirModule {
                 DefData {
                     name: "result",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

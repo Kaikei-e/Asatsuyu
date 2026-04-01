@@ -86,6 +86,14 @@ mod tests {
     }
 
     #[test]
+    fn format_multiline_pipeline_with_lambdas() {
+        let input = "pub fn main() {\n  [\".py\", \".rs\", \".md\", \".json\", \".xyz\"]\n  |> list.map(fn(ext) { categorize(ext) })\n  |> list.filter(fn(cat) { is_source(cat) })\n  |> list.map(fn(cat) { category_label(cat) })\n  |> println\n}\n";
+        let expected = "pub fn main() {\n  [\".py\", \".rs\", \".md\", \".json\", \".xyz\"]\n  |> list.map(fn(ext) {\n    categorize(ext)\n  })\n  |> list.filter(fn(cat) {\n    is_source(cat)\n  })\n  |> list.map(fn(cat) {\n    category_label(cat)\n  })\n  |> println\n}\n";
+        assert_eq!(fmt(input), expected);
+        assert_idempotent(input);
+    }
+
+    #[test]
     fn format_import_and_ffi() {
         let input = "from python import pathlib\n";
         assert_idempotent(input);

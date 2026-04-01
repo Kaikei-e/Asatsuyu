@@ -214,6 +214,7 @@ ThirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -225,6 +226,7 @@ ThirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -236,6 +238,7 @@ ThirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -247,6 +250,7 @@ ThirModule {
                 DefData {
                     name: "Option",
                     kind: Type,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -258,6 +262,7 @@ ThirModule {
                 DefData {
                     name: "Some",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -269,6 +274,7 @@ ThirModule {
                 DefData {
                     name: "None",
                     kind: Constructor,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -280,6 +286,7 @@ ThirModule {
                 DefData {
                     name: "wrap",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -291,6 +298,7 @@ ThirModule {
                 DefData {
                     name: "x",
                     kind: Parameter,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

@@ -77,16 +77,19 @@ impl HirLowerCtx {
         let string_concat_id = symbol_table.alloc(DefData {
             name: SmolStr::from("string_concat"),
             kind: DefKind::Builtin,
+            is_mutable: false,
             span: Span::dummy(),
         });
         let println_id = symbol_table.alloc(DefData {
             name: SmolStr::from("println"),
             kind: DefKind::Builtin,
+            is_mutable: false,
             span: Span::dummy(),
         });
         let list_id = symbol_table.alloc(DefData {
             name: SmolStr::from("list"),
             kind: DefKind::Builtin,
+            is_mutable: false,
             span: Span::dummy(),
         });
         let mut scopes = ScopeStack::new();
@@ -178,6 +181,7 @@ impl HirLowerCtx {
                     let def_id = self.symbol_table.alloc(DefData {
                         name: bound_name.name.clone(),
                         kind: DefKind::Import,
+                        is_mutable: false,
                         span: bound_name.span,
                     });
 
@@ -197,6 +201,7 @@ impl HirLowerCtx {
                     let def_id = self.symbol_table.alloc(DefData {
                         name: bound_name.name.clone(),
                         kind: DefKind::Import,
+                        is_mutable: false,
                         span: bound_name.span,
                     });
 
@@ -232,6 +237,7 @@ impl HirLowerCtx {
                     let def_id = self.symbol_table.alloc(DefData {
                         name: fn_def.name.name.clone(),
                         kind: DefKind::Function,
+                        is_mutable: false,
                         span: fn_def.name.span,
                     });
                     self.define_module_level(&fn_def.name.name, def_id, fn_def.name.span);
@@ -241,6 +247,7 @@ impl HirLowerCtx {
                     let type_def_id = self.symbol_table.alloc(DefData {
                         name: ct.name.name.clone(),
                         kind: DefKind::Type,
+                        is_mutable: false,
                         span: ct.name.span,
                     });
                     self.define_module_level(&ct.name.name, type_def_id, ct.name.span);
@@ -252,6 +259,7 @@ impl HirLowerCtx {
                             let ctor_id = self.symbol_table.alloc(DefData {
                                 name: variant.name.name.clone(),
                                 kind: DefKind::Constructor,
+                                is_mutable: false,
                                 span: variant.name.span,
                             });
                             self.define_module_level(
@@ -339,6 +347,7 @@ impl HirLowerCtx {
                 let param_def_id = self.symbol_table.alloc(DefData {
                     name: p.name.name.clone(),
                     kind: DefKind::Parameter,
+                    is_mutable: false,
                     span: p.name.span,
                 });
                 self.define_local(&p.name.name, param_def_id, p.name.span);
@@ -388,6 +397,7 @@ impl HirLowerCtx {
                     let dummy_id = self.symbol_table.alloc(DefData {
                         name: ident.name.clone(),
                         kind: DefKind::LocalBinding,
+                        is_mutable: false,
                         span: ident.span,
                     });
                     HirExpr::Var(dummy_id, ident.span)
@@ -467,7 +477,9 @@ impl HirLowerCtx {
                 }
             }
 
-            Expr::Let { name, value, is_mutable: _, span } => self.lower_let(name, value, *span),
+            Expr::Let { name, value, is_mutable, span } => {
+                self.lower_let(name, value, *is_mutable, *span)
+            }
 
             Expr::Assign { target, value, span } => self.lower_assign(target, value, *span),
 
@@ -496,15 +508,22 @@ impl HirLowerCtx {
         }
     }
 
-    fn lower_let(&mut self, name: &asatsuyu_ast::Ident, value: &Expr, span: Span) -> HirExpr {
+    fn lower_let(
+        &mut self,
+        name: &asatsuyu_ast::Ident,
+        value: &Expr,
+        is_mutable: bool,
+        span: Span,
+    ) -> HirExpr {
         let def_id = self.symbol_table.alloc(DefData {
             name: name.name.clone(),
             kind: DefKind::LocalBinding,
+            is_mutable,
             span: name.span,
         });
         self.define_local(&name.name, def_id, name.span);
         let hir_value = self.lower_expr(value);
-        HirExpr::Let { binding: def_id, value: Box::new(hir_value), span }
+        HirExpr::Let { binding: def_id, value: Box::new(hir_value), is_mutable, span }
     }
 
     fn lower_assign(&mut self, target: &asatsuyu_ast::Ident, value: &Expr, span: Span) -> HirExpr {
@@ -519,6 +538,7 @@ impl HirLowerCtx {
             self.symbol_table.alloc(DefData {
                 name: target.name.clone(),
                 kind: DefKind::LocalBinding,
+                is_mutable: false,
                 span: target.span,
             })
         };
@@ -540,6 +560,7 @@ impl HirLowerCtx {
                 let param_def_id = self.symbol_table.alloc(DefData {
                     name: p.name.name.clone(),
                     kind: DefKind::Parameter,
+                    is_mutable: false,
                     span: p.name.span,
                 });
                 self.define_local(&p.name.name, param_def_id, p.name.span);
@@ -583,6 +604,7 @@ impl HirLowerCtx {
                 let def_id = self.symbol_table.alloc(DefData {
                     name: ident.name.clone(),
                     kind: DefKind::LocalBinding,
+                    is_mutable: false,
                     span: ident.span,
                 });
                 self.define_local(&ident.name, def_id, ident.span);
@@ -612,6 +634,7 @@ impl HirLowerCtx {
                     self.symbol_table.alloc(DefData {
                         name: name.name.clone(),
                         kind: DefKind::Constructor,
+                        is_mutable: false,
                         span: name.span,
                     })
                 };
@@ -624,6 +647,7 @@ impl HirLowerCtx {
                     let def_id = self.symbol_table.alloc(DefData {
                         name: ident.name.clone(),
                         kind: DefKind::LocalBinding,
+                        is_mutable: false,
                         span: ident.span,
                     });
                     self.define_local(&ident.name, def_id, ident.span);

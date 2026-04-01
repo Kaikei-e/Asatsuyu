@@ -319,6 +319,25 @@ mod tests {
         assert!(dump.contains("Int"), "dump should contain literal kind:\n{dump}");
     }
 
+    #[test]
+    fn hir_dump_shows_mutable_binding_and_assign() {
+        let result = hir_from_source("pub fn main() { let mut x = 0\n x = 1 }");
+        assert!(!result.has_errors(), "unexpected diagnostics: {:?}", result.diagnostics);
+
+        let dump = format!("{:#?}", result.module);
+        assert!(dump.contains("is_mutable: true"), "dump should show mutable binding:\n{dump}");
+        assert!(dump.contains("Assign"), "dump should show Assign node:\n{dump}");
+
+        let binding = result
+            .module
+            .symbol_table
+            .iter()
+            .find(|(_, def)| def.name.as_str() == "x")
+            .map(|(_, def)| def)
+            .expect("expected local binding x");
+        assert!(binding.is_mutable, "symbol table should record mutable binding");
+    }
+
     // ── 14. DefId uniqueness ────────────────────────────────────────
 
     #[test]

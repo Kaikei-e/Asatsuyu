@@ -32,6 +32,7 @@ ThirModule {
                                 },
                             },
                         ),
+                        is_mutable: false,
                         ty: Primitive(
                             None,
                         ),
@@ -118,6 +119,7 @@ ThirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -129,6 +131,7 @@ ThirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -140,6 +143,7 @@ ThirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -151,6 +155,7 @@ ThirModule {
                 DefData {
                     name: "main",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -162,6 +167,7 @@ ThirModule {
                 DefData {
                     name: "x",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

@@ -317,6 +317,17 @@ mod tests {
         assert!(dump.contains("Function"), "dump should contain Function:\n{dump}");
     }
 
+    #[test]
+    fn check_thir_dump_shows_mutable_let_and_assign() {
+        let result = thir_from_source("pub fn main() { let mut x = 0\n x = 1 }");
+        assert!(!result.has_errors(), "unexpected diagnostics: {:?}", result.diagnostics);
+
+        let dump = format!("{:#?}", result.module);
+        assert!(dump.contains("is_mutable: true"), "dump should show mutable let flag:\n{dump}");
+        assert!(dump.contains("Assign"), "dump should show typed Assign node:\n{dump}");
+        assert!(dump.contains("Primitive(\n                            None"), "assign/let should remain statement-typed:\n{dump}");
+    }
+
     // ── 15. All expressions have type ───────────────────────────────
 
     #[test]

@@ -95,6 +95,7 @@ HirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -106,6 +107,7 @@ HirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -117,6 +119,7 @@ HirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -128,6 +131,7 @@ HirModule {
                 DefData {
                     name: "negate",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -139,6 +143,7 @@ HirModule {
                 DefData {
                     name: "x",
                     kind: Parameter,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,

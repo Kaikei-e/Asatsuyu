@@ -95,7 +95,8 @@ pub(super) fn hover_at_offset(module: &ThirModule, offset: u32) -> Option<String
     match info {
         NodeInfo::Var { ty, def_id } => {
             let def = module.symbol_table.get(def_id);
-            Some(format!("{}: {ty}", def.name))
+            let prefix = if def.is_mutable { "mut " } else { "" };
+            Some(format!("{prefix}{}: {ty}", def.name))
         }
         NodeInfo::FnDef { ty, def_id } => {
             let def = module.symbol_table.get(def_id);

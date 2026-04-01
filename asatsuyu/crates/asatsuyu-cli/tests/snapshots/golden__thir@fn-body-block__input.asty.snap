@@ -32,6 +32,7 @@ ThirModule {
                                 },
                             },
                         ),
+                        is_mutable: false,
                         ty: Primitive(
                             None,
                         ),
@@ -61,6 +62,7 @@ ThirModule {
                                 },
                             },
                         ),
+                        is_mutable: false,
                         ty: Primitive(
                             None,
                         ),
@@ -147,6 +149,7 @@ ThirModule {
                 DefData {
                     name: "string_concat",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -158,6 +161,7 @@ ThirModule {
                 DefData {
                     name: "println",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -169,6 +173,7 @@ ThirModule {
                 DefData {
                     name: "list",
                     kind: Builtin,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -180,6 +185,7 @@ ThirModule {
                 DefData {
                     name: "compute",
                     kind: Function,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -191,6 +197,7 @@ ThirModule {
                 DefData {
                     name: "x",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
@@ -202,6 +209,7 @@ ThirModule {
                 DefData {
                     name: "y",
                     kind: LocalBinding,
+                    is_mutable: false,
                     span: Span {
                         file_id: FileId(
                             0,
