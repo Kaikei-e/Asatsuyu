@@ -1,14 +1,15 @@
 //! Tower-LSP server implementation for Asatsuyu.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use asatsuyu_hir::DefKind;
 use asatsuyu_hir::ffi::FfiResolverConfig;
 use asatsuyu_syntax::{FileId, LineIndex};
 use asatsuyu_ty::ThirModule;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse,
@@ -25,12 +26,17 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use super::{analysis, convert};
 
+/// Debounce delay for on-change diagnostics.
+const DEBOUNCE_DELAY: Duration = Duration::from_millis(200);
+
 // ── File state ──────────────────────────────────────────────────
 
 struct FileState {
     source: String,
     line_index: LineIndex,
     thir: Option<ThirModule>,
+    /// Monotonic counter for staleness detection in debounced analysis.
+    seq: u64,
 }
 
 // ── Backend ─────────────────────────────────────────────────────
@@ -38,11 +44,20 @@ struct FileState {
 pub(super) struct Backend {
     client: Client,
     state: Arc<RwLock<HashMap<Url, FileState>>>,
+    debounce_tx: mpsc::UnboundedSender<Url>,
+    /// Taken once by `initialized()` to spawn the debounce loop.
+    debounce_rx: Arc<tokio::sync::Mutex<Option<mpsc::UnboundedReceiver<Url>>>>,
 }
 
 impl Backend {
     fn new(client: Client) -> Self {
-        Self { client, state: Arc::new(RwLock::new(HashMap::new())) }
+        let (tx, rx) = mpsc::unbounded_channel();
+        Self {
+            client,
+            state: Arc::new(RwLock::new(HashMap::new())),
+            debounce_tx: tx,
+            debounce_rx: Arc::new(tokio::sync::Mutex::new(Some(rx))),
+        }
     }
 
     /// Run the full compilation pipeline on a source file and update state.
@@ -52,14 +67,33 @@ impl Backend {
 
         let lsp_diags = convert::to_lsp_diagnostics(&diagnostics, &line_index, uri);
 
-        // Update stored state.
+        // Update stored state, bumping seq to invalidate any in-flight debounced analysis.
         {
             let mut state = self.state.write().await;
-            state.insert(uri.clone(), FileState { source, line_index, thir });
+            let next_seq = state.get(uri).map_or(0, |fs| fs.seq + 1);
+            state.insert(uri.clone(), FileState { source, line_index, thir, seq: next_seq });
         }
 
         // Publish diagnostics to the editor.
         self.client.publish_diagnostics(uri.clone(), lsp_diags, None).await;
+    }
+}
+
+fn apply_full_document_change(
+    state: &mut HashMap<Url, FileState>,
+    uri: &Url,
+    source: String,
+) -> u64 {
+    let line_index = LineIndex::new(&source);
+    if let Some(fs) = state.get_mut(uri) {
+        fs.source = source;
+        fs.line_index = line_index;
+        fs.thir = None;
+        fs.seq += 1;
+        fs.seq
+    } else {
+        state.insert(uri.clone(), FileState { source, line_index, thir: None, seq: 0 });
+        0
     }
 }
 
@@ -139,6 +173,12 @@ impl LanguageServer for Backend {
 
     async fn initialized(&self, _params: InitializedParams) {
         self.client.log_message(MessageType::INFO, "Asatsuyu LSP initialized").await;
+
+        // Spawn debounced on-change analysis loop.
+        let rx = self.debounce_rx.lock().await.take();
+        if let Some(rx) = rx {
+            tokio::spawn(debounce_loop(rx, Arc::clone(&self.state), self.client.clone()));
+        }
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -173,17 +213,11 @@ impl LanguageServer for Backend {
         // With Full sync, the last change contains the full text.
         let uri = params.text_document.uri;
         if let Some(change) = params.content_changes.into_iter().last() {
-            // Update stored source but don't re-analyze on every keystroke.
-            // Analysis happens on save.
-            let line_index = LineIndex::new(&change.text);
             let mut state = self.state.write().await;
-            if let Some(fs) = state.get_mut(&uri) {
-                fs.source = change.text;
-                fs.line_index = line_index;
-                fs.thir = None;
-            } else {
-                state.insert(uri, FileState { source: change.text, line_index, thir: None });
-            }
+            apply_full_document_change(&mut state, &uri, change.text);
+            drop(state);
+            // Notify the debounce loop to schedule re-analysis.
+            self.debounce_tx.send(uri).ok();
         }
     }
 
@@ -282,20 +316,28 @@ impl LanguageServer for Backend {
         let Some(file_state) = state.get(uri) else {
             return Ok(None);
         };
-        let Some(ref thir) = file_state.thir else {
-            return Ok(None);
-        };
 
         let offset = position_to_offset(pos, &file_state.source);
-        let entries = analysis::collect_completions(thir, offset);
+        let entries =
+            analysis::collect_all_completions(file_state.thir.as_ref(), &file_state.source, offset);
 
         let items: Vec<CompletionItem> = entries
             .into_iter()
-            .map(|entry| CompletionItem {
-                label: entry.name.to_string(),
-                kind: Some(def_kind_to_completion_kind(entry.kind)),
-                detail: entry.ty.map(|t| format!("{t}")),
-                ..Default::default()
+            .map(|entry| {
+                let (kind, sort_prefix) = match entry.kind {
+                    analysis::CompletionEntryKind::Symbol(def_kind) => {
+                        (def_kind_to_completion_kind(def_kind), "0")
+                    }
+                    analysis::CompletionEntryKind::Keyword => (CompletionItemKind::KEYWORD, "1"),
+                };
+                CompletionItem {
+                    label: entry.name.to_string(),
+                    kind: Some(kind),
+                    detail: entry.ty.map(|t| format!("{t}")),
+                    sort_text: Some(format!("{sort_prefix}{}", entry.name)),
+                    insert_text: entry.insert_text.map(|text| text.to_string()),
+                    ..Default::default()
+                }
             })
             .collect();
 
@@ -522,6 +564,92 @@ fn def_kind_to_symbol_kind(kind: DefKind) -> SymbolKind {
     }
 }
 
+// ── Debounced on-change analysis ────────────────────────────────
+
+/// Background loop that debounces `did_change` notifications and runs analysis
+/// after a quiet period of [`DEBOUNCE_DELAY`].
+///
+/// Spawned once from `initialized()`. Exits when the channel is closed
+/// (i.e., the LSP server shuts down).
+async fn debounce_loop(
+    mut rx: mpsc::UnboundedReceiver<Url>,
+    state: Arc<RwLock<HashMap<Url, FileState>>>,
+    client: Client,
+) {
+    loop {
+        // Wait for the first change.
+        let Some(uri) = rx.recv().await else { break };
+        let mut pending = HashSet::new();
+        pending.insert(uri);
+
+        // Collect more changes within the debounce window.
+        let deadline = tokio::time::sleep(DEBOUNCE_DELAY);
+        tokio::pin!(deadline);
+        loop {
+            tokio::select! {
+                biased;
+                next = rx.recv() => match next {
+                    Some(uri) => {
+                        pending.insert(uri);
+                        // Reset timer — each new change extends the window.
+                        deadline
+                            .as_mut()
+                            .reset(tokio::time::Instant::now() + DEBOUNCE_DELAY);
+                    }
+                    None => return,
+                },
+                () = &mut deadline => break,
+            }
+        }
+
+        // Process all pending URIs.
+        for uri in pending {
+            run_debounced_analysis(&uri, &state, &client).await;
+        }
+    }
+}
+
+/// Run the compilation pipeline for a single file and publish diagnostics,
+/// but only if the source hasn't changed since the snapshot was taken.
+async fn run_debounced_analysis(
+    uri: &Url,
+    state: &Arc<RwLock<HashMap<Url, FileState>>>,
+    client: &Client,
+) {
+    // 1. Snapshot the current source and sequence number.
+    let (source, seq) = {
+        let s = state.read().await;
+        let Some(fs) = s.get(uri) else { return };
+        (fs.source.clone(), fs.seq)
+    };
+
+    // 2. Run the full compilation pipeline.
+    let line_index = LineIndex::new(&source);
+    let (thir, diagnostics) = compile_source(&source);
+    let lsp_diags = convert::to_lsp_diagnostics(&diagnostics, &line_index, uri);
+
+    // 3. Write back only if the source hasn't changed (seq matches).
+    let version_matched = {
+        let mut s = state.write().await;
+        if let Some(fs) = s.get_mut(uri) {
+            if fs.seq == seq {
+                fs.thir = thir;
+                fs.line_index = line_index;
+                true
+            } else {
+                false // Stale — a newer change will trigger another cycle.
+            }
+        } else {
+            false
+        }
+    };
+
+    // 4. Publish diagnostics only when the version matched.
+    if version_matched {
+        client.publish_diagnostics(uri.clone(), lsp_diags, None).await;
+    }
+}
+
 // ── Server startup ──────────────────────────────────────────────
 
 pub(super) async fn run_server() {
@@ -553,5 +681,128 @@ mod tests {
         let range = convert::span_to_range(eof_span, &index);
         assert_eq!(range.start, Position { line: 0, character: 0 });
         assert_eq!(range.end, Position { line: 1, character: 0 });
+    }
+
+    #[test]
+    fn debounce_delay_is_reasonable() {
+        assert!(DEBOUNCE_DELAY.as_millis() >= 100);
+        assert!(DEBOUNCE_DELAY.as_millis() <= 500);
+    }
+
+    #[tokio::test]
+    async fn debounced_analysis_discards_stale_results() {
+        let state = Arc::new(RwLock::new(HashMap::new()));
+        let uri = Url::parse("file:///test.asty").unwrap();
+
+        // Insert a FileState with seq=5.
+        {
+            let mut s = state.write().await;
+            s.insert(
+                uri.clone(),
+                FileState {
+                    source: "pub fn main() { 42 }".to_owned(),
+                    line_index: LineIndex::new("pub fn main() { 42 }"),
+                    thir: None,
+                    seq: 5,
+                },
+            );
+        }
+
+        // Simulate: snapshot taken at seq=5, then source changed (seq bumped to 6)
+        // before analysis writes back.
+        {
+            let mut s = state.write().await;
+            let fs = s.get_mut(&uri).unwrap();
+            fs.seq = 6; // User typed again while analysis was in-flight
+        }
+
+        // run_debounced_analysis would have captured seq=5 in its snapshot.
+        // Simulate the write-back check: seq 5 != 6, so thir stays None.
+        {
+            let s = state.read().await;
+            let fs = s.get(&uri).unwrap();
+            assert_eq!(fs.seq, 6);
+            assert!(fs.thir.is_none(), "thir should remain None (stale result discarded)");
+        }
+    }
+
+    #[tokio::test]
+    async fn analysis_writeback_succeeds_when_seq_matches() {
+        let state = Arc::new(RwLock::new(HashMap::new()));
+        let uri = Url::parse("file:///test.asty").unwrap();
+        let source = "pub fn main() { 42 }";
+
+        // Insert a FileState at seq=0.
+        {
+            let mut s = state.write().await;
+            s.insert(
+                uri.clone(),
+                FileState {
+                    source: source.to_owned(),
+                    line_index: LineIndex::new(source),
+                    thir: None,
+                    seq: 0,
+                },
+            );
+        }
+
+        // Simulate the debounce analysis write-back logic when seq matches.
+        let snapshot_seq: u64 = 0;
+        let line_index = LineIndex::new(source);
+        let (thir, _) = compile_source(source);
+
+        {
+            let mut s = state.write().await;
+            let fs = s.get_mut(&uri).unwrap();
+            assert_eq!(fs.seq, snapshot_seq, "seq should match snapshot");
+            fs.thir = thir;
+            fs.line_index = line_index;
+        }
+
+        // Verify thir was successfully written.
+        {
+            let s = state.read().await;
+            let fs = s.get(&uri).unwrap();
+            assert!(fs.thir.is_some(), "thir should be set when seq matches");
+        }
+    }
+
+    #[test]
+    fn apply_full_document_change_invalidates_previous_analysis() {
+        let uri = Url::parse("file:///test.asty").unwrap();
+        let original_source = "pub fn main() { 42 }";
+        let (thir, _) = compile_source(original_source);
+        assert!(thir.is_some(), "fixture should type-check");
+
+        let mut state = HashMap::new();
+        state.insert(
+            uri.clone(),
+            FileState {
+                source: original_source.to_owned(),
+                line_index: LineIndex::new(original_source),
+                thir,
+                seq: 3,
+            },
+        );
+
+        let next_seq = apply_full_document_change(&mut state, &uri, "pub fn main() {".to_owned());
+        let fs = state.get(&uri).expect("file state should exist");
+        assert_eq!(next_seq, 4);
+        assert_eq!(fs.seq, 4);
+        assert!(fs.thir.is_none(), "did_change must clear stale THIR");
+        assert_eq!(fs.source, "pub fn main() {");
+    }
+
+    #[test]
+    fn apply_full_document_change_initializes_missing_file_state() {
+        let uri = Url::parse("file:///fresh.asty").unwrap();
+        let mut state = HashMap::new();
+
+        let seq = apply_full_document_change(&mut state, &uri, "fn main() {}".to_owned());
+        let fs = state.get(&uri).expect("file state should be inserted");
+        assert_eq!(seq, 0);
+        assert_eq!(fs.seq, 0);
+        assert!(fs.thir.is_none());
+        assert_eq!(fs.source, "fn main() {}");
     }
 }

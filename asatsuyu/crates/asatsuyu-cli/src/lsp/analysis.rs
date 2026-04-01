@@ -224,11 +224,35 @@ fn collect_refs_in_pattern(pattern: &ThirPattern, target: DefId, spans: &mut Vec
 
 // ── Completion ──────────────────────────────────────────────────
 
+/// Distinguishes symbol completions from keyword completions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CompletionEntryKind {
+    Symbol(DefKind),
+    Keyword,
+}
+
 /// A completion candidate with metadata.
 pub(super) struct CompletionEntry {
     pub name: SmolStr,
-    pub kind: DefKind,
+    pub kind: CompletionEntryKind,
     pub ty: Option<Ty>,
+    pub insert_text: Option<SmolStr>,
+}
+
+/// The syntactic context at the completion cursor position.
+///
+/// Determines which keywords are valid completions. Classified from source
+/// text alone (no THIR required) so it works during editing with parse errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CompletionContext {
+    /// Outside any function/type body. Offer item-level keywords.
+    TopLevel,
+    /// Inside a block expression (function body, if/match/lambda body).
+    Block,
+    /// In an expression position within a block.
+    Expr,
+    /// Inside an import statement line. Suppress keyword completions.
+    Import,
 }
 
 /// Collect completion candidates visible at the given byte offset.
@@ -246,7 +270,12 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
             | DefKind::Builtin => {
                 if seen.insert(def.name.clone()) {
                     let ty = find_type_for_def(module, def_id);
-                    entries.push(CompletionEntry { name: def.name.clone(), kind: def.kind, ty });
+                    entries.push(CompletionEntry {
+                        name: def.name.clone(),
+                        kind: CompletionEntryKind::Symbol(def.kind),
+                        ty,
+                        insert_text: None,
+                    });
                 }
             }
             DefKind::Parameter | DefKind::LocalBinding => {
@@ -266,8 +295,9 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
             if seen.insert(def.name.clone()) {
                 entries.push(CompletionEntry {
                     name: def.name.clone(),
-                    kind: DefKind::Parameter,
+                    kind: CompletionEntryKind::Symbol(DefKind::Parameter),
                     ty: Some(param.ty.clone()),
+                    insert_text: None,
                 });
             }
         }
@@ -281,16 +311,128 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
 
 /// Shared keyword vocabulary used as the basis for LSP keyword-aware features.
 ///
-/// Issue 89 freezes the keyword taxonomy in `asatsuyu-syntax`; Issue 90 can
-/// build completion items directly from this table.
-#[cfg_attr(not(test), allow(dead_code))]
+/// Issue 89 freezes the keyword taxonomy in `asatsuyu-syntax`; Issue 90 builds
+/// completion items directly from this table.
 pub(super) fn completion_keyword_specs() -> impl Iterator<Item = &'static KeywordSpec> {
     KEYWORDS.iter().filter(|spec| {
-        matches!(
-            spec.class,
-            KeywordClass::Hard | KeywordClass::Literal | KeywordClass::Contextual
-        )
+        matches!(spec.class, KeywordClass::Hard | KeywordClass::Literal | KeywordClass::Contextual)
     })
+}
+
+/// Classify the completion context at `offset` using source text heuristics.
+///
+/// Scans backwards from the cursor to determine whether we are at the top
+/// level, inside a block, or on an import line. This is intentionally
+/// lightweight — it uses brace counting rather than full parsing.
+pub(super) fn classify_context(source: &str, offset: u32) -> CompletionContext {
+    let offset = (offset as usize).min(source.len());
+    let before_cursor = &source[..offset];
+
+    // Check if current line starts with import/from keywords.
+    let line_start = before_cursor.rfind('\n').map_or(0, |i| i + 1);
+    let line_prefix = before_cursor[line_start..].trim_start();
+    if line_prefix.starts_with("import ") || line_prefix.starts_with("from ") {
+        return CompletionContext::Import;
+    }
+
+    // Count unmatched braces scanning backwards.
+    let mut brace_depth: i32 = 0;
+    for byte in before_cursor.bytes().rev() {
+        match byte {
+            b'}' => brace_depth += 1,
+            b'{' => {
+                brace_depth -= 1;
+                if brace_depth < 0 {
+                    return classify_in_block(line_prefix);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    CompletionContext::TopLevel
+}
+
+fn classify_in_block(line_prefix: &str) -> CompletionContext {
+    let trimmed = line_prefix.trim_end();
+    if trimmed.is_empty() {
+        return CompletionContext::Block;
+    }
+
+    if trimmed.ends_with('=') || trimmed.ends_with("->") || trimmed.ends_with('(') {
+        return CompletionContext::Expr;
+    }
+
+    if trimmed.ends_with("let") || trimmed.ends_with("let ") || trimmed.starts_with("let ") {
+        return CompletionContext::Expr;
+    }
+
+    CompletionContext::Block
+}
+
+/// Collect keyword completion entries appropriate for the given context.
+fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
+    let mut entries = Vec::new();
+
+    let allowed: &[&str] = match ctx {
+        CompletionContext::TopLevel => &["fn", "type", "import", "from", "pub"],
+        CompletionContext::Block => &["let", "if", "match", "try", "fn", "True", "False"],
+        CompletionContext::Expr => &["if", "match", "try", "fn", "True", "False", "await"],
+        CompletionContext::Import => &[],
+    };
+
+    for spec in completion_keyword_specs().filter(|spec| allowed.contains(&spec.text)) {
+        entries.push(CompletionEntry {
+            name: SmolStr::new(spec.text),
+            kind: CompletionEntryKind::Keyword,
+            ty: None,
+            insert_text: None,
+        });
+    }
+
+    match ctx {
+        CompletionContext::TopLevel => {
+            entries.push(keyword_snippet("async fn", "async fn "));
+        }
+        CompletionContext::Block => {
+            entries.push(keyword_snippet("let mut", "let mut "));
+            entries.push(keyword_snippet("await", "await "));
+        }
+        CompletionContext::Expr => {
+            entries.push(keyword_snippet("await", "await "));
+            entries.push(keyword_snippet("mut", "mut "));
+        }
+        CompletionContext::Import => {}
+    }
+
+    entries
+}
+
+fn keyword_snippet(label: &'static str, insert_text: &'static str) -> CompletionEntry {
+    CompletionEntry {
+        name: SmolStr::new(label),
+        kind: CompletionEntryKind::Keyword,
+        ty: None,
+        insert_text: Some(SmolStr::new(insert_text)),
+    }
+}
+
+/// Collect all completion candidates (keywords + symbols) at the given offset.
+///
+/// Works even when THIR is unavailable (keyword completions only in that case).
+pub(super) fn collect_all_completions(
+    thir: Option<&ThirModule>,
+    source: &str,
+    offset: u32,
+) -> Vec<CompletionEntry> {
+    let ctx = classify_context(source, offset);
+    let mut entries = collect_keyword_completions(ctx);
+
+    if let Some(module) = thir {
+        entries.extend(collect_completions(module, offset));
+    }
+
+    entries
 }
 
 /// Walk an expression tree and collect let-bound names and pattern variables
@@ -317,8 +459,9 @@ fn collect_locals_in_expr(
             if def.span.start < offset && seen.insert(def.name.clone()) {
                 entries.push(CompletionEntry {
                     name: def.name.clone(),
-                    kind: DefKind::LocalBinding,
+                    kind: CompletionEntryKind::Symbol(DefKind::LocalBinding),
                     ty: Some(ty.clone()),
+                    insert_text: None,
                 });
             }
             collect_locals_in_expr(value, offset, st, entries, seen);
@@ -337,8 +480,9 @@ fn collect_locals_in_expr(
                 if seen.insert(def.name.clone()) {
                     entries.push(CompletionEntry {
                         name: def.name.clone(),
-                        kind: DefKind::Parameter,
+                        kind: CompletionEntryKind::Symbol(DefKind::Parameter),
                         ty: Some(p.ty.clone()),
+                        insert_text: None,
                     });
                 }
             }
@@ -371,8 +515,9 @@ fn collect_pattern_bindings(
             if seen.insert(def.name.clone()) {
                 entries.push(CompletionEntry {
                     name: def.name.clone(),
-                    kind: DefKind::LocalBinding,
+                    kind: CompletionEntryKind::Symbol(DefKind::LocalBinding),
                     ty: Some(ty.clone()),
+                    insert_text: None,
                 });
             }
         }
@@ -453,5 +598,145 @@ mod tests {
         assert!(!keywords.iter().any(|spec| spec.text == "mut"));
         assert!(!keywords.iter().any(|spec| spec.text == "async"));
         assert!(!keywords.iter().any(|spec| spec.text == "await"));
+    }
+
+    // ── Context classification ──────────────────────────────────
+
+    #[test]
+    fn classify_context_empty_file() {
+        assert_eq!(classify_context("", 0), CompletionContext::TopLevel);
+    }
+
+    #[test]
+    fn classify_context_top_level_after_fn() {
+        assert_eq!(classify_context("fn main() {}\n", 14), CompletionContext::TopLevel,);
+    }
+
+    #[test]
+    fn classify_context_block_inside_fn() {
+        let source = "fn main() {\n  \n}";
+        assert_eq!(classify_context(source, 14), CompletionContext::Block);
+    }
+
+    #[test]
+    fn classify_context_nested_block() {
+        let source = "fn main() {\n  if True {\n    \n  }\n}";
+        assert_eq!(classify_context(source, 27), CompletionContext::Block);
+    }
+
+    #[test]
+    fn classify_context_expr_after_equals() {
+        let source = "fn main() {\n  let x = \n}";
+        assert_eq!(classify_context(source, 22), CompletionContext::Expr);
+    }
+
+    #[test]
+    fn classify_context_expr_after_let_prefix() {
+        let source = "fn main() {\n  let \n}";
+        assert_eq!(classify_context(source, 18), CompletionContext::Expr);
+    }
+
+    #[test]
+    fn classify_context_import_line() {
+        assert_eq!(classify_context("import ", 7), CompletionContext::Import);
+        assert_eq!(classify_context("from python import ", 19), CompletionContext::Import,);
+    }
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    fn classify_context_after_closed_braces() {
+        let source = "fn a() {}\nfn b() {}\n";
+        assert_eq!(classify_context(source, source.len() as u32), CompletionContext::TopLevel,);
+    }
+
+    // ── Keyword completions ─────────────────────────────────────
+
+    #[test]
+    fn keyword_completions_top_level() {
+        let entries = collect_keyword_completions(CompletionContext::TopLevel);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"fn"));
+        assert!(names.contains(&"type"));
+        assert!(names.contains(&"import"));
+        assert!(names.contains(&"from"));
+        assert!(names.contains(&"pub"));
+        assert!(!names.contains(&"let"));
+        assert!(!names.contains(&"match"));
+    }
+
+    #[test]
+    fn keyword_completions_block() {
+        let entries = collect_keyword_completions(CompletionContext::Block);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"let"));
+        assert!(names.contains(&"if"));
+        assert!(names.contains(&"match"));
+        assert!(names.contains(&"try"));
+        assert!(names.contains(&"fn"));
+        assert!(names.contains(&"let mut"));
+        assert!(names.contains(&"await"));
+        assert!(names.contains(&"True"));
+        assert!(names.contains(&"False"));
+        assert!(!names.contains(&"type"));
+        assert!(!names.contains(&"import"));
+        assert!(!names.contains(&"pub"));
+    }
+
+    #[test]
+    fn keyword_completions_expr() {
+        let entries = collect_keyword_completions(CompletionContext::Expr);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"if"));
+        assert!(names.contains(&"match"));
+        assert!(names.contains(&"try"));
+        assert!(names.contains(&"fn"));
+        assert!(names.contains(&"await"));
+        assert!(names.contains(&"mut"));
+        assert!(!names.contains(&"let"));
+        assert!(!names.contains(&"type"));
+    }
+
+    #[test]
+    fn keyword_completions_import_is_empty() {
+        let entries = collect_keyword_completions(CompletionContext::Import);
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn keyword_entries_are_marked_as_keyword_kind() {
+        let entries = collect_keyword_completions(CompletionContext::TopLevel);
+        for entry in &entries {
+            assert_eq!(entry.kind, CompletionEntryKind::Keyword);
+            assert!(entry.ty.is_none());
+        }
+    }
+
+    #[test]
+    fn keyword_snippets_have_insert_text() {
+        let entries = collect_keyword_completions(CompletionContext::TopLevel);
+        let async_fn = entries.iter().find(|e| e.name == "async fn").expect("missing async fn");
+        assert_eq!(async_fn.insert_text.as_deref(), Some("async fn "));
+
+        let block_entries = collect_keyword_completions(CompletionContext::Block);
+        let let_mut = block_entries.iter().find(|e| e.name == "let mut").expect("missing let mut");
+        assert_eq!(let_mut.insert_text.as_deref(), Some("let mut "));
+    }
+
+    // ── Unified completions ─────────────────────────────────────
+
+    #[test]
+    fn all_completions_works_without_thir() {
+        let source = "fn main() {\n  \n}";
+        let entries = collect_all_completions(None, source, 14);
+        assert!(!entries.is_empty());
+        assert!(entries.iter().all(|e| e.kind == CompletionEntryKind::Keyword));
+    }
+
+    #[test]
+    fn all_completions_top_level_without_thir() {
+        let entries = collect_all_completions(None, "", 0);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"fn"));
+        assert!(names.contains(&"type"));
     }
 }

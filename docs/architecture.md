@@ -962,11 +962,11 @@ Language Server Protocol implementation built on `tower-lsp`.
 > binary rather than shipped as a separate process.
 
 Implemented features:
-- diagnostics (display type errors and warnings on save)
+- diagnostics (on-save + debounced on-change with 200ms delay)
 - hover (type information display)
 - go to definition (DefId -> jump to definition site)
 - document formatting (CST-based formatter integration)
-- completion (name completion via scope reconstruction)
+- completion (keyword-aware + symbol completion with lightweight context classification)
 - rename (bulk rename of all references via DefId)
 - find references (find all references via DefId)
 - document symbols (list of functions and types)
