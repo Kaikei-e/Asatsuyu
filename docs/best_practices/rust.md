@@ -1,25 +1,24 @@
 # Rust Best Practices — Asatsuyu
 
-`docs/best_practices/rust.md` は Asatsuyu の Rust 実装向け規約である。
-対象は **Python フロントエンド言語のコンパイラ** と CLI である。設計上の前提は [`core_concept.md`](../core_concept.md) と
-[`IMPL_PHASES.md`](../IMPL_PHASES.md) に従う。
+These conventions govern the Rust implementation of the Asatsuyu compiler and CLI.
+Design assumptions follow the [compiler architecture](../architecture.md) and
+[roadmap](../roadmap.md).
 
 ## 1. Scope
 
-- Asatsuyu は **型安全な Python フロントエンド** を Rust で実装する
-- ワークスペースは `lexer -> parser -> ast -> hir -> ty -> backend-python` の
-  一方向パイプラインを保つ
-- `asatsuyu-cli` はユーザー入口、`asatsuyu-syntax` は最下層共有クレートとして扱う
-- コンパイラ本体と CLI に不要な責務を持ち込まない
-- 実装順は縦切り優先とし、最初の目標を `hello.asty -> hello.py -> 実行` に置く
-- MVP では LSP / formatter / 多バックエンド化を前提に設計を複雑化しない
+- Asatsuyu implements a **statically typed Python frontend** in Rust
+- The workspace maintains a unidirectional pipeline: `lexer -> parser -> ast -> hir -> ty -> backend-python`
+- `asatsuyu-cli` is the user entry point; `asatsuyu-syntax` is the lowest shared crate
+- Do not introduce unnecessary responsibilities into the compiler core or CLI
+- Implementation order is vertical-slice-first; the initial goal is `hello.asty -> hello.py -> run`
+- Do not over-engineer the MVP for LSP / formatter / multi-backend concerns
 
-## 2. Edition And Workspace
+## 2. Edition and Workspace
 
-- `edition = "2024"` を使う
-- 共通依存と lint は workspace で一元管理する
-- crate ごとの責務を狭く保ち、`lib.rs` は公開境界、`main.rs` は薄い入口にする
-- `pub(crate)` を基本とし、公開 API だけを `pub` にする
+- Use `edition = "2024"`
+- Manage shared dependencies and lints at the workspace level
+- Keep each crate's responsibilities narrow; `lib.rs` is the public boundary, `main.rs` is a thin entry point
+- Default to `pub(crate)`; use `pub` only for public API
 
 ```toml
 [workspace.package]
@@ -42,30 +41,30 @@ fn main() -> std::process::ExitCode {
 
 ## 3. Crate Boundaries
 
-- `asatsuyu-syntax`: token kind, span, file id, diagnostic などの共有定義
-- `asatsuyu-lexer`: 字句解析だけに集中し、構文木や意味解析を持ち込まない
-- `asatsuyu-parser`: ロスレス CST の構築に集中する
-- `asatsuyu-ast`: CST から意味のある AST へ整形する
-- `asatsuyu-hir`: 名前解決と脱糖
-- `asatsuyu-ty`: 型推論と型検査
-- `asatsuyu-backend-python`: THIR から Python 3.12+ 生成
-- `asatsuyu-cli`: 入出力、診断整形、サブコマンド制御
+- `asatsuyu-syntax`: shared definitions — token kinds, span, file id, diagnostics
+- `asatsuyu-lexer`: lexical analysis only; no syntax trees or semantic analysis
+- `asatsuyu-parser`: focused on building a lossless CST
+- `asatsuyu-ast`: reshaping the CST into a meaningful AST
+- `asatsuyu-hir`: name resolution and desugaring
+- `asatsuyu-ty`: type inference and type checking
+- `asatsuyu-backend-python`: THIR to Python 3.12+ generation
+- `asatsuyu-cli`: I/O, diagnostic formatting, subcommand dispatch
 
 ```rust
-// ✅ 依存方向は一方向に保つ
+// ✅ Keep dependency direction unidirectional
 asatsuyu_cli -> asatsuyu_ty -> asatsuyu_hir -> asatsuyu_ast -> asatsuyu_parser
 ```
 
-- 下層クレートから上層クレートへ逆依存しない
-- `cli` だけが端末表示や exit code を知る
-- 解析系クレートは `std::process::exit`, `println!`, `eprintln!` を呼ばない
+- Lower crates must not depend on upper crates
+- Only `cli` knows about terminal display and exit codes
+- Analysis crates must not call `std::process::exit`, `println!`, or `eprintln!`
 
-## 4. Data And Ownership
+## 4. Data and Ownership
 
-- 構文・型情報は値オブジェクトとして渡し、副作用を局所化する
-- `Span`, `FileId`, `TextRange` のような source mapping を最初から保持する
-- AST/HIR/THIR 間の変換では「何を捨て、何を保持するか」を明示する
-- `String` を乱用せず、識別子やパスには専用型を検討する
+- Pass syntax and type information as value objects; localize side effects
+- Retain source mapping (`Span`, `FileId`, `TextRange`) from the start
+- Make explicit what is discarded and what is preserved across AST/HIR/THIR conversions
+- Avoid overusing `String`; consider dedicated types for identifiers and paths
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -79,12 +78,12 @@ pub struct Span {
 }
 ```
 
-## 5. Errors And Diagnostics
+## 5. Errors and Diagnostics
 
-- 内部エラー型とユーザー向け診断を分ける
-- crate 内部では `thiserror` の domain error を使い、最終表示は CLI で `miette` 等へ変換する
-- `panic!` はバグのみ。ユーザー入力エラーは必ず `Result` / `Diagnostic` に乗せる
-- 診断には message だけでなく `code`, `span`, `labels`, `hints`, `notes` を持たせる
+- Separate internal error types from user-facing diagnostics
+- Use `thiserror` domain errors within crates; convert to `miette` etc. in the CLI for final display
+- `panic!` is for bugs only. User input errors must always ride on `Result` / `Diagnostic`
+- Diagnostics must carry not just a message but `code`, `span`, `labels`, `hints`, and `notes`
 
 ```rust
 use thiserror::Error;
@@ -105,7 +104,7 @@ pub struct Diagnostic {
 ```
 
 ```rust
-// ❌ ライブラリ層で直接終了しない
+// ❌ Do not exit directly from library crates
 if has_errors {
     std::process::exit(1);
 }
@@ -113,10 +112,10 @@ if has_errors {
 
 ## 6. API Design
 
-- public API は crate の責務をそのまま表す名前にする
-- `parse`, `lower_to_hir`, `infer_types`, `emit_python` のように段階が分かる関数名を使う
-- 便利関数で段階を潰しすぎない。デバッグ可能性を優先する
-- builder が不要なら素直な関数を選ぶ
+- Name public APIs to directly reflect the crate's responsibility
+- Use function names that reveal the pipeline stage: `parse`, `lower_to_hir`, `infer_types`, `emit_python`
+- Do not collapse stages with convenience functions; prioritize debuggability
+- Prefer straightforward functions over builders when builders are unnecessary
 
 ```rust
 pub fn parse(file_id: FileId, source: &str) -> ParseResult<Cst>;
@@ -126,12 +125,12 @@ pub fn infer_program(hir: &Hir, db: &mut TyDb) -> Result<Thir, TyError>;
 pub fn emit_module(thir: &Thir) -> String;
 ```
 
-## 7. Pattern Matching And Enums
+## 7. Pattern Matching and Enums
 
-- 固定集合の分岐は enum を優先する
-- 文字列ベースの kind 判定を避ける
-- `match` は網羅的に書き、`_` で情報を捨てすぎない
-- small object polymorphism より enum + exhaustive match を優先する
+- Prefer enums for fixed-set branching
+- Avoid string-based kind discrimination
+- Write `match` exhaustively; do not discard too much information with `_`
+- Prefer enum + exhaustive match over small-object polymorphism
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,15 +149,15 @@ match token.kind {
 }
 ```
 
-## 8. Async And Concurrency
+## 8. Async and Concurrency
 
-- MVP のコンパイラ本体は同期処理を基本にする
-- `async` は外部 I/O が必要な境界でのみ使う
-- CPU-bound な解析処理を理由なく `tokio` に載せない
-- 並列化は profiling で必要性が出てから導入する
+- The MVP compiler core defaults to synchronous processing
+- Use `async` only at boundaries that require external I/O
+- Do not put CPU-bound analysis work on `tokio` without justification
+- Introduce parallelization only after profiling demonstrates the need
 
 ```rust
-// ✅ まずは同期 API を基本にする
+// ✅ Default to synchronous APIs
 pub fn check_file(path: &Path) -> Result<Vec<Diagnostic>, CliError> {
     let source = std::fs::read_to_string(path)?;
     let cst = asatsuyu_parser::parse(FileId(0), &source)?;
@@ -167,28 +166,28 @@ pub fn check_file(path: &Path) -> Result<Vec<Diagnostic>, CliError> {
 }
 ```
 
-## 9. User Output, Logging And Tracing
+## 9. User Output, Logging, and Tracing
 
-- `println!` を一律禁止しない
-- **CLI の正規出力** には `stdout` を使う。成功結果、生成コード、機械可読 JSON などが対象
-- **診断・警告・進捗** は `stderr` を使う。`miette` の表示や `eprintln!` をここに出す
-- **内部観測・デバッグイベント** は `tracing` を使う
-- ライブラリ層はユーザー向け出力をしない。出力ポリシーは `asatsuyu-cli` に集約する
-- `build`, `run`, `check`, `fmt`, `test` の各コマンドで stdout/stderr の契約を固定する
+- Do not blanket-ban `println!`
+- **Canonical CLI output** goes to `stdout`: success results, generated code, machine-readable JSON
+- **Diagnostics, warnings, and progress** go to `stderr`: `miette` output and `eprintln!`
+- **Internal instrumentation and debug events** use `tracing`
+- Library crates must not produce user-facing output; output policy is centralized in `asatsuyu-cli`
+- Fix the stdout/stderr contract for each command: `build`, `run`, `check`, `fmt`, `test`
 
 ```rust
-// ✅ CLI のユーザー向け結果
+// ✅ User-facing CLI result
 println!("{python_source}");
 
-// ✅ CLI の診断やエラー
+// ✅ CLI diagnostics and errors
 eprintln!("{report:?}");
 
-// ✅ 内部観測
+// ✅ Internal instrumentation
 tracing::debug!(tokens = tokens.len(), "lex finished");
 ```
 
 ```rust
-// ❌ ライブラリ層で端末出力しない
+// ❌ Do not produce terminal output in library crates
 pub fn infer_program(hir: &Hir) -> Result<Thir, TyError> {
     println!("type inference started");
     todo!()
@@ -196,7 +195,7 @@ pub fn infer_program(hir: &Hir) -> Result<Thir, TyError> {
 ```
 
 ```rust
-// ✅ CLI 側で subscriber を配線する
+// ✅ Wire the subscriber in the CLI
 pub fn init_tracing() {
     use tracing_subscriber::{EnvFilter, fmt};
 
@@ -209,18 +208,18 @@ pub fn init_tracing() {
 
 ## 10. CLI Conventions
 
-- `asatsuyu-cli` は subcommand ごとに exit code 契約を持つ
-- 成功時の人間向けメッセージは簡潔にする
-- `--json` を導入する場合、人間向け出力と混在させない
-- エラー件数がある場合は集約してから表示する
-- 色や装飾は CLI 境界に閉じ込める
-- 最初の重要コマンドは `check`, `build`, `run`。規約もこの3つを優先して守る
+- `asatsuyu-cli` has an exit code contract per subcommand
+- Keep human-readable success messages brief
+- If introducing `--json`, do not mix it with human-readable output
+- Aggregate error counts before display
+- Confine colors and decoration to the CLI boundary
+- The first important commands are `check`, `build`, `run`; conventions prioritize these three
 
-出力の基本契約:
+Output contracts:
 
-- `check`: 成功時は静かに終了するか簡潔な成功表示、失敗時の診断は `stderr`
-- `build`: 生成物パスなどの結果は `stdout`、進捗や警告は `stderr`
-- `run`: コンパイル系の診断は `stderr`、生成された Python プログラムの標準出力はそのまま `stdout`
+- `check`: exit silently or with a brief success message on success; diagnostics go to `stderr` on failure
+- `build`: output paths and results go to `stdout`; progress and warnings go to `stderr`
+- `run`: compiler diagnostics go to `stderr`; the generated Python program's stdout passes through to `stdout`
 
 ```rust
 pub fn run() -> std::process::ExitCode {
@@ -236,12 +235,12 @@ pub fn run() -> std::process::ExitCode {
 
 ## 11. Testing
 
-- unit test は各 crate に近接配置する
-- parser / formatter / backend では snapshot test を積極的に使う
-- lexer/parser は golden test で token 列や tree 形状を固定する
-- type checker は診断コードと span を含めて検証する
-- CLI は integration test で stdout, stderr, exit code を分けて確認する
-- `IMPL_PHASES.md` の DoD に沿って e2e test を追加する
+- Place unit tests close to each crate
+- Actively use snapshot tests for parser / formatter / backend
+- Use golden tests to pin token sequences and tree shapes in the lexer/parser
+- Verify the type checker with diagnostic codes and spans
+- Use integration tests for the CLI, checking stdout, stderr, and exit code separately
+- Add e2e tests aligned with the roadmap's definition of done
 
 ```rust
 #[test]
@@ -263,18 +262,18 @@ fn check_command_writes_diagnostics_to_stderr() {
 
 ## 12. Performance
 
-- 最適化前に `cargo bench`, `criterion`, `hyperfine` などで測る
-- lexer / parser では不要な allocation を避ける
-- hot path で `clone()` を雑に増やさない
-- 文字列連結より span + source slice を優先する
-- 巨大入力を見据えて incremental / arena / interning を検討するが、早すぎる抽象化は避ける
+- Measure before optimizing: `cargo bench`, `criterion`, `hyperfine`
+- Avoid unnecessary allocations in the lexer/parser
+- Do not casually add `clone()` on hot paths
+- Prefer span + source slice over string concatenation
+- Consider incremental / arena / interning for large inputs, but avoid premature abstraction
 
-## 13. Lints And Formatting
+## 13. Lints and Formatting
 
-- `cargo fmt`, `cargo clippy --workspace --all-targets`, `cargo test --workspace` を CI 基本線にする
-- pedantic lint は有効化しつつ、ノイズは workspace で明示的に `allow` する
-- `unwrap()` は test / prototype 以外で漫然と使わない
-- 新しい lint 例外はコードではなく設定に集約する
+- The CI baseline is `cargo fmt`, `cargo clippy --workspace --all-targets`, `cargo test --workspace`
+- Enable pedantic lints but explicitly `allow` noisy ones at the workspace level
+- Do not use `unwrap()` carelessly outside tests/prototypes
+- Consolidate new lint exceptions in workspace configuration, not in code
 
 ```bash
 cargo fmt --check
@@ -282,37 +281,36 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-## 14. Unsafe, Panics And Stability
+## 14. Unsafe, Panics, and Stability
 
-- `unsafe` は原則禁止。必要なら `// SAFETY:` を付ける
-- `expect` は「ここが壊れたらバグ」という文脈でのみ使う
-- ユーザー入力やファイル内容では panic しない
-- public API の error surface は安定させる
+- `unsafe` is prohibited by default (`unsafe_code = "deny"` workspace-wide). If needed, attach `// SAFETY:` comments
+- Use `expect` only in "this is a bug if it fails" contexts
+- Never panic on user input or file contents
+- Stabilize the error surface of public APIs
 
 ## 15. Dependency Policy
 
-- 新規依存は「この crate が必要な理由」を説明できるものだけ入れる
-- 解析基盤では軽量性とデバッグ可能性を優先する
-- `logos`, `rowan`, `clap`, `miette`, `smol_str`, `la-arena`, `insta` など、
-  `IMPL_PHASES.md` で採用済みの依存を基準に増減を判断する
-- `syn`, `serde`, `tokio` のような大型依存は必要性を確認してから導入する
-- feature flag は利用者の理解コストを増やすので最小限にする
+- Only add a dependency if you can explain why the crate is necessary
+- Prioritize lightweight, debuggable dependencies for the analysis infrastructure
+- Use established dependencies (`logos`, `rowan`, `clap`, `miette`, `smol_str`, `la-arena`, `insta`) as the baseline for additions and removals
+- Confirm necessity before introducing large dependencies like `syn`, `serde`, or `tokio`
+- Keep feature flags minimal to reduce the cognitive cost for users
 
 ## 16. Review Checklist
 
-- crate の責務は増えすぎていないか
-- 下層 crate が CLI / 表示責務を持っていないか
-- 診断に span, code, hint が含まれているか
-- `stdout` と `stderr` が混ざっていないか
-- `tracing` は内部観測だけに使い、ユーザー向け文面と混同していないか
-- `core_concept.md` のパイプラインと依存方向に反していないか
-- `IMPL_PHASES.md` の現在の milestone / DoD を不必要に遠回りしていないか
+- Has the crate's scope grown too large?
+- Is a lower crate taking on CLI or display responsibilities?
+- Do diagnostics include span, code, and hints?
+- Are `stdout` and `stderr` being mixed?
+- Is `tracing` used only for internal instrumentation, not for user-facing messages?
+- Does the change violate the pipeline direction from the [architecture document](../architecture.md)?
+- Does the change unnecessarily detour from the current roadmap milestone?
 
 ## References
 
-- Asatsuyu 設計: [`core_concept.md`](../core_concept.md)
-- 実装計画: [`IMPL_PHASES.md`](../IMPL_PHASES.md)
-- Rust Book: stdout/stderr の使い分け
+- Asatsuyu design: [architecture.md](../architecture.md)
+- Implementation roadmap: [roadmap.md](../roadmap.md)
+- Rust Book: separating stdout/stderr
 - Rust std: `println!`, `eprintln!`
 - `tracing` / `tracing-subscriber`
 - `miette`
