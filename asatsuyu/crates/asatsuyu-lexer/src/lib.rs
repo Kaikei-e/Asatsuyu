@@ -52,6 +52,12 @@ enum LexToken {
     FalseKw,
     #[token("try")]
     TryKw,
+    #[token("mut")]
+    MutKw,
+    #[token("async")]
+    AsyncKw,
+    #[token("await")]
+    AwaitKw,
 
     // === Literals ===
     // Float before Int in source for clarity; logos uses longest-match so
@@ -70,8 +76,6 @@ enum LexToken {
     // === Operators ===
     #[token("|>")]
     Pipe,
-    #[token("=>")]
-    FatArrow,
     #[token("<>")]
     StringConcat,
     #[token("+")]
@@ -163,6 +167,9 @@ impl From<LexToken> for SyntaxKind {
             LexToken::TrueKw => SyntaxKind::TrueKw,
             LexToken::FalseKw => SyntaxKind::FalseKw,
             LexToken::TryKw => SyntaxKind::TryKw,
+            LexToken::MutKw => SyntaxKind::MutKw,
+            LexToken::AsyncKw => SyntaxKind::AsyncKw,
+            LexToken::AwaitKw => SyntaxKind::AwaitKw,
             LexToken::IntLit => SyntaxKind::IntLit,
             LexToken::FloatLit => SyntaxKind::FloatLit,
             LexToken::StringLit => SyntaxKind::StringLit,
@@ -185,7 +192,6 @@ impl From<LexToken> for SyntaxKind {
             LexToken::AmpAmp => SyntaxKind::AmpAmp,
             LexToken::PipePipe => SyntaxKind::PipePipe,
             LexToken::Pipe => SyntaxKind::Pipe,
-            LexToken::FatArrow => SyntaxKind::FatArrow,
             LexToken::StringConcat => SyntaxKind::StringConcat,
             LexToken::LParen => SyntaxKind::LParen,
             LexToken::RParen => SyntaxKind::RParen,
@@ -583,6 +589,38 @@ mod tests {
     }
 
     #[test]
+    fn snap_keyword_mut() {
+        insta::assert_snapshot!(snapshot_tokens("mut"), @r#"
+        MutKw "mut" 0..3
+        Eof "" 3..3
+        "#);
+    }
+
+    #[test]
+    fn snap_keyword_async() {
+        insta::assert_snapshot!(snapshot_tokens("async"), @r#"
+        AsyncKw "async" 0..5
+        Eof "" 5..5
+        "#);
+    }
+
+    #[test]
+    fn snap_keyword_await() {
+        insta::assert_snapshot!(snapshot_tokens("await"), @r#"
+        AwaitKw "await" 0..5
+        Eof "" 5..5
+        "#);
+    }
+
+    #[test]
+    fn snap_keyword_prefix_mut_not_keyword() {
+        insta::assert_snapshot!(snapshot_tokens("mutable"), @r#"
+        Ident "mutable" 0..7
+        Eof "" 7..7
+        "#);
+    }
+
+    #[test]
     fn snap_underscore_vs_ident() {
         insta::assert_snapshot!(snapshot_tokens("_ _foo"), @r#"
         Underscore "_" 0..1
@@ -632,15 +670,13 @@ mod tests {
 
     #[test]
     fn snap_multi_char_operators() {
-        insta::assert_snapshot!(snapshot_tokens("|> => <> .."), @r#"
+        insta::assert_snapshot!(snapshot_tokens("|> <> .."), @r#"
         Pipe "|>" 0..2
         Whitespace " " 2..3
-        FatArrow "=>" 3..5
+        StringConcat "<>" 3..5
         Whitespace " " 5..6
-        StringConcat "<>" 6..8
-        Whitespace " " 8..9
-        DotDot ".." 9..11
-        Eof "" 11..11
+        DotDot ".." 6..8
+        Eof "" 8..8
         "#);
     }
 
@@ -717,14 +753,12 @@ mod tests {
     }
 
     #[test]
-    fn snap_eq_vs_eqeq_vs_fat_arrow() {
-        insta::assert_snapshot!(snapshot_tokens("= == =>"), @r#"
+    fn snap_eq_vs_eqeq() {
+        insta::assert_snapshot!(snapshot_tokens("= =="), @r#"
         Eq "=" 0..1
         Whitespace " " 1..2
         EqEq "==" 2..4
-        Whitespace " " 4..5
-        FatArrow "=>" 5..7
-        Eof "" 7..7
+        Eof "" 4..4
         "#);
     }
 
@@ -850,7 +884,7 @@ mod tests {
 
     #[test]
     fn snap_match_expression() {
-        insta::assert_snapshot!(snapshot_tokens("match x { 1 => True }"), @r#"
+        insta::assert_snapshot!(snapshot_tokens("match x { 1 -> True }"), @r#"
         MatchKw "match" 0..5
         Whitespace " " 5..6
         Ident "x" 6..7
@@ -859,7 +893,7 @@ mod tests {
         Whitespace " " 9..10
         IntLit "1" 10..11
         Whitespace " " 11..12
-        FatArrow "=>" 12..14
+        Arrow "->" 12..14
         Whitespace " " 14..15
         TrueKw "True" 15..19
         Whitespace " " 19..20

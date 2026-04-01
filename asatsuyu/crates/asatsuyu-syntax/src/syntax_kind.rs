@@ -26,6 +26,12 @@ pub enum SyntaxKind {
     TrueKw,
     FalseKw,
     TryKw,
+    /// Reserved for future use (Phase 3-1: scoped mutability).
+    MutKw,
+    /// Reserved for future use (Phase 3-2: async functions).
+    AsyncKw,
+    /// Reserved for future use (Phase 3-2: await expressions).
+    AwaitKw,
 
     // === Tokens: Literals ===
     IntLit,
@@ -72,8 +78,6 @@ pub enum SyntaxKind {
     PipePipe,
     /// `|>`
     Pipe,
-    /// `=>`
-    FatArrow,
     /// `<>`
     StringConcat,
 
@@ -193,7 +197,7 @@ pub enum SyntaxKind {
     Field,
 
     // === Nodes: Match ===
-    /// Match arm: `pattern => expr`
+    /// Match arm: `pattern -> expr`
     MatchArm,
     /// Guard clause: `if condition`
     Guard,
@@ -248,6 +252,9 @@ impl SyntaxKind {
                 | Self::TrueKw
                 | Self::FalseKw
                 | Self::TryKw
+                | Self::MutKw
+                | Self::AsyncKw
+                | Self::AwaitKw
         )
     }
 
@@ -328,6 +335,9 @@ mod tests {
             SyntaxKind::TrueKw,
             SyntaxKind::FalseKw,
             SyntaxKind::TryKw,
+            SyntaxKind::MutKw,
+            SyntaxKind::AsyncKw,
+            SyntaxKind::AwaitKw,
         ];
         for kw in keywords {
             assert!(kw.is_keyword(), "{kw:?} should be a keyword");

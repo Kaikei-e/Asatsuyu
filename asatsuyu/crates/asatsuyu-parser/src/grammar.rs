@@ -5,7 +5,7 @@
 
 use asatsuyu_syntax::{DiagnosticCode, SyntaxKind};
 
-use crate::parser::{Parser, TOP_LEVEL_RECOVERY, TokenSet};
+use crate::parser::{PATTERN_START, Parser, TOP_LEVEL_RECOVERY, TokenSet};
 
 /// ```text
 /// SourceFile = TopLevel*
@@ -841,17 +841,7 @@ fn parse_ident_expr(p: &mut Parser<'_>) {
 
 /// Returns `true` if the current token can start a pattern.
 fn at_pattern_start(p: &Parser<'_>) -> bool {
-    matches!(
-        p.current(),
-        SyntaxKind::Underscore
-            | SyntaxKind::IntLit
-            | SyntaxKind::FloatLit
-            | SyntaxKind::StringLit
-            | SyntaxKind::TrueKw
-            | SyntaxKind::FalseKw
-            | SyntaxKind::Ident
-            | SyntaxKind::LBracket
-    )
+    p.at_any(PATTERN_START)
 }
 
 /// ```text

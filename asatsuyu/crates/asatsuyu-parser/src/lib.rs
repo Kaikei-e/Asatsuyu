@@ -1440,4 +1440,25 @@ _ -> 0 } }"#;
         let result = parse(FID, source);
         assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
     }
+
+    // ── Reserved keywords ────────────────────────────────────────
+
+    #[test]
+    fn reserved_keyword_mut_rejected_as_ident() {
+        // `mut` is a reserved keyword; using it as a variable name is an error.
+        let result = parse(FID, "fn f() { mut }");
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn reserved_keyword_async_rejected_as_ident() {
+        let result = parse(FID, "fn f() { async }");
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn reserved_keyword_await_rejected_as_ident() {
+        let result = parse(FID, "fn f() { await }");
+        assert!(result.has_errors());
+    }
 }

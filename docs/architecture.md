@@ -122,6 +122,7 @@ pub enum SyntaxKind {
     ImportKw, FromKw, PythonKw, AsKw,
     TrueKw, FalseKw,
     TryKw,
+    MutKw, AsyncKw, AwaitKw,           // reserved (Phase 3)
 
     // === Tokens: Literals ===
     IntLit, FloatLit, StringLit,
@@ -136,7 +137,6 @@ pub enum SyntaxKind {
     Bang, Ampersand, PipeSingle,         // unary / bitwise
     AmpAmp, PipePipe,                    // logical && , ||
     Pipe,                                // |> pipeline
-    FatArrow,                            // =>
     StringConcat,                        // <>
 
     // === Tokens: Delimiters / Punctuation ===
@@ -245,6 +245,9 @@ enum LexToken {
     #[token("True")]   TrueKw,
     #[token("False")]  FalseKw,
     #[token("try")]    TryKw,
+    #[token("mut")]    MutKw,     // reserved
+    #[token("async")]  AsyncKw,   // reserved
+    #[token("await")]  AwaitKw,   // reserved
 
     // === Literals ===
     #[regex("[0-9]+\\.[0-9]+")]  FloatLit,
@@ -256,7 +259,6 @@ enum LexToken {
 
     // === Operators ===
     #[token("|>")]  Pipe,
-    #[token("=>")]  FatArrow,
     #[token("<>")]  StringConcat,
     #[token("&&")]  AmpAmp,
     #[token("||")]  PipePipe,

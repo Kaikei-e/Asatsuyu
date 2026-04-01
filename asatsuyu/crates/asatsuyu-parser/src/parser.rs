@@ -53,6 +53,40 @@ pub(crate) const TOP_LEVEL_RECOVERY: TokenSet = TokenSet::new(&[
 pub(crate) const CLOSING_DELIMITERS: TokenSet =
     TokenSet::new(&[SyntaxKind::RParen, SyntaxKind::RBrace, SyntaxKind::RBracket]);
 
+/// Tokens that can start an expression (see `parse_expr_bp` in grammar.rs).
+///
+/// Kept as an explicit constant for documentation and future use in error
+/// recovery, even though `parse_expr_bp` dispatches via a `match` statement.
+#[allow(dead_code)]
+pub(crate) const EXPR_START: TokenSet = TokenSet::new(&[
+    SyntaxKind::Minus,
+    SyntaxKind::Bang,
+    SyntaxKind::LParen,
+    SyntaxKind::IfKw,
+    SyntaxKind::MatchKw,
+    SyntaxKind::FnKw,
+    SyntaxKind::TryKw,
+    SyntaxKind::LBracket,
+    SyntaxKind::IntLit,
+    SyntaxKind::FloatLit,
+    SyntaxKind::StringLit,
+    SyntaxKind::TrueKw,
+    SyntaxKind::FalseKw,
+    SyntaxKind::Ident,
+]);
+
+/// Tokens that can start a pattern in match arms.
+pub(crate) const PATTERN_START: TokenSet = TokenSet::new(&[
+    SyntaxKind::Underscore,
+    SyntaxKind::IntLit,
+    SyntaxKind::FloatLit,
+    SyntaxKind::StringLit,
+    SyntaxKind::TrueKw,
+    SyntaxKind::FalseKw,
+    SyntaxKind::Ident,
+    SyntaxKind::LBracket,
+]);
+
 /// Recursive descent parser that builds a rowan green tree from a token stream.
 ///
 /// This struct is `pub(crate)` — the public entry point is [`crate::parse()`].
