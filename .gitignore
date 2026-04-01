@@ -8,3 +8,4 @@ asatsuyu/target/
 __pycache__/
 editors/vscode/node_modules/
 editors/vscode/out
+.codex
