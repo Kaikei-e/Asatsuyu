@@ -283,8 +283,10 @@ pub enum Expr {
     Match { subject: Box<Expr>, arms: Vec<MatchArm>, span: Span },
     /// A pipeline expression: `x |> f`.
     Pipeline { left: Box<Expr>, right: Box<Expr>, span: Span },
-    /// A let binding: `let x = expr`.
-    Let { name: Ident, value: Box<Expr>, span: Span },
+    /// A let binding: `let x = expr` or `let mut x = expr`.
+    Let { name: Ident, value: Box<Expr>, is_mutable: bool, span: Span },
+    /// An assignment: `x = expr` (reassignment of mutable binding).
+    Assign { target: Ident, value: Box<Expr>, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda { params: Vec<Param>, return_type: Option<TypeExpr>, body: Box<Expr>, span: Span },
     /// A field access: `expr.field`.
@@ -310,6 +312,7 @@ impl Expr {
             | Self::Match { span, .. }
             | Self::Pipeline { span, .. }
             | Self::Let { span, .. }
+            | Self::Assign { span, .. }
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
             | Self::Try { span, .. }

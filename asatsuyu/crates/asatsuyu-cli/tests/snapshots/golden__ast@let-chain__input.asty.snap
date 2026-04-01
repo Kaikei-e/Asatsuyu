@@ -68,6 +68,7 @@ Module {
                                     },
                                 },
                             ),
+                            is_mutable: false,
                             span: Span {
                                 file_id: FileId(
                                     0,
@@ -99,6 +100,7 @@ Module {
                                     },
                                 },
                             ),
+                            is_mutable: false,
                             span: Span {
                                 file_id: FileId(
                                     0,

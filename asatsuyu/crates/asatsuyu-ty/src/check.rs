@@ -577,6 +577,17 @@ impl TyCheckCtx {
                 }
             }
 
+            HirExpr::Assign { target, value, span } => {
+                let checked_value = self.check_expr(value);
+                // Mutability enforcement is Issue 94 — for now just type-check the value.
+                ThirExpr::Assign {
+                    target: *target,
+                    value: Box::new(checked_value),
+                    ty: Ty::Primitive(PrimTy::None),
+                    span: *span,
+                }
+            }
+
             HirExpr::Lambda { params, return_type, body, span } => {
                 self.check_lambda(params, return_type.as_ref(), body, *span)
             }
@@ -711,6 +722,9 @@ impl TyCheckCtx {
             }
             ThirExpr::Lambda { body, .. } => {
                 self.validate_try_positions(body, TryPosition::Other);
+            }
+            ThirExpr::Assign { value, .. } => {
+                self.validate_try_positions(value, TryPosition::Other);
             }
             ThirExpr::Literal(_) | ThirExpr::Var { .. } => {}
         }

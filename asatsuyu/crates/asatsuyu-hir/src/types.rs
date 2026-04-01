@@ -280,8 +280,10 @@ pub enum HirExpr {
     },
     /// A match expression: `match subject { pattern -> expr ... }`.
     Match { subject: Box<HirExpr>, arms: Vec<HirMatchArm>, span: Span },
-    /// A let binding: `let x = expr`.
+    /// A let binding: `let x = expr` or `let mut x = expr`.
     Let { binding: DefId, value: Box<HirExpr>, span: Span },
+    /// A reassignment: `x = expr`. Type-check enforcement is in Issue 94.
+    Assign { target: DefId, value: Box<HirExpr>, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda {
         params: Vec<HirParam>,
@@ -311,6 +313,7 @@ impl HirExpr {
             | Self::If { span, .. }
             | Self::Match { span, .. }
             | Self::Let { span, .. }
+            | Self::Assign { span, .. }
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
             | Self::Try { span, .. }

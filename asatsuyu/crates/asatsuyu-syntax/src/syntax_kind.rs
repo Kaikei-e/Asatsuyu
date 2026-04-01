@@ -26,7 +26,7 @@ pub enum SyntaxKind {
     TrueKw,
     FalseKw,
     TryKw,
-    /// Reserved for future use (Phase 3-1: scoped mutability).
+    /// Mutable binding modifier (Phase 3-1: scoped mutability).
     MutKw,
     /// Reserved for future use (Phase 3-2: async functions).
     AsyncKw,
@@ -133,8 +133,10 @@ pub enum SyntaxKind {
     ImportStmt,
     /// Python FFI import: `from python import pathlib`
     FromPythonImportStmt,
-    /// Let binding: `let x = expr`
+    /// Let binding: `let x = expr` or `let mut x = expr`
     LetStmt,
+    /// Assignment statement: `x = expr` (reassignment of mutable binding)
+    AssignStmt,
 
     // === Nodes: Expressions ===
     /// Literal expression: `42`, `"hello"`, `True`
@@ -403,7 +405,7 @@ mod tests {
         assert!(SyntaxKind::TryKw.is_hard_keyword());
         assert!(!SyntaxKind::TrueKw.is_hard_keyword());
         assert!(!SyntaxKind::AsKw.is_hard_keyword());
-        assert!(!SyntaxKind::MutKw.is_hard_keyword());
+        assert!(SyntaxKind::MutKw.is_hard_keyword());
 
         // Literal
         assert!(SyntaxKind::TrueKw.is_literal_keyword());
@@ -416,7 +418,7 @@ mod tests {
         assert!(!SyntaxKind::FnKw.is_contextual_keyword());
 
         // Reserved
-        assert!(SyntaxKind::MutKw.is_reserved_keyword());
+        assert!(!SyntaxKind::MutKw.is_reserved_keyword());
         assert!(SyntaxKind::AsyncKw.is_reserved_keyword());
         assert!(SyntaxKind::AwaitKw.is_reserved_keyword());
         assert!(!SyntaxKind::FnKw.is_reserved_keyword());

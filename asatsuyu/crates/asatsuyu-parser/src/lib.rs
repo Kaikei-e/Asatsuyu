@@ -1457,7 +1457,7 @@ _ -> 0 } }"#;
 
     #[test]
     fn reserved_keyword_mut_rejected_as_ident() {
-        // `mut` is a reserved keyword; using it as a variable name is an error.
+        // `mut` is a hard keyword; using it as a bare expression is an error.
         let result = parse(FID, "fn f() { mut }");
         assert!(result.has_errors());
     }
@@ -1478,5 +1478,98 @@ _ -> 0 } }"#;
     fn let_pattern_binding_rejected_in_frozen_grammar() {
         let result = parse(FID, "fn f() { let [x] = xs }");
         assert!(result.has_errors());
+    }
+
+    // ── let mut and assignment (Issue 92) ───────────────────────────
+
+    #[test]
+    fn let_mut_binding() {
+        let result = parse(FID, "fn f() { let mut x = 1 }");
+        assert!(
+            !result.has_errors(),
+            "let mut should parse without errors: {:?}",
+            result.diagnostics()
+        );
+        let tree = debug_tree("fn f() { let mut x = 1 }");
+        assert!(tree.contains("LetStmt"), "tree should contain LetStmt:\n{tree}");
+        assert!(tree.contains("MutKw"), "tree should contain MutKw:\n{tree}");
+    }
+
+    #[test]
+    fn let_mut_with_expression_value() {
+        let result = parse(FID, "fn f() { let mut count = 1 + 2 }");
+        assert!(
+            !result.has_errors(),
+            "let mut with expr value should parse: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    #[test]
+    fn assignment_statement() {
+        let result = parse(FID, "fn f() { let mut x = 0\n x = 1 }");
+        assert!(
+            !result.has_errors(),
+            "assignment should parse without errors: {:?}",
+            result.diagnostics()
+        );
+        let tree = debug_tree("fn f() { let mut x = 0\n x = 1 }");
+        assert!(tree.contains("AssignStmt"), "tree should contain AssignStmt:\n{tree}");
+    }
+
+    #[test]
+    fn assignment_with_expression_value() {
+        let result = parse(FID, "fn f() { let mut x = 0\n x = x + 1 }");
+        assert!(
+            !result.has_errors(),
+            "assignment with expr should parse: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    #[test]
+    fn immutable_let_unchanged() {
+        // Existing immutable let syntax must continue to work.
+        let result = parse(FID, "fn f() { let x = 1 }");
+        assert!(
+            !result.has_errors(),
+            "immutable let should still parse: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    #[test]
+    fn let_mut_without_value_is_error() {
+        let result = parse(FID, "fn f() { let mut x }");
+        assert!(result.has_errors(), "let mut without value should be an error");
+    }
+
+    #[test]
+    fn let_mut_without_name_is_error() {
+        let result = parse(FID, "fn f() { let mut = 1 }");
+        assert!(result.has_errors(), "let mut without name should be an error");
+    }
+
+    #[test]
+    fn let_mut_in_nested_block() {
+        let result = parse(FID, "fn f() { { let mut y = 2\n y = 3 } }");
+        assert!(
+            !result.has_errors(),
+            "let mut in nested block should parse: {:?}",
+            result.diagnostics()
+        );
+    }
+
+    #[test]
+    fn equality_not_confused_with_assignment() {
+        // `x == 1` should parse as a comparison expression, not an assignment.
+        let result = parse(FID, "fn f() { let x = 1\n x == 1 }");
+        assert!(
+            !result.has_errors(),
+            "equality should not be parsed as assignment: {:?}",
+            result.diagnostics()
+        );
+        let tree = debug_tree("fn f() { let x = 1\n x == 1 }");
+        assert!(!tree.contains("AssignStmt"), "tree should NOT contain AssignStmt:\n{tree}");
     }
 }

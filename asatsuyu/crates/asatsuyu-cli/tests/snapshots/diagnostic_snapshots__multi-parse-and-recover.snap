@@ -5,7 +5,3 @@ expression: text
 [E0055] Error: expected expression
   span: 21..24
   primary [21..24]: expected expression
----
-[E0055] Error: expected expression
-  span: 27..28
-  primary [27..28]: expected expression

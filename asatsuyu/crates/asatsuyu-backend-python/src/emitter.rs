@@ -419,7 +419,7 @@ impl<'a> Emitter<'a> {
         }
         self.write_indent();
         self.emit_expr(expr);
-        if matches!(expr, ThirExpr::Let { .. }) {
+        if matches!(expr, ThirExpr::Let { .. } | ThirExpr::Assign { .. }) {
             self.write_source_comment(expr.span());
         }
         self.output.push('\n');
@@ -526,8 +526,9 @@ impl<'a> Emitter<'a> {
                     self.emit_expr(&first.body);
                 }
             }
-            ThirExpr::Let { binding, value, .. } => {
-                let name = &self.module.symbol_table.get(*binding).name;
+            ThirExpr::Let { binding: def_id, value, .. }
+            | ThirExpr::Assign { target: def_id, value, .. } => {
+                let name = &self.module.symbol_table.get(*def_id).name;
                 self.output.push_str(name.as_str());
                 self.output.push_str(" = ");
                 self.emit_expr(value);
@@ -954,7 +955,9 @@ impl<'a> Emitter<'a> {
             ThirExpr::Block { exprs, .. } => {
                 exprs.iter().any(|e| self.expr_contains_checked_ffi(e))
             }
-            ThirExpr::Let { value, .. } => self.expr_contains_checked_ffi(value),
+            ThirExpr::Let { value, .. } | ThirExpr::Assign { value, .. } => {
+                self.expr_contains_checked_ffi(value)
+            }
             ThirExpr::If { condition, then_body, else_body, .. } => {
                 self.expr_contains_checked_ffi(condition)
                     || self.expr_contains_checked_ffi(then_body)
@@ -987,7 +990,9 @@ impl<'a> Emitter<'a> {
                     || args.iter().any(|a| self.expr_contains_list_fold(a))
             }
             ThirExpr::Block { exprs, .. } => exprs.iter().any(|e| self.expr_contains_list_fold(e)),
-            ThirExpr::Let { value, .. } => self.expr_contains_list_fold(value),
+            ThirExpr::Let { value, .. } | ThirExpr::Assign { value, .. } => {
+                self.expr_contains_list_fold(value)
+            }
             ThirExpr::If { condition, then_body, else_body, .. } => {
                 self.expr_contains_list_fold(condition)
                     || self.expr_contains_list_fold(then_body)
@@ -1456,7 +1461,7 @@ fn expr_contains_try(expr: &ThirExpr) -> bool {
         ThirExpr::Call { func, args, .. } => {
             expr_contains_try(func) || args.iter().any(expr_contains_try)
         }
-        ThirExpr::Let { value, .. } => expr_contains_try(value),
+        ThirExpr::Let { value, .. } | ThirExpr::Assign { value, .. } => expr_contains_try(value),
         ThirExpr::If { condition, then_body, else_body, .. } => {
             expr_contains_try(condition)
                 || expr_contains_try(then_body)

@@ -49,10 +49,11 @@ pub struct KeywordSpec {
 ///
 /// Ordered by [`KeywordClass`]: Hard, Literal, Contextual, Reserved.
 pub const KEYWORDS: &[KeywordSpec] = &[
-    // Hard keywords (10)
+    // Hard keywords (11)
     KeywordSpec { text: "fn", kind: SyntaxKind::FnKw, class: KeywordClass::Hard },
     KeywordSpec { text: "pub", kind: SyntaxKind::PubKw, class: KeywordClass::Hard },
     KeywordSpec { text: "let", kind: SyntaxKind::LetKw, class: KeywordClass::Hard },
+    KeywordSpec { text: "mut", kind: SyntaxKind::MutKw, class: KeywordClass::Hard },
     KeywordSpec { text: "type", kind: SyntaxKind::TypeKw, class: KeywordClass::Hard },
     KeywordSpec { text: "match", kind: SyntaxKind::MatchKw, class: KeywordClass::Hard },
     KeywordSpec { text: "if", kind: SyntaxKind::IfKw, class: KeywordClass::Hard },
@@ -66,8 +67,7 @@ pub const KEYWORDS: &[KeywordSpec] = &[
     // Contextual keywords (2)
     KeywordSpec { text: "python", kind: SyntaxKind::PythonKw, class: KeywordClass::Contextual },
     KeywordSpec { text: "as", kind: SyntaxKind::AsKw, class: KeywordClass::Contextual },
-    // Reserved keywords (3)
-    KeywordSpec { text: "mut", kind: SyntaxKind::MutKw, class: KeywordClass::Reserved },
+    // Reserved keywords (2)
     KeywordSpec { text: "async", kind: SyntaxKind::AsyncKw, class: KeywordClass::Reserved },
     KeywordSpec { text: "await", kind: SyntaxKind::AwaitKw, class: KeywordClass::Reserved },
 ];
@@ -172,9 +172,13 @@ mod tests {
 
     #[test]
     fn class_of_reserved_keywords() {
-        assert_eq!(class_of(SyntaxKind::MutKw), Some(KeywordClass::Reserved));
         assert_eq!(class_of(SyntaxKind::AsyncKw), Some(KeywordClass::Reserved));
         assert_eq!(class_of(SyntaxKind::AwaitKw), Some(KeywordClass::Reserved));
+    }
+
+    #[test]
+    fn mut_is_hard_keyword() {
+        assert_eq!(class_of(SyntaxKind::MutKw), Some(KeywordClass::Hard));
     }
 
     #[test]

@@ -131,6 +131,7 @@ Module {
                                     end: 79,
                                 },
                             },
+                            is_mutable: false,
                             span: Span {
                                 file_id: FileId(
                                     0,

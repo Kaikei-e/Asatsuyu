@@ -270,7 +270,7 @@ Asatsuyu does not target the following as first-year central goals:
 * Package registry
 * Multi-backend support
 * Dependent types / refinement types
-* Mutable variables
+* Mutable variables beyond scoped locals (Phase 3-1 introduces `let mut` for local bindings)
 
 Furthermore, items explored as research tracks must not encroach on the main line.
 Python bytecode direct generation, automatic stub generation, and Rust native extensions are deferred until after the MVP.

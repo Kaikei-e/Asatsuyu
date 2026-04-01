@@ -257,8 +257,10 @@ pub enum ThirExpr {
     },
     /// A match expression: `match subject { pattern -> expr ... }`.
     Match { subject: Box<ThirExpr>, arms: Vec<ThirMatchArm>, ty: Ty, span: Span },
-    /// A let binding: `let x = expr`.
+    /// A let binding: `let x = expr` or `let mut x = expr`.
     Let { binding: DefId, value: Box<ThirExpr>, ty: Ty, span: Span },
+    /// A reassignment: `x = expr`. Enforcement rules are in Issue 94.
+    Assign { target: DefId, value: Box<ThirExpr>, ty: Ty, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda { params: Vec<ThirParam>, body: Box<ThirExpr>, ty: Ty, span: Span },
     /// A field access: `expr.field`.
@@ -283,6 +285,7 @@ impl ThirExpr {
             | Self::If { ty, .. }
             | Self::Match { ty, .. }
             | Self::Let { ty, .. }
+            | Self::Assign { ty, .. }
             | Self::Lambda { ty, .. }
             | Self::FieldAccess { ty, .. }
             | Self::Try { ty, .. }
@@ -303,6 +306,7 @@ impl ThirExpr {
             | Self::If { span, .. }
             | Self::Match { span, .. }
             | Self::Let { span, .. }
+            | Self::Assign { span, .. }
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
             | Self::Try { span, .. }

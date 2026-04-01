@@ -465,6 +465,7 @@ impl LowerCtx {
             .children()
             .filter_map(|c| match c.kind() {
                 SyntaxKind::LetStmt => self.lower_let_stmt(&c),
+                SyntaxKind::AssignStmt => self.lower_assign_stmt(&c),
                 _ => self.lower_expr(&c),
             })
             .collect();
@@ -477,6 +478,10 @@ impl LowerCtx {
     fn lower_let_stmt(&mut self, node: &SyntaxNode) -> Option<Expr> {
         debug_assert_eq!(node.kind(), SyntaxKind::LetStmt);
 
+        let is_mutable = node
+            .children_with_tokens()
+            .any(|c| c.as_token().is_some_and(|t| t.kind() == SyntaxKind::MutKw));
+
         let name_token = first_token_of_kind(node, SyntaxKind::Ident)?;
         let name = Ident {
             name: SmolStr::from(name_token.text()),
@@ -488,6 +493,27 @@ impl LowerCtx {
 
         Some(Expr::Let {
             name,
+            value: Box::new(value),
+            is_mutable,
+            span: span_of_nontrivia(node, self.file_id),
+        })
+    }
+
+    // ── AssignStmt ──────────────────────────────────────────────────
+
+    fn lower_assign_stmt(&mut self, node: &SyntaxNode) -> Option<Expr> {
+        debug_assert_eq!(node.kind(), SyntaxKind::AssignStmt);
+
+        let name_token = first_token_of_kind(node, SyntaxKind::Ident)?;
+        let target = Ident {
+            name: SmolStr::from(name_token.text()),
+            span: span_of_token(&name_token, self.file_id),
+        };
+
+        let value = node.children().find_map(|c| self.lower_expr(&c))?;
+
+        Some(Expr::Assign {
+            target,
             value: Box::new(value),
             span: span_of_nontrivia(node, self.file_id),
         })

@@ -48,6 +48,8 @@ pub enum DiagnosticCode {
     E0061 = 61,
     /// Feature not yet implemented (e.g. top-level `let`).
     E0062 = 62,
+    /// Expected assignment value (right-hand side of `=`).
+    E0063 = 63,
 
     // ── AST lowering ──────────────────────────────────────────────────
     /// Unexpected syntax (`NodeError` encountered during CST → AST lowering).

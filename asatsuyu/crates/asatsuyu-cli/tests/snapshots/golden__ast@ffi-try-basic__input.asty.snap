@@ -561,6 +561,7 @@ Module {
                                     end: 290,
                                 },
                             },
+                            is_mutable: false,
                             span: Span {
                                 file_id: FileId(
                                     0,
@@ -630,6 +631,7 @@ Module {
                                     end: 320,
                                 },
                             },
+                            is_mutable: false,
                             span: Span {
                                 file_id: FileId(
                                     0,

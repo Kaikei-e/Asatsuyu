@@ -103,7 +103,7 @@ Asatsuyu 言語の設計方針。コンパイラ実装時にこれらを前提�
 - **Record**: Go 風のフラットな構造体
 - **null なし**: `Option` で表現
 - **例外なし**: `Result` で表現。Asatsuyu コード内では例外は発生しない
-- **mutable 変数なし**: 意図的な設計判断。再束縛もなし
+- **`let mut` によるローカル可変変数あり（Phase 3-1）**: `let mut x = 0` で明示的に mutable 宣言、`x = 1` で再代入。top-level mutable・parameter 再代入は禁止
 - **パイプライン**: `|>` 演算子あり
 - **Python 3.12+ 固定**: バックエンドは Python ソース生成のみ。バイトコードや他言語は対象外
 

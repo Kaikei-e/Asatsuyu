@@ -59,9 +59,9 @@ fn find_in_expr(expr: &ThirExpr, offset: u32) -> Option<NodeInfo<'_>> {
             .or_else(|| else_body.as_ref().and_then(|e| find_in_expr(e, offset))),
         ThirExpr::Match { subject, arms, .. } => find_in_expr(subject, offset)
             .or_else(|| arms.iter().find_map(|arm| find_in_expr(&arm.body, offset))),
-        ThirExpr::Let { value, .. } | ThirExpr::Lambda { body: value, .. } => {
-            find_in_expr(value, offset)
-        }
+        ThirExpr::Let { value, .. }
+        | ThirExpr::Assign { value, .. }
+        | ThirExpr::Lambda { body: value, .. } => find_in_expr(value, offset),
         ThirExpr::List { elements, .. } => elements.iter().find_map(|e| find_in_expr(e, offset)),
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => None,
     };
@@ -175,6 +175,12 @@ fn collect_refs_in_expr(expr: &ThirExpr, target: DefId, spans: &mut Vec<Span>) {
         ThirExpr::Let { binding, value, .. } => {
             if *binding == target {
                 // The let binding itself — definition span is already included.
+            }
+            collect_refs_in_expr(value, target, spans);
+        }
+        ThirExpr::Assign { target: t, value, span, .. } => {
+            if *t == target {
+                spans.push(*span);
             }
             collect_refs_in_expr(value, target, spans);
         }
@@ -595,7 +601,9 @@ mod tests {
         assert!(keywords.iter().any(|spec| spec.text == "fn"));
         assert!(keywords.iter().any(|spec| spec.text == "python"));
         assert!(keywords.iter().any(|spec| spec.text == "as"));
-        assert!(!keywords.iter().any(|spec| spec.text == "mut"));
+        // `mut` is a hard keyword (Phase 3-1) but filtered by allowed lists in completions
+        assert!(keywords.iter().any(|spec| spec.text == "mut"));
+        // `async`/`await` remain reserved and excluded from completion specs
         assert!(!keywords.iter().any(|spec| spec.text == "async"));
         assert!(!keywords.iter().any(|spec| spec.text == "await"));
     }

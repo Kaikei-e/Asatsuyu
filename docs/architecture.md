@@ -48,7 +48,7 @@ Asatsuyu is not about "inventing a language." The immediate priority is
 - Package registry
 - Multi-backend support
 - Dependent types / refinement types
-- Mutable variables (excluded from MVP)
+- Mutable variables beyond scoped locals (Phase 3-1 introduces `let mut` for local bindings)
 
 ---
 
@@ -122,7 +122,8 @@ pub enum SyntaxKind {
     ImportKw, FromKw, PythonKw, AsKw,
     TrueKw, FalseKw,
     TryKw,
-    MutKw, AsyncKw, AwaitKw,           // reserved (Phase 3)
+    MutKw,                             // hard keyword (Phase 3-1)
+    AsyncKw, AwaitKw,                  // reserved (Phase 3-2)
 
     // === Tokens: Literals ===
     IntLit, FloatLit, StringLit,
@@ -155,7 +156,7 @@ pub enum SyntaxKind {
 
     // === Nodes: Top-level ===
     SourceFile, FnDef, TypeDef,
-    ImportStmt, FromPythonImportStmt, LetStmt,
+    ImportStmt, FromPythonImportStmt, LetStmt, AssignStmt,
 
     // === Nodes: Expressions ===
     LiteralExpr, IdentExpr, CallExpr, PipelineExpr,
@@ -245,7 +246,7 @@ enum LexToken {
     #[token("True")]   TrueKw,
     #[token("False")]  FalseKw,
     #[token("try")]    TryKw,
-    #[token("mut")]    MutKw,     // reserved
+    #[token("mut")]    MutKw,     // hard keyword (Phase 3-1)
     #[token("async")]  AsyncKw,   // reserved
     #[token("await")]  AwaitKw,   // reserved
 

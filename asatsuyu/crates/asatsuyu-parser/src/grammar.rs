@@ -486,6 +486,8 @@ fn parse_block_expr(p: &mut Parser<'_>) {
         let prev = p.pos();
         if p.at(SyntaxKind::LetKw) {
             parse_let_stmt(p);
+        } else if p.at(SyntaxKind::Ident) && p.nth(1) == SyntaxKind::Eq {
+            parse_assign_stmt(p);
         } else {
             parse_expr(p);
         }
@@ -499,11 +501,16 @@ fn parse_block_expr(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// LetStmt = 'let' IDENT '=' Expr
+/// LetStmt = 'let' 'mut'? IDENT '=' Expr
 /// ```
 fn parse_let_stmt(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::LetStmt);
     p.bump(); // consume `let`
+
+    // Optional `mut` keyword for mutable bindings
+    if p.at(SyntaxKind::MutKw) {
+        p.bump(); // consume `mut`
+    }
 
     if p.at(SyntaxKind::Ident) {
         p.bump(); // binding name
@@ -518,6 +525,17 @@ fn parse_let_stmt(p: &mut Parser<'_>) {
     p.expect(SyntaxKind::Eq);
     parse_expr(p);
 
+    p.finish_node();
+}
+
+/// ```text
+/// AssignStmt = IDENT '=' Expr
+/// ```
+fn parse_assign_stmt(p: &mut Parser<'_>) {
+    p.start_node(SyntaxKind::AssignStmt);
+    p.bump(); // consume identifier (assignment target)
+    p.expect(SyntaxKind::Eq);
+    parse_expr(p);
     p.finish_node();
 }
 

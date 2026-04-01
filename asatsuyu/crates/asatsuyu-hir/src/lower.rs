@@ -467,7 +467,9 @@ impl HirLowerCtx {
                 }
             }
 
-            Expr::Let { name, value, span } => self.lower_let(name, value, *span),
+            Expr::Let { name, value, is_mutable: _, span } => self.lower_let(name, value, *span),
+
+            Expr::Assign { target, value, span } => self.lower_assign(target, value, *span),
 
             Expr::Lambda { params, return_type, body, span } => {
                 self.lower_lambda(params, return_type.as_ref(), body, *span)
@@ -503,6 +505,25 @@ impl HirLowerCtx {
         self.define_local(&name.name, def_id, name.span);
         let hir_value = self.lower_expr(value);
         HirExpr::Let { binding: def_id, value: Box::new(hir_value), span }
+    }
+
+    fn lower_assign(&mut self, target: &asatsuyu_ast::Ident, value: &Expr, span: Span) -> HirExpr {
+        let target_id = if let Some(id) = self.scopes.resolve(&target.name) {
+            id
+        } else {
+            self.diagnostics.push(
+                Diagnostic::error(format!("unresolved name `{}`", target.name), target.span)
+                    .with_code(DiagnosticCode::E0152),
+            );
+            // Allocate a placeholder to keep going
+            self.symbol_table.alloc(DefData {
+                name: target.name.clone(),
+                kind: DefKind::LocalBinding,
+                span: target.span,
+            })
+        };
+        let hir_value = self.lower_expr(value);
+        HirExpr::Assign { target: target_id, value: Box::new(hir_value), span }
     }
 
     fn lower_lambda(

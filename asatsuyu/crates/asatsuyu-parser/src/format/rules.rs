@@ -150,6 +150,7 @@ pub(crate) fn format_node(f: &mut Formatter, node: &SyntaxNode) {
         SyntaxKind::ImportStmt => format_import_stmt(f, node),
         SyntaxKind::FromPythonImportStmt => format_from_python_import(f, node),
         SyntaxKind::LetStmt => format_let_stmt(f, node),
+        SyntaxKind::AssignStmt => format_assign_stmt(f, node),
         SyntaxKind::BlockExpr => format_block_expr(f, node),
         SyntaxKind::LiteralExpr => format_literal_expr(f, node),
         SyntaxKind::IdentExpr => format_ident_expr(f, node),
@@ -573,6 +574,31 @@ fn format_let_stmt(f: &mut Formatter, node: &SyntaxNode) {
                 f.write_str("let");
                 f.write_space();
             }
+            NodeOrToken::Token(t) if t.kind() == SyntaxKind::MutKw => {
+                f.write_str("mut");
+                f.write_space();
+            }
+            NodeOrToken::Token(t) if t.kind() == SyntaxKind::Ident => {
+                f.write_token(t);
+            }
+            NodeOrToken::Token(t) if t.kind() == SyntaxKind::Eq => {
+                f.write_space();
+                f.write_str("=");
+                f.write_space();
+            }
+            NodeOrToken::Node(n) => {
+                format_node(f, n);
+            }
+            NodeOrToken::Token(_) => {}
+        }
+    }
+}
+
+fn format_assign_stmt(f: &mut Formatter, node: &SyntaxNode) {
+    let children = non_trivia_children(node);
+
+    for elem in &children {
+        match elem {
             NodeOrToken::Token(t) if t.kind() == SyntaxKind::Ident => {
                 f.write_token(t);
             }
