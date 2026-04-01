@@ -1551,11 +1551,12 @@ _ -> 0 } }"#;
     }
 
     #[test]
-    fn let_mut_in_nested_block() {
-        let result = parse(FID, "fn f() { { let mut y = 2\n y = 3 } }");
+    fn let_mut_multiple_statements() {
+        // Multiple let mut and assignment statements in a single block.
+        let result = parse(FID, "fn f() { let mut x = 0\n let mut y = 1\n x = y }");
         assert!(
             !result.has_errors(),
-            "let mut in nested block should parse: {:?}",
+            "multiple let mut and assign should parse: {:?}",
             result.diagnostics()
         );
     }
