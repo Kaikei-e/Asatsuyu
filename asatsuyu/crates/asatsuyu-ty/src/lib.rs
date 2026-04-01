@@ -325,7 +325,10 @@ mod tests {
         let dump = format!("{:#?}", result.module);
         assert!(dump.contains("is_mutable: true"), "dump should show mutable let flag:\n{dump}");
         assert!(dump.contains("Assign"), "dump should show typed Assign node:\n{dump}");
-        assert!(dump.contains("Primitive(\n                            None"), "assign/let should remain statement-typed:\n{dump}");
+        assert!(
+            dump.contains("Primitive(\n                            None"),
+            "assign/let should remain statement-typed:\n{dump}"
+        );
     }
 
     // ── 15. All expressions have type ───────────────────────────────
