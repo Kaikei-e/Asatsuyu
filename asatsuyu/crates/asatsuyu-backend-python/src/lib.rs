@@ -323,6 +323,25 @@ pub async fn fetch() -> Int { await inner() }";
         );
     }
 
+    #[test]
+    fn emit_task_type_as_coroutine_annotation() {
+        let source = "fn schedule(task: Task(Int)) -> Task(Int) { task }";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("from collections.abc import Coroutine"),
+            "Task types should trigger Coroutine import: {py}"
+        );
+        assert!(py.contains("from typing import Any"), "Task types should import Any: {py}");
+        assert!(
+            py.contains("task: Coroutine[Any, Any, int]"),
+            "Task(Int) parameter should map to Coroutine[Any, Any, int]: {py}"
+        );
+        assert!(
+            py.contains("-> Coroutine[Any, Any, int]:"),
+            "Task(Int) return type should map to Coroutine[Any, Any, int]: {py}"
+        );
+    }
+
     // ── 4. String literal ───────────────────────────────────────────
 
     #[test]

@@ -1465,6 +1465,27 @@ pub fn f() -> Result(Bool, PyExc) {
         }
     }
 
+    #[test]
+    fn await_diagnostic_mentions_task_type() {
+        let result =
+            thir_from_source("fn sync_fn() -> Int { 1 }\nasync fn f() -> Int { await sync_fn() }");
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == Some(DiagnosticCode::E0219))
+            .expect("should have E0219");
+        assert!(
+            diag.labels.iter().any(|l| l.message.contains("Task(T)")),
+            "E0219 should mention Task(T) in labels: {:?}",
+            diag.labels
+        );
+        assert!(
+            diag.hints.iter().any(|h| h.contains("Task(T)")),
+            "E0219 should mention Task(T) in hints: {:?}",
+            diag.hints
+        );
+    }
+
     // ── FFI: Issue 44 — ffi_modules in THIR ───────────────────────
 
     #[test]
