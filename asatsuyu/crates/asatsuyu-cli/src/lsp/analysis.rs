@@ -1338,7 +1338,8 @@ pub(super) fn classify_context(
     }
 
     // Check for dot-access: `identifier.|`
-    if let Some(ffi_ctx) = classify_dot_context(before_cursor, thir) {
+    #[allow(clippy::cast_possible_truncation)]
+    if let Some(ffi_ctx) = classify_dot_context(before_cursor, offset as u32, thir) {
         return ffi_ctx;
     }
 
@@ -1486,6 +1487,7 @@ fn keyword_snippet_expand(label: &'static str, snippet: &'static str) -> Complet
 /// the FFI context from the receiver's THIR type.
 fn classify_dot_context(
     before_cursor: &str,
+    cursor_offset: u32,
     thir: Option<&ThirModule>,
 ) -> Option<CompletionContext> {
     // The cursor must be right after a `.`
@@ -1500,7 +1502,7 @@ fn classify_dot_context(
     let module = thir?;
 
     // Walk the symbol table to find the identifier's type.
-    let ty = resolve_identifier_type(ident, before_cursor, module)?;
+    let ty = resolve_identifier_type(ident, cursor_offset, module)?;
 
     match ty {
         Ty::FfiModule { module_name } => {
@@ -1534,7 +1536,7 @@ fn extract_trailing_identifier(text: &str) -> Option<&str> {
 /// scope-aware analysis (parameters, let bindings visible at the cursor).
 fn resolve_identifier_type<'a>(
     ident: &str,
-    source: &str,
+    cursor_offset: u32,
     module: &'a ThirModule,
 ) -> Option<&'a Ty> {
     // Check module-level definitions first.
@@ -1550,28 +1552,47 @@ fn resolve_identifier_type<'a>(
     }
 
     // Check function parameters and let bindings at the cursor position.
-    #[allow(clippy::cast_possible_truncation)]
-    let cursor_offset = source.len() as u32;
     for func in &module.functions {
-        if !func.span.contains(cursor_offset) {
-            continue;
+        if func.span.contains(cursor_offset)
+            && let Some(ty) = resolve_identifier_type_in_function(
+                ident,
+                cursor_offset,
+                func,
+                &module.symbol_table,
+            )
+        {
+            return Some(ty);
         }
-        // Check parameters.
-        for param in &func.params {
-            let def = module.symbol_table.get(param.def_id);
-            if def.name == ident {
-                return Some(&param.ty);
-            }
-        }
-        // Walk the body for let bindings.
+    }
+
+    // Fallback: if span-based lookup missed, still search all functions for
+    // a matching local binding defined before the cursor.
+    for func in &module.functions {
         if let Some(ty) =
-            find_binding_type_in_expr(&func.body, ident, cursor_offset, &module.symbol_table)
+            resolve_identifier_type_in_function(ident, cursor_offset, func, &module.symbol_table)
         {
             return Some(ty);
         }
     }
 
     None
+}
+
+fn resolve_identifier_type_in_function<'a>(
+    ident: &str,
+    cursor_offset: u32,
+    func: &'a asatsuyu_ty::ThirFnDef,
+    st: &'a asatsuyu_hir::SymbolTable,
+) -> Option<&'a Ty> {
+    // Check parameters.
+    for param in &func.params {
+        let def = st.get(param.def_id);
+        if def.name == ident {
+            return Some(&param.ty);
+        }
+    }
+    // Walk the body for let bindings.
+    find_binding_type_in_expr(&func.body, ident, cursor_offset, st)
 }
 
 /// Find the type of a variable (by `DefId`) in the function bodies of the module.
@@ -1678,7 +1699,7 @@ fn collect_ffi_import_module_completions(thir: Option<&ThirModule>) -> Vec<Compl
             name,
             kind: CompletionEntryKind::FfiModule,
             ty: None,
-            detail: None,
+            detail: Some("module".to_owned()),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
         })
@@ -1712,7 +1733,7 @@ fn collect_ffi_module_member_completions(
                         (CompletionEntryKind::FfiConstant, Some(format_ffi_type(ty)))
                     }
                     PythonSymbolKind::Module => {
-                        (CompletionEntryKind::FfiModule, Some("module".to_owned()))
+                        (CompletionEntryKind::FfiModule, Some(format!("submodule {}", sym.name)))
                     }
                 };
                 CompletionEntry {
@@ -1744,16 +1765,22 @@ fn collect_ffi_module_member_completions_from_ffi(
         .iter()
         .map(|sym| {
             use asatsuyu_hir::ffi::FfiSymbolKind;
-            let kind = match &sym.kind {
-                FfiSymbolKind::Function(_) => CompletionEntryKind::FfiFunction,
-                FfiSymbolKind::Class(_) => CompletionEntryKind::FfiClass,
-                FfiSymbolKind::Constant(_) => CompletionEntryKind::FfiConstant,
+            let (kind, detail) = match &sym.kind {
+                FfiSymbolKind::Function(sig) => {
+                    (CompletionEntryKind::FfiFunction, Some(format_ffi_signature_brief(sig)))
+                }
+                FfiSymbolKind::Class(_) => {
+                    (CompletionEntryKind::FfiClass, Some("class".to_owned()))
+                }
+                FfiSymbolKind::Constant(ty) => {
+                    (CompletionEntryKind::FfiConstant, Some(format_ffi_type(ty)))
+                }
             };
             CompletionEntry {
                 name: sym.name.clone(),
                 kind,
                 ty: None,
-                detail: None,
+                detail,
                 insert_text: None,
                 insert_text_format: InsertTextFormatTag::default(),
             }
@@ -1797,21 +1824,19 @@ fn collect_instance_members_from_class(
             name: method.name.clone(),
             kind: CompletionEntryKind::FfiMethod,
             ty: None,
-            detail: None,
+            detail,
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
         });
-        // Store detail in a different way — for now, ty field is unused for FFI entries
-        let _ = detail;
     }
 
     // Properties.
-    for (name, _ty) in &cls.properties {
+    for (name, ty) in &cls.properties {
         entries.push(CompletionEntry {
             name: name.clone(),
             kind: CompletionEntryKind::FfiProperty,
             ty: None,
-            detail: None,
+            detail: Some(format_ffi_type(ty)),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
         });
@@ -1838,22 +1863,22 @@ fn collect_ffi_instance_member_completions_from_ffi(
     };
 
     let mut entries = Vec::new();
-    for (name, _sig) in &cls.methods {
+    for (name, sig) in &cls.methods {
         entries.push(CompletionEntry {
             name: name.clone(),
             kind: CompletionEntryKind::FfiMethod,
             ty: None,
-            detail: None,
+            detail: Some(format_ffi_signature_brief(sig)),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
         });
     }
-    for (name, _ty) in &cls.properties {
+    for (name, ty) in &cls.properties {
         entries.push(CompletionEntry {
             name: name.clone(),
             kind: CompletionEntryKind::FfiProperty,
             ty: None,
-            detail: None,
+            detail: Some(format_ffi_type(ty)),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
         });
@@ -2715,6 +2740,29 @@ mod tests {
         // Should have methods like exists.
         let has_method = entries.iter().any(|e| e.kind == CompletionEntryKind::FfiMethod);
         assert!(has_method, "should have at least one method");
+    }
+
+    #[test]
+    fn ffi_instance_member_completion_includes_detail() {
+        let source =
+            "from python import pathlib\nfn main() {\n  let p = pathlib.Path(\"x\")\n  p\n}";
+        let thir = compile_to_thir(source);
+        let thir = thir.as_ref().expect("THIR should compile");
+        let entries = collect_ffi_instance_member_completions(thir, "pathlib", "Path");
+        let exists = entries
+            .iter()
+            .find(|e| e.name == "exists" && e.kind == CompletionEntryKind::FfiMethod)
+            .expect("Path.exists should be present");
+        assert!(
+            exists.detail.as_deref().is_some_and(|d| d.contains("->")),
+            "method detail should include a signature: {:?}",
+            exists.detail
+        );
+        let property = entries
+            .iter()
+            .find(|e| e.kind == CompletionEntryKind::FfiProperty)
+            .expect("Path should expose at least one property");
+        assert!(property.detail.is_some(), "property detail should be present");
     }
 
     #[test]
