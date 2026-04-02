@@ -1,9 +1,53 @@
 from python import requests
 
-from python import os
+type Result(a, e) {
+  Ok(a)
+  Error(e)
+}
 
-pub fn main() -> Int {
-  let response = requests.get("https://www.google.com")
-  println(response.status_code)
-  0
+type PyException {
+  PyExc(kind: String, exception_type: String, message: String, module: String, traceback_summary: String)
+}
+
+type PageSnapshot {
+  Snapshot(url: String, status: Int, body: String)
+}
+
+fn fetch_page(url: String) -> Result(PageSnapshot, PyException) {
+  let response = try requests.get(url)
+  Ok(Snapshot(url, response.status_code, response.text))
+}
+
+async fn fetch_page_task(url: String) -> Result(PageSnapshot, PyException) {
+  fetch_page(url)
+}
+
+fn diff_report(left: Result(PageSnapshot, PyException), right: Result(PageSnapshot, PyException)) -> String {
+  match left {
+    Ok(Snapshot(left_url, left_status, left_body)) -> match right {
+      Ok(Snapshot(right_url, right_status, right_body)) ->
+        if left_status != right_status {
+          "status changed: " <> left_url <> " -> " <> right_url
+        } else if left_body != right_body {
+          "body changed: " <> left_url <> " -> " <> right_url
+        } else {
+          "no diff: " <> left_url
+        }
+      Error(_) -> "right fetch failed"
+    }
+    Error(_) -> match right {
+      Ok(_) -> "left fetch failed"
+      Error(_) -> "both fetches failed"
+    }
+  }
+}
+
+pub async fn main() {
+  // Fan out first, then await the collected tasks and report the diff.
+  let left_task = fetch_page_task("https://example.com")
+  let right_task = fetch_page_task("https://example.com")
+  let left = await left_task
+  let right = await right_task
+  let report = diff_report(left, right)
+  println(report)
 }
