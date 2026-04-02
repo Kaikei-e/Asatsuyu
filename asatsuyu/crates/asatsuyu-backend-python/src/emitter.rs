@@ -64,6 +64,8 @@ pub(crate) struct Emitter<'a> {
     has_functools: bool,
     /// Whether any `Task(T)` type annotation appears (for `Coroutine` import).
     has_task_type: bool,
+    /// Whether the currently emitted function returns `Result(_, _)`.
+    current_fn_returns_result: bool,
 }
 
 /// Metadata for a Checked FFI call target.
@@ -89,6 +91,7 @@ impl<'a> Emitter<'a> {
             has_checked_ffi: false,
             has_functools: false,
             has_task_type: false,
+            current_fn_returns_result: false,
         }
     }
 
@@ -105,6 +108,7 @@ impl<'a> Emitter<'a> {
             has_checked_ffi: false,
             has_functools: false,
             has_task_type: false,
+            current_fn_returns_result: false,
         }
     }
 
@@ -364,9 +368,12 @@ impl<'a> Emitter<'a> {
         self.output.push('\n');
 
         // Body.
+        let previous_returns_result = self.current_fn_returns_result;
+        self.current_fn_returns_result = is_result_ty(&fn_def.return_ty);
         self.push_indent();
         self.emit_body(&fn_def.body);
         self.pop_indent();
+        self.current_fn_returns_result = previous_returns_result;
     }
 
     // ── Body (block handling) ──────────────────────────────────────
@@ -1175,8 +1182,17 @@ impl<'a> Emitter<'a> {
         self.output.push_str("except Exception as _e:\n");
         self.push_indent();
         self.write_indent();
-        self.output
-            .push_str("return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))\n");
+        if self.current_fn_returns_result {
+            self.output.push_str(
+                "return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))\n",
+            );
+        } else {
+            self.output.push_str("_asatsuyu_exc = _asatsuyu_runtime.normalize_exception(_e)\n");
+            self.write_indent();
+            self.output.push_str(
+                "raise AsatsuyuError(f\"{_asatsuyu_exc['exception_type']}: {_asatsuyu_exc['message']}\")\n",
+            );
+        }
         self.pop_indent();
     }
 
@@ -1315,6 +1331,10 @@ impl<'a> Emitter<'a> {
             }
         }
     }
+}
+
+fn is_result_ty(ty: &Ty) -> bool {
+    matches!(ty, Ty::Named { name, .. } if name.as_str() == "Result")
 }
 
 // ── Type mapping ───────────────────────────────────────────────────

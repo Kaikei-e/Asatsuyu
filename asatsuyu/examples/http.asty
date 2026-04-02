@@ -1,0 +1,9 @@
+from python import requests
+
+from python import os
+
+pub fn main() -> Int {
+  let response = requests.get("https://www.google.com")
+  println(response.status_code)
+  0
+}

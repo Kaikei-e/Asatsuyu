@@ -25,6 +25,7 @@ def download(url: str) -> str:
     try:
         _checked_0 = _asatsuyu_runtime.call_function(_checked_runtime_requests, "get", url)
     except Exception as _e:
-        return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))
+        _asatsuyu_exc = _asatsuyu_runtime.normalize_exception(_e)
+        raise AsatsuyuError(f"{_asatsuyu_exc['exception_type']}: {_asatsuyu_exc['message']}")
     response = _checked_0
     return response.text

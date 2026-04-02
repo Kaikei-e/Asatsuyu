@@ -20,7 +20,8 @@ def main() -> str:
     try:
         _checked_0 = _asatsuyu_runtime.call_function(_checked_runtime_json, "dumps", "hello")
     except Exception as _e:
-        return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))
+        _asatsuyu_exc = _asatsuyu_runtime.normalize_exception(_e)
+        raise AsatsuyuError(f"{_asatsuyu_exc['exception_type']}: {_asatsuyu_exc['message']}")
     if not isinstance(_checked_0, str):
         raise AsatsuyuError(f"json.dumps returned unexpected type: {type(_checked_0).__name__}")
     return _checked_0

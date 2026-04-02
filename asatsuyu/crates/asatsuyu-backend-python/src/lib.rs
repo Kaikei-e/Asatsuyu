@@ -1270,6 +1270,48 @@ pub fn f(data: String) { json.loads(data) }";
     }
 
     #[test]
+    fn emit_checked_ffi_non_result_raises_asatsuyu_error() {
+        let source = "\
+from python import requests
+pub fn fetch(url: String) -> Int {
+  let response = requests.get(url)
+  response.status_code
+}";
+        let py = python_from_source(source);
+        assert!(
+            !py.contains("return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))"),
+            "non-Result functions must not return Error directly: {py}"
+        );
+        assert!(
+            py.contains("_asatsuyu_exc = _asatsuyu_runtime.normalize_exception(_e)"),
+            "non-Result functions should normalize exception once: {py}"
+        );
+        assert!(
+            py.contains("raise AsatsuyuError(f\"{_asatsuyu_exc['exception_type']}: {_asatsuyu_exc['message']}\")"),
+            "non-Result functions should raise AsatsuyuError: {py}"
+        );
+    }
+
+    #[test]
+    fn emit_checked_ffi_result_returns_error() {
+        let source = "\
+type Result(a, e) { Ok(a) Error(e) }
+from python import requests
+pub fn safe_fetch(url: String) -> Result(Int, PyException) {
+  let response = try requests.get(url)
+  Ok(response.status_code)
+}";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("return Error(PyException.from_exception(_e))")
+                || py.contains(
+                    "return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))"
+                ),
+            "Result-returning boundaries should still produce Error(PyException): {py}"
+        );
+    }
+
+    #[test]
     fn snap_checked_ffi_codegen() {
         let source = "\
 from python import json

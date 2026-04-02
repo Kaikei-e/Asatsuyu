@@ -519,10 +519,14 @@ fn cmd_build(
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
-    // Clean the package subdirectory before writing.
-    // Use the normalized Python package name to match backend output.
+    // Clean generated package directories before writing.
+    let python_root = output_dir.join("python");
     let pkg_dir_name = asatsuyu_backend_python::python_package_name(&config.name);
-    let pkg_dir = output_dir.join("python").join(&pkg_dir_name);
+    let legacy_pkg_dir = python_root.join(stem.as_ref());
+    if legacy_pkg_dir.exists() {
+        let _ = std::fs::remove_dir_all(&legacy_pkg_dir);
+    }
+    let pkg_dir = python_root.join(&pkg_dir_name);
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
     }
@@ -574,9 +578,15 @@ fn cmd_run(
     let package =
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
-    // Always clean run output to avoid stale files.
+    // Clean generated package directories, but preserve helper stubs such as
+    // `target/run/python/requests.py` used by tests and local workflows.
     let pkg_dir_name = asatsuyu_backend_python::python_package_name(&config.name);
-    let pkg_dir = output_dir.join("python").join(&pkg_dir_name);
+    let python_root = output_dir.join("python");
+    let legacy_pkg_dir = python_root.join(stem.as_ref());
+    if legacy_pkg_dir.exists() {
+        let _ = std::fs::remove_dir_all(&legacy_pkg_dir);
+    }
+    let pkg_dir = python_root.join(&pkg_dir_name);
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
     }
@@ -600,9 +610,28 @@ fn cmd_run(
     // When inside a project, the package name comes from the config (e.g., "myapp"),
     // not the file stem (e.g., "main"). Use pkg_dir_name for project mode.
     let python_dir = output_dir.join("python");
+    let python_dir = match python_dir.canonicalize() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!(
+                "error: cannot resolve generated python directory {}: {e}",
+                python_dir.display()
+            );
+            return exit_config_error();
+        }
+    };
     let module_name = pkg_dir_name.clone();
     let status_result = if has_main {
-        Command::new("python3").arg("-m").arg(&module_name).current_dir(&python_dir).status()
+        let python_path = match std::env::var_os("PYTHONPATH") {
+            Some(existing) if !existing.is_empty() => {
+                let mut joined = python_dir.into_os_string();
+                joined.push(std::ffi::OsStr::new(":"));
+                joined.push(existing);
+                joined
+            }
+            _ => python_dir.into_os_string(),
+        };
+        Command::new("python3").env("PYTHONPATH", python_path).arg("-m").arg(&module_name).status()
     } else {
         let py_path = python_dir.join(format!("{module_name}/{module_name}.py"));
         Command::new("python3").arg(&py_path).status()

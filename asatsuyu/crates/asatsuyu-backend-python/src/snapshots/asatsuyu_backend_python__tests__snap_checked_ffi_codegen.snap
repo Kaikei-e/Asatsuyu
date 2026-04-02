@@ -19,7 +19,8 @@ def f(data: str) -> int:
     try:
         _checked_0 = _asatsuyu_runtime.call_function(_checked_runtime_json, "loads", data)
     except Exception as _e:
-        return Error(PyException(**_asatsuyu_runtime.normalize_exception(_e)))
+        _asatsuyu_exc = _asatsuyu_runtime.normalize_exception(_e)
+        raise AsatsuyuError(f"{_asatsuyu_exc['exception_type']}: {_asatsuyu_exc['message']}")
     if not isinstance(_checked_0, (dict, list, str, int, float, bool, type(None))):
         raise AsatsuyuError(f"json.loads returned unexpected type: {type(_checked_0).__name__}")
     result = _checked_0
