@@ -2645,4 +2645,123 @@ mod tests {
         let snapshot = completion_snapshot(source, offset);
         insta::assert_snapshot!("completion_async_block", snapshot);
     }
+
+    // ── Issue 125: FFI import + module member completion ────────
+
+    #[test]
+    fn classify_context_from_python_import() {
+        assert_eq!(
+            classify_context("from python import ", 19, None),
+            CompletionContext::ImportPythonModule,
+        );
+        // Partially typed module name is still ImportPythonModule context.
+        assert_eq!(
+            classify_context("from python import path", 23, None),
+            CompletionContext::ImportPythonModule,
+        );
+    }
+
+    #[test]
+    fn ffi_import_module_completions_no_thir() {
+        let entries = collect_ffi_import_module_completions(None);
+        assert!(!entries.is_empty(), "should offer known module names even without THIR");
+        assert!(entries.iter().any(|e| e.name == "pathlib"));
+        assert!(entries.iter().any(|e| e.name == "json"));
+        assert!(entries.iter().all(|e| e.kind == CompletionEntryKind::FfiModule));
+    }
+
+    #[test]
+    fn ffi_import_module_completions_with_thir() {
+        let source = "from python import pathlib\nfn main() { pathlib }";
+        let thir = compile_to_thir(source);
+        let entries = collect_ffi_import_module_completions(thir.as_ref());
+        assert!(entries.iter().any(|e| e.name == "pathlib"));
+        // Known modules not yet imported should also appear.
+        assert!(entries.iter().any(|e| e.name == "os"));
+    }
+
+    #[test]
+    fn ffi_module_member_completion_pathlib() {
+        // Use a valid source that imports pathlib (no parse errors).
+        let source = "from python import pathlib\nfn main() { pathlib }";
+        let thir = compile_to_thir(source);
+        let thir = thir.as_ref().expect("THIR should compile");
+        let entries = collect_ffi_module_member_completions(thir, "pathlib");
+        assert!(!entries.is_empty(), "pathlib module should have member completions");
+        // Path is a class in pathlib.
+        assert!(entries.iter().any(|e| e.name == "Path"), "pathlib should offer Path class");
+    }
+
+    #[test]
+    fn ffi_module_member_completion_unknown_module() {
+        let source = "fn main() { 1 }";
+        let thir = compile_to_thir(source);
+        let thir = thir.as_ref().expect("THIR should compile");
+        let entries = collect_ffi_module_member_completions(thir, "nonexistent");
+        assert!(entries.is_empty(), "unknown module should return empty");
+    }
+
+    // ── Issue 126: receiver-based instance member completion ────
+
+    #[test]
+    fn ffi_instance_member_completion_path() {
+        // Valid source with Path instance — no trailing dot parse error.
+        let source =
+            "from python import pathlib\nfn main() {\n  let p = pathlib.Path(\"x\")\n  p\n}";
+        let thir = compile_to_thir(source);
+        let thir = thir.as_ref().expect("THIR should compile");
+        let entries = collect_ffi_instance_member_completions(thir, "pathlib", "Path");
+        assert!(!entries.is_empty(), "Path instance should have member completions");
+        // Should have methods like exists.
+        let has_method = entries.iter().any(|e| e.kind == CompletionEntryKind::FfiMethod);
+        assert!(has_method, "should have at least one method");
+    }
+
+    #[test]
+    fn ffi_instance_member_completion_unknown_class() {
+        let source = "from python import pathlib\nfn main() { pathlib }";
+        let thir = compile_to_thir(source);
+        let thir = thir.as_ref().expect("THIR should compile");
+        let entries = collect_ffi_instance_member_completions(thir, "pathlib", "NonExistentClass");
+        assert!(entries.is_empty(), "unknown class should return empty");
+    }
+
+    #[test]
+    fn ffi_instance_no_class_methods_in_instance_completion() {
+        let source = "from python import pathlib\nfn main() { pathlib }";
+        let thir = compile_to_thir(source);
+        let thir = thir.as_ref().expect("THIR should compile");
+        let entries = collect_ffi_instance_member_completions(thir, "pathlib", "Path");
+        // Instance completion should not include class_methods or static_methods.
+        // All entries should be FfiMethod or FfiProperty.
+        for entry in &entries {
+            assert!(
+                entry.kind == CompletionEntryKind::FfiMethod
+                    || entry.kind == CompletionEntryKind::FfiProperty,
+                "instance completion should only have methods and properties, got {:?}",
+                entry.kind
+            );
+        }
+    }
+
+    #[test]
+    fn collect_all_completions_from_python_import() {
+        let source = "from python import ";
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.len() as u32;
+        let entries = collect_all_completions(None, source, offset);
+        assert!(entries.iter().any(|e| e.name == "pathlib"));
+        assert!(entries.iter().any(|e| e.kind == CompletionEntryKind::FfiModule));
+        // No keyword completions should be mixed in.
+        assert!(entries.iter().all(|e| e.kind == CompletionEntryKind::FfiModule));
+    }
+
+    #[test]
+    fn extract_trailing_identifier_basic() {
+        assert_eq!(extract_trailing_identifier("  pathlib"), Some("pathlib"));
+        assert_eq!(extract_trailing_identifier("x.pathlib"), Some("pathlib"));
+        assert_eq!(extract_trailing_identifier(""), None);
+        assert_eq!(extract_trailing_identifier("  "), None);
+        assert_eq!(extract_trailing_identifier("123"), None);
+    }
 }
