@@ -1046,4 +1046,35 @@ mod tests {
         assert!(fs.thir.is_none());
         assert_eq!(fs.source, "fn main() {}");
     }
+
+    #[test]
+    fn word_at_offset_extracts_keyword() {
+        assert_eq!(word_at_offset("fn main() {}", 0), "fn");
+        assert_eq!(word_at_offset("fn main() {}", 1), "fn");
+        assert_eq!(word_at_offset("fn main() {}", 3), "main");
+        assert_eq!(word_at_offset("let mut x = 0", 4), "mut");
+        assert_eq!(word_at_offset("let mut x = 0", 0), "let");
+    }
+
+    #[test]
+    fn word_at_offset_handles_boundaries() {
+        assert_eq!(word_at_offset("", 0), "");
+        assert_eq!(word_at_offset("fn main() {}", 9), "");
+        assert_eq!(word_at_offset("a", 0), "a");
+    }
+
+    #[test]
+    fn keyword_hover_returns_docs() {
+        assert!(analysis::keyword_hover("fn").is_some());
+        assert!(analysis::keyword_hover("let").is_some());
+        assert!(analysis::keyword_hover("match").is_some());
+        assert!(analysis::keyword_hover("try").is_some());
+        assert!(analysis::keyword_hover("async").is_some());
+        assert!(analysis::keyword_hover("await").is_some());
+        assert!(analysis::keyword_hover("type").is_some());
+        assert!(analysis::keyword_hover("if").is_some());
+        assert!(analysis::keyword_hover("mut").is_some());
+        assert!(analysis::keyword_hover("println").is_none());
+        assert!(analysis::keyword_hover("foo").is_none());
+    }
 }
