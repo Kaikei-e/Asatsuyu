@@ -136,6 +136,7 @@ impl TyCheckCtx {
         self.register_builtin_type("List", &["a"]);
         self.register_builtin_type("Dict", &["k", "v"]);
         self.register_builtin_type("Tuple", &[]);
+        self.register_builtin_type("Task", &["a"]);
     }
 
     fn register_builtin_type(&mut self, name: &str, type_params: &[&str]) {
@@ -153,6 +154,24 @@ impl TyCheckCtx {
                 variants: vec![],
             },
         );
+    }
+
+    /// Construct `Task(inner)` using the registered builtin `Task` type.
+    fn make_task_ty(&self, inner: Ty) -> Ty {
+        let &def_id =
+            self.type_name_to_def_id.get("Task").expect("Task builtin type must be registered");
+        Ty::Named { def_id, name: SmolStr::from("Task"), args: vec![inner] }
+    }
+
+    /// If `ty` is `Task(T)`, return `Some(T)`. Otherwise `None`.
+    fn unwrap_task_ty(&self, ty: &Ty) -> Option<Ty> {
+        let task_def_id = self.type_name_to_def_id.get("Task")?;
+        match ty {
+            Ty::Named { def_id, args, .. } if def_id == task_def_id && args.len() == 1 => {
+                Some(args[0].clone())
+            }
+            _ => None,
+        }
     }
 
     /// Register type schemes for built-in functions (e.g. `string_concat`, `println`).
@@ -442,12 +461,15 @@ impl TyCheckCtx {
             .collect();
 
         // Resolve return type: annotated or provisional None.
-        let ret_ty = if let Some(te) = &fn_def.return_type {
+        let inner_ret_ty = if let Some(te) = &fn_def.return_type {
             self.resolve_type_expr(te)
         } else {
             self.unannotated_returns.insert(fn_def.def_id);
             Ty::Primitive(PrimTy::None) // provisional; replaced after body check
         };
+
+        // async fn wraps the return type in Task(T).
+        let ret_ty = if fn_def.is_async { self.make_task_ty(inner_ret_ty) } else { inner_ret_ty };
 
         let fn_ty = Ty::Function { params: param_tys, ret: Box::new(ret_ty) };
         self.type_env.insert(fn_def.def_id, TypeScheme::mono(fn_ty));
@@ -495,8 +517,16 @@ impl TyCheckCtx {
             _ => Ty::Error,
         };
 
+        // For async functions, the declared return is Task(T) but the body produces T.
+        // Unwrap to get the type the body should be checked against.
+        let body_check_ty = if fn_def.is_async {
+            self.unwrap_task_ty(&declared_ret).unwrap_or_else(|| declared_ret.clone())
+        } else {
+            declared_ret.clone()
+        };
+
         // Set current function return type context for `try` expression validation.
-        self.current_fn_return_ty = Some(declared_ret.clone());
+        self.current_fn_return_ty = Some(body_check_ty.clone());
 
         // Initialize local_defs with parameter DefIds for lambda capture tracking.
         let saved_local_defs = std::mem::take(&mut self.local_defs);
@@ -520,11 +550,11 @@ impl TyCheckCtx {
         let is_unannotated = self.unannotated_returns.contains(&fn_def.def_id);
         let return_ty = if is_unannotated {
             // Infer return type from body.
-            body_ty
+            if fn_def.is_async { self.make_task_ty(body_ty.clone()) } else { body_ty.clone() }
         } else {
-            // Check declared return type against body via unification.
+            // Check body type against the expected inner type (T for async, declared for sync).
             self.unify_or_error(
-                &declared_ret,
+                &body_check_ty,
                 &body_ty,
                 fn_def.body.span(),
                 DiagnosticContext::ReturnType { fn_span: fn_def.span },
@@ -532,16 +562,25 @@ impl TyCheckCtx {
             declared_ret
         };
 
+        // ThirFnDef.return_ty is the *inner* type (what the user annotated / body produces).
+        // For async fn this is T (used by backend for `async def f() -> T:`).
+        // ThirFnDef.ty is the full function type including Task(T) wrapper.
+        let inner_return_ty = if fn_def.is_async {
+            self.unwrap_task_ty(&return_ty).unwrap_or_else(|| return_ty.clone())
+        } else {
+            return_ty.clone()
+        };
+
         // Build the final function type with the resolved return type.
         let param_tys: Vec<Ty> = params.iter().map(|p| p.ty.clone()).collect();
-        let final_fn_ty = Ty::Function { params: param_tys, ret: Box::new(return_ty.clone()) };
+        let final_fn_ty = Ty::Function { params: param_tys, ret: Box::new(return_ty) };
 
         ThirFnDef {
             def_id: fn_def.def_id,
             visibility: fn_def.visibility,
             is_async: fn_def.is_async,
             params,
-            return_ty,
+            return_ty: inner_return_ty,
             body,
             ty: final_fn_ty,
             span: fn_def.span,
@@ -644,16 +683,36 @@ impl TyCheckCtx {
                 ThirExpr::Try { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
             }
 
-            HirExpr::Await { expr, span } => {
-                let checked_inner = self.check_expr(expr);
-                // Stub: await's type = inner expression's type.
-                // Proper Task(T) → T unwrapping is Issue 97.
-                let inner_ty = self.infer.resolve(checked_inner.ty());
-                ThirExpr::Await { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
-            }
+            HirExpr::Await { expr, span } => self.check_await(expr, *span),
 
             HirExpr::List { elements, span } => self.check_list_expr(elements, *span),
         }
+    }
+
+    fn check_await(&mut self, expr: &HirExpr, span: Span) -> ThirExpr {
+        let checked_inner = self.check_expr(expr);
+        let inner_ty = self.infer.resolve(checked_inner.ty());
+
+        let result_ty = if let Some(t) = self.unwrap_task_ty(&inner_ty) {
+            t
+        } else if matches!(inner_ty, Ty::Var(_)) {
+            let fresh = self.infer.fresh_var();
+            let task_ty = self.make_task_ty(fresh.clone());
+            self.unify_or_error(&task_ty, &inner_ty, span, DiagnosticContext::Simple);
+            self.infer.resolve(&fresh)
+        } else if matches!(inner_ty, Ty::Error) {
+            Ty::Error
+        } else {
+            self.push_diagnostic(
+                Diagnostic::error(format!("cannot `await` a value of type `{inner_ty}`"), span)
+                    .with_code(DiagnosticCode::E0219)
+                    .with_label(span, format!("expected `Task(T)`, found `{inner_ty}`"))
+                    .with_hint("only `Task(T)` values (from async functions) can be awaited"),
+            );
+            Ty::Error
+        };
+
+        ThirExpr::Await { expr: Box::new(checked_inner), ty: result_ty, span }
     }
 
     fn check_list_expr(&mut self, elements: &[HirExpr], span: Span) -> ThirExpr {

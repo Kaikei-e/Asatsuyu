@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn emit_async_def_and_await() {
         let source = "\
-fn inner() -> Int { 1 }
+async fn inner() -> Int { 1 }
 pub async fn fetch() -> Int { await inner() }";
         let py = python_from_source(source);
         assert!(py.contains("async def fetch() -> int:"), "should emit async def: {py}");

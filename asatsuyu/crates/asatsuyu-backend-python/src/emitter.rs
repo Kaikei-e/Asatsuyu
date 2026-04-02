@@ -45,6 +45,7 @@ impl LineOffsets {
 }
 
 /// Emits Python source code from a typed HIR module.
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct Emitter<'a> {
     module: &'a ThirModule,
     output: String,
@@ -61,6 +62,8 @@ pub(crate) struct Emitter<'a> {
     pub(crate) has_checked_ffi: bool,
     /// Whether `functools` is needed for expression-position `list.fold`.
     has_functools: bool,
+    /// Whether any `Task(T)` type annotation appears (for `Coroutine` import).
+    has_task_type: bool,
 }
 
 /// Metadata for a Checked FFI call target.
@@ -85,6 +88,7 @@ impl<'a> Emitter<'a> {
             checked_counter: 0,
             has_checked_ffi: false,
             has_functools: false,
+            has_task_type: false,
         }
     }
 
@@ -100,6 +104,7 @@ impl<'a> Emitter<'a> {
             checked_counter: 0,
             has_checked_ffi: false,
             has_functools: false,
+            has_task_type: false,
         }
     }
 
@@ -110,6 +115,10 @@ impl<'a> Emitter<'a> {
         self.has_checked_ffi = self.scan_for_checked_ffi();
         self.has_functools =
             self.module.functions.iter().any(|f| self.expr_contains_list_fold(&f.body));
+        // Pre-scan for Task(T) types in parameter positions (async fn return types
+        // are emitted as the inner type T, so they don't need the Coroutine import).
+        self.has_task_type =
+            self.module.functions.iter().any(|f| f.params.iter().any(|p| ty_contains_task(&p.ty)));
         if self.has_checked_ffi {
             self.has_try = true; // Checked FFI wrappers use PyException
         }
@@ -192,6 +201,9 @@ impl<'a> Emitter<'a> {
         }
         if self.has_functools {
             self.output.push_str("import functools\n");
+        }
+        if self.has_task_type {
+            self.output.push_str("from collections.abc import Coroutine\nfrom typing import Any\n");
         }
         if self.has_try || self.has_checked_ffi {
             if self.has_checked_ffi {
@@ -1345,6 +1357,12 @@ fn ty_to_python(ty: &Ty, var_map: &[(TyVarId, String)]) -> String {
         Ty::Primitive(PrimTy::None) => "None".into(),
         Ty::Named { name, args, .. } => {
             // Map Asatsuyu builtin types to Python builtin names.
+            if name.as_str() == "Task" {
+                // Task(T) → Coroutine[Any, Any, T]
+                let inner =
+                    args.first().map_or_else(|| "object".into(), |a| ty_to_python(a, var_map));
+                return format!("Coroutine[Any, Any, {inner}]");
+            }
             let py_name = match name.as_str() {
                 "List" => "list",
                 "Dict" => "dict",
@@ -1505,6 +1523,19 @@ fn expr_contains_try(expr: &ThirExpr) -> bool {
         ThirExpr::FieldAccess { receiver, .. } => expr_contains_try(receiver),
         ThirExpr::List { elements, .. } => elements.iter().any(expr_contains_try),
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
+    }
+}
+
+/// Returns `true` if the type contains `Task(T)` anywhere.
+fn ty_contains_task(ty: &Ty) -> bool {
+    match ty {
+        Ty::Named { name, args, .. } => {
+            name.as_str() == "Task" || args.iter().any(ty_contains_task)
+        }
+        Ty::Function { params, ret } => {
+            params.iter().any(ty_contains_task) || ty_contains_task(ret)
+        }
+        _ => false,
     }
 }
 

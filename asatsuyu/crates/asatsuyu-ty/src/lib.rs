@@ -1352,9 +1352,32 @@ pub fn f() -> Result(Bool, PyExc) {
     }
 
     #[test]
-    fn async_fn_and_await_propagate_to_thir() {
+    fn async_fn_returns_task_type() {
+        let result = thir_from_source("async fn fetch() -> Int { 1 }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let f = &result.module.functions[0];
+        assert!(f.is_async, "THIR function should preserve async marker");
+        // The full function type should be () -> Task(Int).
+        match &f.ty {
+            Ty::Function { ret, .. } => match ret.as_ref() {
+                Ty::Named { name, args, .. } => {
+                    assert_eq!(name.as_str(), "Task");
+                    assert_eq!(args.len(), 1);
+                    assert_eq!(args[0], Ty::Primitive(PrimTy::Int));
+                }
+                other => panic!("expected Task(Int), got {other:?}"),
+            },
+            other => panic!("expected Function, got {other:?}"),
+        }
+        // return_ty should be the inner type (Int), used by backend for `-> int`.
+        assert_eq!(f.return_ty, Ty::Primitive(PrimTy::Int));
+    }
+
+    #[test]
+    fn await_unwraps_task_to_inner_type() {
         let result = thir_from_source(
-            "fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }",
+            "async fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }",
         );
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
 
@@ -1367,15 +1390,78 @@ pub fn f() -> Result(Bool, PyExc) {
                         matches!(expr.as_ref(), ThirExpr::Call { .. }),
                         "await should wrap call in THIR"
                     );
-                    assert_eq!(
-                        *ty,
-                        expr.ty().clone(),
-                        "await stub typing should preserve inner type"
-                    );
+                    // inner() returns Task(Int), so the call type is Task(Int).
+                    match expr.ty() {
+                        Ty::Named { name, .. } => assert_eq!(name.as_str(), "Task"),
+                        other => panic!("expected Task type on call, got {other:?}"),
+                    }
+                    // await Task(Int) should produce Int.
+                    assert_eq!(*ty, Ty::Primitive(PrimTy::Int));
                 }
                 other => panic!("expected Await, got {other:?}"),
             },
             other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn await_non_task_is_type_error() {
+        let result = thir_from_source("async fn f() -> Int { await 42 }");
+        assert!(result.has_errors(), "await on Int should be an error");
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0219)),
+            "expected E0219, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn await_non_task_string_is_type_error() {
+        let result = thir_from_source("async fn f() -> String { await \"hello\" }");
+        assert!(result.has_errors(), "await on String should be an error");
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0219)),
+            "expected E0219, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn await_sync_function_is_type_error() {
+        let result =
+            thir_from_source("fn sync_fn() -> Int { 1 }\nasync fn f() -> Int { await sync_fn() }");
+        assert!(result.has_errors(), "await on sync function result should be an error");
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0219)),
+            "expected E0219, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn async_fn_body_type_mismatch() {
+        let result = thir_from_source("async fn f() -> Int { \"wrong\" }");
+        assert!(result.has_errors(), "body returning String for -> Int should be an error");
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0200)),
+            "expected E0200, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn async_fn_unannotated_return_infers_task() {
+        let result = thir_from_source("async fn f() { 1 }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let f = &result.module.functions[0];
+        // Full function type should wrap inferred return in Task.
+        match &f.ty {
+            Ty::Function { ret, .. } => match ret.as_ref() {
+                Ty::Named { name, .. } => assert_eq!(name.as_str(), "Task"),
+                other => panic!("expected Task(...), got {other:?}"),
+            },
+            other => panic!("expected Function, got {other:?}"),
         }
     }
 

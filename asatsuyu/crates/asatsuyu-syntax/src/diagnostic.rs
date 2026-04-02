@@ -116,6 +116,8 @@ pub enum DiagnosticCode {
     E0217 = 217,
     /// Cannot assign to a variable captured from an outer scope inside a lambda.
     E0218 = 218,
+    /// `await` expression on a non-`Task` type.
+    E0219 = 219,
 
     // ── Match / pattern ───────────────────────────────────────────────
     /// Non-exhaustive match.
