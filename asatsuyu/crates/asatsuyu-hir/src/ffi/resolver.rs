@@ -251,6 +251,15 @@ mod tests {
     }
 
     #[test]
+    fn stdlib_only_allows_asyncio() {
+        let config = FfiResolverConfig { stdlib_only: true, ..Default::default() };
+        let chain = ChainResolver::with_config(config);
+        let module = chain.resolve("asyncio").expect("asyncio should resolve with stdlib_only");
+        assert_eq!(module.name.as_str(), "asyncio");
+        assert_eq!(module.trust_level, FfiTrustLevel::Checked);
+    }
+
+    #[test]
     fn stdlib_only_allows_all_stdlib() {
         let config = FfiResolverConfig { stdlib_only: true, ..Default::default() };
         let chain = ChainResolver::with_config(config);

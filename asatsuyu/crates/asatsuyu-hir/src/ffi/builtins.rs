@@ -237,10 +237,12 @@ pub fn requests_module() -> FfiModule {
 
 // ── asyncio ──────────────────────────────────────────────────────
 
-/// Minimal surface for `asyncio` (Verified FFI).
+/// Minimal surface for `asyncio`.
 ///
 /// Exposes `sleep` as the primary async function for MVP testing.
 /// `run` is synchronous (it blocks until the coroutine completes).
+/// Because `run` accepts and returns `Any`, admissibility downgrades the
+/// resolved module trust to `Checked`.
 #[must_use]
 pub fn asyncio_module() -> FfiModule {
     FfiModule {
