@@ -423,20 +423,33 @@ impl LanguageServer for Backend {
         let items: Vec<CompletionItem> = entries
             .into_iter()
             .map(|entry| {
-                let (kind, sort_prefix) = match entry.kind {
+                let (kind, sort_prefix) = match &entry.kind {
                     analysis::CompletionEntryKind::Symbol(def_kind) => {
-                        (def_kind_to_completion_kind(def_kind), "0")
+                        (def_kind_to_completion_kind(*def_kind), "0")
                     }
                     analysis::CompletionEntryKind::Keyword => (CompletionItemKind::KEYWORD, "1"),
+                    analysis::CompletionEntryKind::FfiFunction => {
+                        (CompletionItemKind::FUNCTION, "2")
+                    }
+                    analysis::CompletionEntryKind::FfiClass => (CompletionItemKind::CLASS, "2"),
+                    analysis::CompletionEntryKind::FfiProperty => {
+                        (CompletionItemKind::PROPERTY, "2")
+                    }
+                    analysis::CompletionEntryKind::FfiMethod => (CompletionItemKind::METHOD, "2"),
+                    analysis::CompletionEntryKind::FfiConstant => {
+                        (CompletionItemKind::CONSTANT, "2")
+                    }
+                    analysis::CompletionEntryKind::FfiModule => (CompletionItemKind::MODULE, "2"),
                 };
                 let insert_text_format = match entry.insert_text_format {
                     analysis::InsertTextFormatTag::Snippet => Some(InsertTextFormat::SNIPPET),
                     analysis::InsertTextFormatTag::PlainText => None,
                 };
+                let detail = entry.detail.or_else(|| entry.ty.map(|t| format!("{t}")));
                 CompletionItem {
                     label: entry.name.to_string(),
                     kind: Some(kind),
-                    detail: entry.ty.map(|t| format!("{t}")),
+                    detail,
                     sort_text: Some(format!("{sort_prefix}{}", entry.name)),
                     insert_text: entry.insert_text.map(|text| text.to_string()),
                     insert_text_format,

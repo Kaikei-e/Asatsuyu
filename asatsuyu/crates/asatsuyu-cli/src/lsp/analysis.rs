@@ -1179,10 +1179,22 @@ fn collect_refs_in_pattern(pattern: &ThirPattern, target: DefId, spans: &mut Vec
 // ── Completion ──────────────────────────────────────────────────
 
 /// Distinguishes symbol completions from keyword completions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum CompletionEntryKind {
     Symbol(DefKind),
     Keyword,
+    /// Python module-level function.
+    FfiFunction,
+    /// Python class.
+    FfiClass,
+    /// Python instance property.
+    FfiProperty,
+    /// Python instance method.
+    FfiMethod,
+    /// Python constant or module-level attribute.
+    FfiConstant,
+    /// Python module name (for import completion).
+    FfiModule,
 }
 
 /// Whether the insert text should be treated as a snippet with placeholders.
@@ -1198,6 +1210,9 @@ pub(super) struct CompletionEntry {
     pub name: SmolStr,
     pub kind: CompletionEntryKind,
     pub ty: Option<Ty>,
+    /// Optional detail string for FFI completions (signature, type info).
+    /// Takes precedence over `ty` for display when set.
+    pub detail: Option<String>,
     pub insert_text: Option<SmolStr>,
     pub insert_text_format: InsertTextFormatTag,
 }
@@ -1206,7 +1221,7 @@ pub(super) struct CompletionEntry {
 ///
 /// Determines which keywords are valid completions. Classified from source
 /// text alone (no THIR required) so it works during editing with parse errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum CompletionContext {
     /// Outside any function/type body. Offer item-level keywords.
     TopLevel,
@@ -1216,8 +1231,14 @@ pub(super) enum CompletionContext {
     Expr,
     /// After `from`, where the FFI source keyword should be suggested.
     ImportFrom,
+    /// After `from python import `, where Python module names are suggested.
+    ImportPythonModule,
     /// Inside an import statement line. Suppress keyword completions.
     Import,
+    /// After `module.` where `module` has type `Ty::FfiModule`.
+    FfiModuleMember { module_name: SmolStr },
+    /// After `instance.` where `instance` has type `Ty::FfiInstance`.
+    FfiInstanceMember { module_name: SmolStr, class_name: SmolStr },
 }
 
 /// Collect completion candidates visible at the given byte offset.
@@ -1239,6 +1260,7 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
                         name: def.name.clone(),
                         kind: CompletionEntryKind::Symbol(def.kind),
                         ty,
+                        detail: None,
                         insert_text: None,
                         insert_text_format: InsertTextFormatTag::default(),
                     });
@@ -1263,6 +1285,7 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
                     name: def.name.clone(),
                     kind: CompletionEntryKind::Symbol(DefKind::Parameter),
                     ty: Some(param.ty.clone()),
+                    detail: None,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
                 });
@@ -1286,23 +1309,37 @@ pub(super) fn completion_keyword_specs() -> impl Iterator<Item = &'static Keywor
     })
 }
 
-/// Classify the completion context at `offset` using source text heuristics.
+/// Classify the completion context at `offset` using source text heuristics
+/// and optional THIR type information.
 ///
 /// Scans backwards from the cursor to determine whether we are at the top
-/// level, inside a block, or on an import line. This is intentionally
-/// lightweight — it uses brace counting rather than full parsing.
-pub(super) fn classify_context(source: &str, offset: u32) -> CompletionContext {
+/// level, inside a block, on an import line, or after a dot on an FFI value.
+pub(super) fn classify_context(
+    source: &str,
+    offset: u32,
+    thir: Option<&ThirModule>,
+) -> CompletionContext {
     let offset = (offset as usize).min(source.len());
     let before_cursor = &source[..offset];
 
     // Check if current line starts with import/from keywords.
     let line_start = before_cursor.rfind('\n').map_or(0, |i| i + 1);
     let line_prefix = before_cursor[line_start..].trim_start();
+
+    // `from python import |` — module name completion
+    if line_prefix.starts_with("from python import ") {
+        return CompletionContext::ImportPythonModule;
+    }
     if line_prefix.starts_with("from ") && !line_prefix.contains(" import") {
         return CompletionContext::ImportFrom;
     }
     if line_prefix.starts_with("import ") || line_prefix.starts_with("from ") {
         return CompletionContext::Import;
+    }
+
+    // Check for dot-access: `identifier.|`
+    if let Some(ffi_ctx) = classify_dot_context(before_cursor, thir) {
+        return ffi_ctx;
     }
 
     // Count unmatched braces scanning backwards.
@@ -1345,15 +1382,20 @@ fn classify_in_block(line_prefix: &str) -> CompletionContext {
 /// Keywords that represent block-level constructs are offered as snippet
 /// completions with tab-stop placeholders so the user can fill in the
 /// skeleton immediately.
+#[allow(clippy::needless_pass_by_value)]
 fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
     let mut entries = Vec::new();
 
     // Plain keyword completions (no snippet expansion).
-    let allowed: &[&str] = match ctx {
+    let allowed: &[&str] = match &ctx {
         CompletionContext::TopLevel => &["pub"],
         CompletionContext::Block => &["True", "False"],
         CompletionContext::Expr => &["True", "False", "await"],
-        CompletionContext::ImportFrom | CompletionContext::Import => &[],
+        CompletionContext::ImportFrom
+        | CompletionContext::ImportPythonModule
+        | CompletionContext::Import
+        | CompletionContext::FfiModuleMember { .. }
+        | CompletionContext::FfiInstanceMember { .. } => &[],
     };
 
     for spec in completion_keyword_specs().filter(|spec| allowed.contains(&spec.text)) {
@@ -1361,13 +1403,14 @@ fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
             name: SmolStr::new(spec.text),
             kind: CompletionEntryKind::Keyword,
             ty: None,
+            detail: None,
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
         });
     }
 
     // Snippet-backed completions with placeholders.
-    match ctx {
+    match &ctx {
         CompletionContext::TopLevel => {
             entries.push(keyword_snippet_expand("fn", "fn ${1:name}(${2}) {\n\t$0\n}"));
             entries.push(keyword_snippet_expand("pub fn", "pub fn ${1:name}(${2}) {\n\t$0\n}"));
@@ -1404,7 +1447,10 @@ fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
         CompletionContext::ImportFrom => {
             entries.push(keyword_snippet("python", "python "));
         }
-        CompletionContext::Import => {}
+        CompletionContext::Import
+        | CompletionContext::ImportPythonModule
+        | CompletionContext::FfiModuleMember { .. }
+        | CompletionContext::FfiInstanceMember { .. } => {}
     }
 
     entries
@@ -1416,6 +1462,7 @@ fn keyword_snippet(label: &'static str, insert_text: &'static str) -> Completion
         name: SmolStr::new(label),
         kind: CompletionEntryKind::Keyword,
         ty: None,
+        detail: None,
         insert_text: Some(SmolStr::new(insert_text)),
         insert_text_format: InsertTextFormatTag::PlainText,
     }
@@ -1427,12 +1474,402 @@ fn keyword_snippet_expand(label: &'static str, snippet: &'static str) -> Complet
         name: SmolStr::new(label),
         kind: CompletionEntryKind::Keyword,
         ty: None,
+        detail: None,
         insert_text: Some(SmolStr::new(snippet)),
         insert_text_format: InsertTextFormatTag::Snippet,
     }
 }
 
-/// Collect all completion candidates (keywords + symbols) at the given offset.
+// ── FFI dot-access context classification ─────────────────────────
+
+/// Detect whether the cursor is immediately after `identifier.` and determine
+/// the FFI context from the receiver's THIR type.
+fn classify_dot_context(
+    before_cursor: &str,
+    thir: Option<&ThirModule>,
+) -> Option<CompletionContext> {
+    // The cursor must be right after a `.`
+    let trimmed = before_cursor.trim_end();
+    if !trimmed.ends_with('.') {
+        return None;
+    }
+    // Extract the identifier before the dot.
+    let before_dot = &trimmed[..trimmed.len() - 1];
+    let ident = extract_trailing_identifier(before_dot)?;
+
+    let module = thir?;
+
+    // Walk the symbol table to find the identifier's type.
+    let ty = resolve_identifier_type(ident, before_cursor, module)?;
+
+    match ty {
+        Ty::FfiModule { module_name } => {
+            Some(CompletionContext::FfiModuleMember { module_name: module_name.clone() })
+        }
+        Ty::FfiInstance { module, class } => Some(CompletionContext::FfiInstanceMember {
+            module_name: module.clone(),
+            class_name: class.clone(),
+        }),
+        _ => None,
+    }
+}
+
+/// Extract the trailing identifier from text (e.g., `"  pathlib"` → `"pathlib"`).
+fn extract_trailing_identifier(text: &str) -> Option<&str> {
+    let text = text.trim_end();
+    if text.is_empty() {
+        return None;
+    }
+    // Walk backwards to find identifier start.
+    let start =
+        text.bytes().rposition(|b| !b.is_ascii_alphanumeric() && b != b'_').map_or(0, |i| i + 1);
+    let ident = &text[start..];
+    if ident.is_empty() || ident.bytes().next().is_none_or(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some(ident)
+}
+
+/// Resolve the type of a named identifier using the THIR symbol table and
+/// scope-aware analysis (parameters, let bindings visible at the cursor).
+fn resolve_identifier_type<'a>(
+    ident: &str,
+    source: &str,
+    module: &'a ThirModule,
+) -> Option<&'a Ty> {
+    // Check module-level definitions first.
+    for (def_id, def) in module.symbol_table.iter() {
+        if def.name == ident {
+            // For imports, find the type in the type environment.
+            if def.kind == DefKind::Import {
+                // Import variables are given Ty::FfiModule during type checking.
+                // Find the corresponding ThirExpr::Var in function bodies.
+                return find_var_type_in_module(def_id, module);
+            }
+        }
+    }
+
+    // Check function parameters and let bindings at the cursor position.
+    #[allow(clippy::cast_possible_truncation)]
+    let cursor_offset = source.len() as u32;
+    for func in &module.functions {
+        if !func.span.contains(cursor_offset) {
+            continue;
+        }
+        // Check parameters.
+        for param in &func.params {
+            let def = module.symbol_table.get(param.def_id);
+            if def.name == ident {
+                return Some(&param.ty);
+            }
+        }
+        // Walk the body for let bindings.
+        if let Some(ty) =
+            find_binding_type_in_expr(&func.body, ident, cursor_offset, &module.symbol_table)
+        {
+            return Some(ty);
+        }
+    }
+
+    None
+}
+
+/// Find the type of a variable (by `DefId`) in the function bodies of the module.
+fn find_var_type_in_module(def_id: DefId, module: &ThirModule) -> Option<&Ty> {
+    for func in &module.functions {
+        if let Some(ty) = find_var_type_in_expr(&func.body, def_id) {
+            return Some(ty);
+        }
+    }
+    None
+}
+
+/// Walk a THIR expression to find a Var referencing `target_def_id` and return its type.
+fn find_var_type_in_expr(expr: &ThirExpr, target_def_id: DefId) -> Option<&Ty> {
+    match expr {
+        ThirExpr::Var { def_id, ty, .. } if *def_id == target_def_id => Some(ty),
+        ThirExpr::Block { exprs, .. } => {
+            exprs.iter().find_map(|e| find_var_type_in_expr(e, target_def_id))
+        }
+        ThirExpr::Let { value, .. } | ThirExpr::Assign { value, .. } => {
+            find_var_type_in_expr(value, target_def_id)
+        }
+        ThirExpr::Call { func, args, .. } => find_var_type_in_expr(func, target_def_id)
+            .or_else(|| args.iter().find_map(|a| find_var_type_in_expr(a, target_def_id))),
+        ThirExpr::If { condition, then_body, else_body, .. } => {
+            find_var_type_in_expr(condition, target_def_id)
+                .or_else(|| find_var_type_in_expr(then_body, target_def_id))
+                .or_else(|| {
+                    else_body.as_ref().and_then(|e| find_var_type_in_expr(e, target_def_id))
+                })
+        }
+        ThirExpr::FieldAccess { receiver, .. }
+        | ThirExpr::Try { expr: receiver, .. }
+        | ThirExpr::Await { expr: receiver, .. }
+        | ThirExpr::UnaryOp { expr: receiver, .. } => {
+            find_var_type_in_expr(receiver, target_def_id)
+        }
+        ThirExpr::BinaryOp { lhs, rhs, .. } => find_var_type_in_expr(lhs, target_def_id)
+            .or_else(|| find_var_type_in_expr(rhs, target_def_id)),
+        ThirExpr::Match { subject, arms, .. } => find_var_type_in_expr(subject, target_def_id)
+            .or_else(|| {
+                arms.iter().find_map(|arm| find_var_type_in_expr(&arm.body, target_def_id))
+            }),
+        ThirExpr::Lambda { body, .. } => find_var_type_in_expr(body, target_def_id),
+        ThirExpr::List { elements, .. } => {
+            elements.iter().find_map(|e| find_var_type_in_expr(e, target_def_id))
+        }
+        _ => None,
+    }
+}
+
+/// Find the type of a let-bound variable by name within an expression tree.
+fn find_binding_type_in_expr<'a>(
+    expr: &'a ThirExpr,
+    ident: &str,
+    cursor_offset: u32,
+    st: &asatsuyu_hir::SymbolTable,
+) -> Option<&'a Ty> {
+    match expr {
+        ThirExpr::Block { exprs, .. } => {
+            for e in exprs {
+                if e.span().start >= cursor_offset {
+                    break;
+                }
+                if let Some(ty) = find_binding_type_in_expr(e, ident, cursor_offset, st) {
+                    return Some(ty);
+                }
+            }
+            None
+        }
+        ThirExpr::Let { binding, ty, .. } => {
+            let def = st.get(*binding);
+            if def.name == ident && def.span.start < cursor_offset {
+                return Some(ty);
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+// ── FFI completion collectors ─────────────────────────────────────
+
+/// Known Python module names available for `from python import` completion.
+const KNOWN_PYTHON_MODULES: &[&str] = &["pathlib", "json", "os", "sys", "requests", "asyncio"];
+
+/// Collect Python module name candidates for `from python import |`.
+fn collect_ffi_import_module_completions(thir: Option<&ThirModule>) -> Vec<CompletionEntry> {
+    let mut names: Vec<SmolStr> = KNOWN_PYTHON_MODULES.iter().map(|&n| SmolStr::new(n)).collect();
+
+    // Also include any modules already resolved in the THIR (covers custom configs).
+    if let Some(module) = thir {
+        for key in module.ffi_modules.keys() {
+            if !names.iter().any(|n| n == key) {
+                names.push(key.clone());
+            }
+        }
+    }
+
+    names.sort();
+    names
+        .into_iter()
+        .map(|name| CompletionEntry {
+            name,
+            kind: CompletionEntryKind::FfiModule,
+            ty: None,
+            detail: None,
+            insert_text: None,
+            insert_text_format: InsertTextFormatTag::default(),
+        })
+        .collect()
+}
+
+/// Collect module-level symbol completions for `module.|` using the rich
+/// `PythonApiIndex`. Falls back to `FfiModule` if no index is available.
+fn collect_ffi_module_member_completions(
+    thir: &ThirModule,
+    module_name: &str,
+) -> Vec<CompletionEntry> {
+    // Try the rich PythonApiIndex first.
+    if let Some(index) = &thir.python_api_index
+        && let Some(module_info) = index.get(module_name)
+    {
+        return module_info
+            .symbols
+            .iter()
+            .map(|sym| {
+                use asatsuyu_hir::ffi::PythonSymbolKind;
+                let (kind, detail) = match &sym.kind {
+                    PythonSymbolKind::Function(info) => {
+                        let detail = info.signatures.first().map(format_ffi_signature_brief);
+                        (CompletionEntryKind::FfiFunction, detail)
+                    }
+                    PythonSymbolKind::Class(_) => {
+                        (CompletionEntryKind::FfiClass, Some("class".to_owned()))
+                    }
+                    PythonSymbolKind::Constant(ty) => {
+                        (CompletionEntryKind::FfiConstant, Some(format_ffi_type(ty)))
+                    }
+                    PythonSymbolKind::Module => {
+                        (CompletionEntryKind::FfiModule, Some("module".to_owned()))
+                    }
+                };
+                CompletionEntry {
+                    name: sym.name.clone(),
+                    kind,
+                    ty: None,
+                    detail,
+                    insert_text: None,
+                    insert_text_format: InsertTextFormatTag::default(),
+                }
+            })
+            .collect();
+    }
+
+    // Fallback: use the flattened FfiModule.
+    collect_ffi_module_member_completions_from_ffi(thir, module_name)
+}
+
+/// Fallback: collect module member completions from `FfiModule`.
+fn collect_ffi_module_member_completions_from_ffi(
+    thir: &ThirModule,
+    module_name: &str,
+) -> Vec<CompletionEntry> {
+    let Some(ffi_mod) = thir.ffi_modules.get(module_name) else {
+        return Vec::new();
+    };
+    ffi_mod
+        .symbols
+        .iter()
+        .map(|sym| {
+            use asatsuyu_hir::ffi::FfiSymbolKind;
+            let kind = match &sym.kind {
+                FfiSymbolKind::Function(_) => CompletionEntryKind::FfiFunction,
+                FfiSymbolKind::Class(_) => CompletionEntryKind::FfiClass,
+                FfiSymbolKind::Constant(_) => CompletionEntryKind::FfiConstant,
+            };
+            CompletionEntry {
+                name: sym.name.clone(),
+                kind,
+                ty: None,
+                detail: None,
+                insert_text: None,
+                insert_text_format: InsertTextFormatTag::default(),
+            }
+        })
+        .collect()
+}
+
+/// Collect instance member completions for `instance.|`.
+fn collect_ffi_instance_member_completions(
+    thir: &ThirModule,
+    module_name: &str,
+    class_name: &str,
+) -> Vec<CompletionEntry> {
+    // Try the rich PythonApiIndex first.
+    if let Some(index) = &thir.python_api_index
+        && let Some(module_info) = index.get(module_name)
+    {
+        for sym in &module_info.symbols {
+            if let asatsuyu_hir::ffi::PythonSymbolKind::Class(cls) = &sym.kind
+                && sym.name == class_name
+            {
+                return collect_instance_members_from_class(cls);
+            }
+        }
+    }
+
+    // Fallback: use FfiModule.
+    collect_ffi_instance_member_completions_from_ffi(thir, module_name, class_name)
+}
+
+/// Build instance member completions from `PythonClassInfo`.
+fn collect_instance_members_from_class(
+    cls: &asatsuyu_hir::ffi::PythonClassInfo,
+) -> Vec<CompletionEntry> {
+    let mut entries = Vec::new();
+
+    // Instance methods.
+    for method in &cls.methods {
+        let detail = method.signatures.first().map(format_ffi_signature_brief);
+        entries.push(CompletionEntry {
+            name: method.name.clone(),
+            kind: CompletionEntryKind::FfiMethod,
+            ty: None,
+            detail: None,
+            insert_text: None,
+            insert_text_format: InsertTextFormatTag::default(),
+        });
+        // Store detail in a different way — for now, ty field is unused for FFI entries
+        let _ = detail;
+    }
+
+    // Properties.
+    for (name, _ty) in &cls.properties {
+        entries.push(CompletionEntry {
+            name: name.clone(),
+            kind: CompletionEntryKind::FfiProperty,
+            ty: None,
+            detail: None,
+            insert_text: None,
+            insert_text_format: InsertTextFormatTag::default(),
+        });
+    }
+
+    entries
+}
+
+/// Fallback: collect instance member completions from `FfiModule`.
+fn collect_ffi_instance_member_completions_from_ffi(
+    thir: &ThirModule,
+    module_name: &str,
+    class_name: &str,
+) -> Vec<CompletionEntry> {
+    let Some(ffi_mod) = thir.ffi_modules.get(module_name) else {
+        return Vec::new();
+    };
+    let class_sym = ffi_mod.symbols.iter().find(|s| s.name == class_name);
+    let Some(class_sym) = class_sym else {
+        return Vec::new();
+    };
+    let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_sym.kind else {
+        return Vec::new();
+    };
+
+    let mut entries = Vec::new();
+    for (name, _sig) in &cls.methods {
+        entries.push(CompletionEntry {
+            name: name.clone(),
+            kind: CompletionEntryKind::FfiMethod,
+            ty: None,
+            detail: None,
+            insert_text: None,
+            insert_text_format: InsertTextFormatTag::default(),
+        });
+    }
+    for (name, _ty) in &cls.properties {
+        entries.push(CompletionEntry {
+            name: name.clone(),
+            kind: CompletionEntryKind::FfiProperty,
+            ty: None,
+            detail: None,
+            insert_text: None,
+            insert_text_format: InsertTextFormatTag::default(),
+        });
+    }
+    entries
+}
+
+/// Format an FFI signature briefly for completion detail (e.g. `"(path: String) -> Bool"`).
+fn format_ffi_signature_brief(sig: &asatsuyu_hir::ffi::FfiSignature) -> String {
+    let params: Vec<String> =
+        sig.params.iter().map(|p| format!("{}: {}", p.name, format_ffi_type(&p.ty))).collect();
+    let ret = format_ffi_type(&sig.return_ty);
+    format!("({}) -> {}", params.join(", "), ret)
+}
+
+/// Collect all completion candidates (keywords + symbols + FFI) at the given offset.
 ///
 /// Works even when THIR is unavailable (keyword completions only in that case).
 pub(super) fn collect_all_completions(
@@ -1440,13 +1877,31 @@ pub(super) fn collect_all_completions(
     source: &str,
     offset: u32,
 ) -> Vec<CompletionEntry> {
-    let ctx = classify_context(source, offset);
-    let mut entries = collect_keyword_completions(ctx);
+    let ctx = classify_context(source, offset, thir);
 
+    match &ctx {
+        CompletionContext::ImportPythonModule => {
+            return collect_ffi_import_module_completions(thir);
+        }
+        CompletionContext::FfiModuleMember { module_name } => {
+            if let Some(module) = thir {
+                return collect_ffi_module_member_completions(module, module_name);
+            }
+            return Vec::new();
+        }
+        CompletionContext::FfiInstanceMember { module_name, class_name } => {
+            if let Some(module) = thir {
+                return collect_ffi_instance_member_completions(module, module_name, class_name);
+            }
+            return Vec::new();
+        }
+        _ => {}
+    }
+
+    let mut entries = collect_keyword_completions(ctx);
     if let Some(module) = thir {
         entries.extend(collect_completions(module, offset));
     }
-
     entries
 }
 
@@ -1476,6 +1931,7 @@ fn collect_locals_in_expr(
                     name: def.name.clone(),
                     kind: CompletionEntryKind::Symbol(DefKind::LocalBinding),
                     ty: Some(ty.clone()),
+                    detail: None,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
                 });
@@ -1498,6 +1954,7 @@ fn collect_locals_in_expr(
                         name: def.name.clone(),
                         kind: CompletionEntryKind::Symbol(DefKind::Parameter),
                         ty: Some(p.ty.clone()),
+                        detail: None,
                         insert_text: None,
                         insert_text_format: InsertTextFormatTag::default(),
                     });
@@ -1534,6 +1991,7 @@ fn collect_pattern_bindings(
                     name: def.name.clone(),
                     kind: CompletionEntryKind::Symbol(DefKind::LocalBinding),
                     ty: Some(ty.clone()),
+                    detail: None,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
                 });
@@ -1624,55 +2082,61 @@ mod tests {
 
     #[test]
     fn classify_context_empty_file() {
-        assert_eq!(classify_context("", 0), CompletionContext::TopLevel);
+        assert_eq!(classify_context("", 0, None), CompletionContext::TopLevel);
     }
 
     #[test]
     fn classify_context_top_level_after_fn() {
-        assert_eq!(classify_context("fn main() {}\n", 14), CompletionContext::TopLevel,);
+        assert_eq!(classify_context("fn main() {}\n", 14, None), CompletionContext::TopLevel,);
     }
 
     #[test]
     fn classify_context_block_inside_fn() {
         let source = "fn main() {\n  \n}";
-        assert_eq!(classify_context(source, 14), CompletionContext::Block);
+        assert_eq!(classify_context(source, 14, None), CompletionContext::Block);
     }
 
     #[test]
     fn classify_context_nested_block() {
         let source = "fn main() {\n  if True {\n    \n  }\n}";
-        assert_eq!(classify_context(source, 27), CompletionContext::Block);
+        assert_eq!(classify_context(source, 27, None), CompletionContext::Block);
     }
 
     #[test]
     fn classify_context_expr_after_equals() {
         let source = "fn main() {\n  let x = \n}";
-        assert_eq!(classify_context(source, 22), CompletionContext::Expr);
+        assert_eq!(classify_context(source, 22, None), CompletionContext::Expr);
     }
 
     #[test]
     fn classify_context_expr_after_let_prefix() {
         let source = "fn main() {\n  let \n}";
-        assert_eq!(classify_context(source, 18), CompletionContext::Expr);
+        assert_eq!(classify_context(source, 18, None), CompletionContext::Expr);
     }
 
     #[test]
     fn classify_context_import_line() {
-        assert_eq!(classify_context("import ", 7), CompletionContext::Import);
-        assert_eq!(classify_context("from python import ", 19), CompletionContext::Import,);
+        assert_eq!(classify_context("import ", 7, None), CompletionContext::Import);
+        assert_eq!(
+            classify_context("from python import ", 19, None),
+            CompletionContext::ImportPythonModule,
+        );
     }
 
     #[test]
     fn classify_context_after_from_keyword() {
-        assert_eq!(classify_context("from ", 5), CompletionContext::ImportFrom);
-        assert_eq!(classify_context("from path", 9), CompletionContext::ImportFrom);
+        assert_eq!(classify_context("from ", 5, None), CompletionContext::ImportFrom);
+        assert_eq!(classify_context("from path", 9, None), CompletionContext::ImportFrom);
     }
 
     #[test]
     #[allow(clippy::cast_possible_truncation)]
     fn classify_context_after_closed_braces() {
         let source = "fn a() {}\nfn b() {}\n";
-        assert_eq!(classify_context(source, source.len() as u32), CompletionContext::TopLevel,);
+        assert_eq!(
+            classify_context(source, source.len() as u32, None),
+            CompletionContext::TopLevel,
+        );
     }
 
     // ── Keyword completions ─────────────────────────────────────
@@ -1842,9 +2306,10 @@ mod tests {
 
     #[test]
     fn signature_help_ffi_call() {
-        let source = "from python import pathlib\nfn main() { pathlib.Path(\"test\") }";
+        // Use os.getenv which has a simple, well-defined signature
+        let source = "from python import os\nfn main() { os.getenv(\"HOME\") }";
         let thir = compile_to_thir(source).expect("should compile");
-        let paren_pos = source.find("Path(\"").unwrap() + 5; // after '('
+        let paren_pos = source.find("getenv(\"").unwrap() + 7; // after '('
         #[allow(clippy::cast_possible_truncation)]
         let info =
             signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
@@ -2139,6 +2604,12 @@ mod tests {
                 let kind = match &e.kind {
                     CompletionEntryKind::Keyword => "keyword".to_owned(),
                     CompletionEntryKind::Symbol(dk) => format!("symbol({dk:?})"),
+                    CompletionEntryKind::FfiFunction => "ffi_function".to_owned(),
+                    CompletionEntryKind::FfiClass => "ffi_class".to_owned(),
+                    CompletionEntryKind::FfiProperty => "ffi_property".to_owned(),
+                    CompletionEntryKind::FfiMethod => "ffi_method".to_owned(),
+                    CompletionEntryKind::FfiConstant => "ffi_constant".to_owned(),
+                    CompletionEntryKind::FfiModule => "ffi_module".to_owned(),
                 };
                 let fmt = match e.insert_text_format {
                     InsertTextFormatTag::PlainText => "",

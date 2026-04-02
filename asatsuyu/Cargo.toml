@@ -64,6 +64,12 @@ toml_edit = "0.22"
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["io-std", "rt-multi-thread", "macros", "time"] }
 
+# Python stub parsing (.pyi files)
+libcst = { version = "1.8", default-features = false }
+
+# Typeshed bundling (embed stubs in binary)
+include_dir = "0.7"
+
 # Testing
 insta = { version = "1.47", features = ["glob"] }
 

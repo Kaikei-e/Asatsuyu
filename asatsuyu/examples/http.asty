@@ -1,4 +1,5 @@
 from python import requests
+from python import json
 
 type Result(a, e) {
   Ok(a)
@@ -43,6 +44,8 @@ fn diff_report(left: Result(PageSnapshot, PyException), right: Result(PageSnapsh
 }
 
 pub async fn main() {
+  json.loads("{}")
+
   // Fan out first, then await the collected tasks and report the diff.
   let left_task = fetch_page_task("https://example.com")
   let right_task = fetch_page_task("https://example.com")

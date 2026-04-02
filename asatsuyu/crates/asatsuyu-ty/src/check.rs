@@ -9,8 +9,8 @@ use std::collections::{HashMap, HashSet};
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp};
 use asatsuyu_hir::ffi::{
-    ChainResolver, FfiClass, FfiModule, FfiModuleResolver as _, FfiResolverConfig, FfiSignature,
-    FfiSymbolKind, FfiTrustLevel, FfiType,
+    ChainResolver, FfiClass, FfiModule, FfiResolverConfig, FfiSignature, FfiSymbolKind,
+    FfiTrustLevel, FfiType, PythonApiIndex,
 };
 use asatsuyu_hir::{
     DefData, DefId, DefKind, HirExpr, HirFnDef, HirImportKind, HirModule, SymbolTable,
@@ -89,6 +89,8 @@ pub(crate) struct TyCheckCtx {
     unannotated_returns: HashSet<DefId>,
     /// Resolved FFI modules from Python imports.
     ffi_modules: HashMap<SmolStr, FfiModule>,
+    /// Rich Python API index for LSP completion (overloads, properties, etc.).
+    python_api_index: PythonApiIndex,
     /// Return type of the function currently being checked (for `try` validation).
     current_fn_return_ty: Option<Ty>,
     /// Module symbol table (cloned from HIR) for mutation rule lookups.
@@ -115,6 +117,7 @@ impl TyCheckCtx {
             type_name_to_def_id: HashMap::new(),
             unannotated_returns: HashSet::new(),
             ffi_modules: HashMap::new(),
+            python_api_index: PythonApiIndex::new(),
             current_fn_return_ty: None,
             module_symbols: SymbolTable::new(),
             local_defs: HashSet::new(),
@@ -378,10 +381,15 @@ impl TyCheckCtx {
         let ffi_resolver = ChainResolver::with_config(ffi_config.clone());
         for import in &module.imports {
             if let HirImportKind::Python { module_name } = &import.kind {
-                if let Some(ffi_module) = ffi_resolver.resolve(module_name.as_str()) {
+                if let Some((ffi_module, index_info)) =
+                    ffi_resolver.resolve_with_index(module_name.as_str())
+                {
                     let ty = Ty::FfiModule { module_name: module_name.clone() };
                     self.type_env.insert(import.def_id, TypeScheme::mono(ty));
                     self.ffi_modules.insert(module_name.clone(), ffi_module);
+                    if let Some(info) = index_info {
+                        self.python_api_index.insert(info);
+                    }
                 } else {
                     self.push_diagnostic(
                         Diagnostic::error(
@@ -501,12 +509,18 @@ impl TyCheckCtx {
         let imports = module.imports.clone();
         let symbol_table = clone_symbol_table(&module.symbol_table);
         let ffi_modules = self.ffi_modules.clone();
+        let python_api_index = if self.python_api_index.modules.is_empty() {
+            None
+        } else {
+            Some(self.python_api_index.clone())
+        };
         ThirModule {
             functions,
             custom_types,
             imports,
             symbol_table,
             ffi_modules,
+            python_api_index,
             span: module.span,
         }
     }

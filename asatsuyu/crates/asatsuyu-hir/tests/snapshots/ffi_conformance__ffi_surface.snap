@@ -3,49 +3,395 @@ source: crates/asatsuyu-hir/tests/ffi_conformance.rs
 expression: formatted
 ---
 module: pathlib
-source: Builtin
-trust:  Verified
-symbols (1):
-  class Path  [Verified]
-    __init__(path: Str)
-    method read_text() -> Str
-    method write_text() -> Int
-    method exists() -> Bool
-    method is_file() -> Bool
-    method is_dir() -> Bool
-    method joinpath() -> Named { module: "pathlib", name: "Path" }
-    method mkdir() -> NoneType
+source: Typeshed
+trust:  Checked
+symbols (6):
+  class PurePath  [Checked]
+    __init__()
+    method full_match() -> Bool
+    method __new__() -> Named { module: "", name: "Self" }
+    method __hash__() -> Int
+    method __fspath__() -> Str
+    method __lt__() -> Bool
+    method __le__() -> Bool
+    method __gt__() -> Bool
+    method __ge__() -> Bool
+    method __truediv__() -> Named { module: "", name: "Self" }
+    method __rtruediv__() -> Named { module: "", name: "Self" }
+    method __bytes__() -> Bytes
+    method as_posix() -> Str
+    method as_uri() -> Str
+    method is_absolute() -> Bool
+    method is_reserved() -> Bool
+    method is_relative_to() -> Bool
+    method match() -> Bool
+    method relative_to() -> Named { module: "", name: "Self" }
+    method with_name() -> Named { module: "", name: "Self" }
+    method with_stem() -> Named { module: "", name: "Self" }
+    method with_suffix() -> Named { module: "", name: "Self" }
+    method joinpath() -> Named { module: "", name: "Self" }
+    method __class_getitem__() -> Named { module: "", name: "GenericAlias" }
+    method with_segments() -> Named { module: "", name: "Self" }
+    prop parser: Named { module: "types", name: "ModuleType" }
+    prop parts: Tuple([Str, Any])
+    prop drive: Str
+    prop root: Str
+    prop anchor: Str
     prop name: Str
-    prop stem: Str
     prop suffix: Str
-    prop parent: Named { module: "pathlib", name: "Path" }
-    prop parts: Tuple([Str])
+    prop suffixes: List(Str)
+    prop stem: Str
+    prop parents: List(Named { module: "", name: "Self" })
+    prop parent: Named { module: "", name: "Self" }
+  class PurePosixPath  [Verified]
+  class PureWindowsPath  [Verified]
+  class Path  [Checked]
+    method __new__() -> Named { module: "", name: "Self" }
+    method stat() -> Named { module: "", name: "stat_result" }
+    method chmod() -> NoneType
+    method is_dir() -> Bool
+    method is_file() -> Bool
+    method read_text() -> Str
+    method __enter__() -> Named { module: "", name: "Self" }
+    method __exit__() -> NoneType
+    method glob() -> List(Named { module: "", name: "Self" })
+    method rglob() -> List(Named { module: "", name: "Self" })
+    method exists() -> Bool
+    method is_symlink() -> Bool
+    method is_socket() -> Bool
+    method is_fifo() -> Bool
+    method is_block_device() -> Bool
+    method is_char_device() -> Bool
+    method is_junction() -> Bool
+    method iterdir() -> Named { module: "", name: "Generator" }
+    method lchmod() -> NoneType
+    method lstat() -> Named { module: "", name: "stat_result" }
+    method mkdir() -> NoneType
+    method move_into() -> Named { module: "", name: "_PathT" }
+    method move() -> Named { module: "", name: "_PathT" }
+    method copy_into() -> Named { module: "", name: "_PathT" }
+    method copy() -> Named { module: "", name: "_PathT" }
+    method open() -> Named { module: "", name: "TextIOWrapper" }
+    method owner() -> Str
+    method group() -> Str
+    method is_mount() -> Bool
+    method readlink() -> Named { module: "", name: "Self" }
+    method rename() -> Named { module: "", name: "Self" }
+    method replace() -> Named { module: "", name: "Self" }
+    method resolve() -> Named { module: "", name: "Self" }
+    method rmdir() -> NoneType
+    method symlink_to() -> NoneType
+    method hardlink_to() -> NoneType
+    method touch() -> NoneType
+    method unlink() -> NoneType
+    method absolute() -> Named { module: "", name: "Self" }
+    method expanduser() -> Named { module: "", name: "Self" }
+    method read_bytes() -> Bytes
+    method samefile() -> Bool
+    method write_bytes() -> Int
+    method write_text() -> Int
+    method link_to() -> NoneType
+    method walk() -> List(Tuple([Named { module: "", name: "Self" }, List(Str), List(Str)]))
+    method as_uri() -> Str
+    method cwd() -> Named { module: "", name: "Self" }
+    method from_uri() -> Named { module: "", name: "Self" }
+    method home() -> Named { module: "", name: "Self" }
+    prop info: Named { module: "", name: "PathInfo" }
+  class PosixPath  [Verified]
+  class WindowsPath  [Verified]
 ---
 module: json
-source: Builtin
+source: Typeshed
 trust:  Checked
-symbols (2):
-  fn loads(s: Str) -> Any  [Checked]
-  fn dumps(obj: Any, indent: Optional(Int)) -> Str  [Checked]
+symbols (4):
+  fn dumps(obj: Any, skipkeys: Bool, ensure_ascii: Bool, check_circular: Bool, allow_nan: Bool, cls: Optional(Named { module: "", name: "JSONEncoder" }), indent: Union([Optional(Int), Str]), separators: Optional(Tuple([Str, Str])), default: Optional(Any), sort_keys: Bool) -> Str  [Checked]
+  fn dump(obj: Any, fp: Named { module: "", name: "SupportsWrite" }, skipkeys: Bool, ensure_ascii: Bool, check_circular: Bool, allow_nan: Bool, cls: Optional(Named { module: "", name: "JSONEncoder" }), indent: Union([Optional(Int), Str]), separators: Optional(Tuple([Str, Str])), default: Optional(Any), sort_keys: Bool) -> NoneType  [Checked]
+  fn loads(s: Union([Union([Str, Bytes]), Bytes]), cls: Optional(Named { module: "", name: "JSONDecoder" }), object_hook: Optional(Any), parse_float: Optional(Any), parse_int: Optional(Any), parse_constant: Optional(Any), object_pairs_hook: Optional(Any)) -> Any  [Checked]
+  fn load(fp: Named { module: "", name: "SupportsRead" }, cls: Optional(Named { module: "", name: "JSONDecoder" }), object_hook: Optional(Any), parse_float: Optional(Any), parse_int: Optional(Any), parse_constant: Optional(Any), object_pairs_hook: Optional(Any)) -> Any  [Checked]
 ---
 module: os
-source: Builtin
-trust:  Verified
-symbols (5):
-  fn getenv(key: Str, default: Optional(Str)) -> Optional(Str)  [Verified]
+source: Typeshed
+trust:  Checked
+symbols (116):
+  const supports_bytes_environ: Bool  [Verified]
+  const SEEK_SET: Named { module: "", name: "Final" }  [Verified]
+  const SEEK_CUR: Named { module: "", name: "Final" }  [Verified]
+  const SEEK_END: Named { module: "", name: "Final" }  [Verified]
+  const O_RDONLY: Int  [Verified]
+  const O_WRONLY: Int  [Verified]
+  const O_RDWR: Int  [Verified]
+  const O_APPEND: Int  [Verified]
+  const O_CREAT: Int  [Verified]
+  const O_EXCL: Int  [Verified]
+  const O_TRUNC: Int  [Verified]
+  const linesep: Named { module: "", name: "Literal" }  [Verified]
+  const name: Str  [Verified]
+  const F_OK: Named { module: "", name: "Final" }  [Verified]
+  const R_OK: Named { module: "", name: "Final" }  [Verified]
+  const W_OK: Named { module: "", name: "Final" }  [Verified]
+  const X_OK: Named { module: "", name: "Final" }  [Verified]
+  const environ: Named { module: "", name: "_Environ" }  [Verified]
+  const P_NOWAIT: Int  [Verified]
+  const P_NOWAITO: Int  [Verified]
+  const P_WAIT: Int  [Verified]
+  const TMP_MAX: Int  [Verified]
+  class stat_result  [Verified]
+    prop st_mode: Int
+    prop st_ino: Int
+    prop st_dev: Int
+    prop st_nlink: Int
+    prop st_uid: Int
+    prop st_gid: Int
+    prop st_size: Int
+    prop st_atime: Float
+    prop st_mtime: Float
+    prop st_ctime: Float
+    prop st_ctime: Float
+    prop st_atime_ns: Int
+    prop st_mtime_ns: Int
+    prop st_ctime_ns: Int
+    prop st_file_attributes: Int
+    prop st_reparse_tag: Int
+    prop st_birthtime: Float
+    prop st_birthtime_ns: Int
+    prop st_blocks: Int
+    prop st_blksize: Int
+    prop st_rdev: Int
+    prop st_gen: Int
+    prop st_birthtime: Float
+    prop st_flags: Int
+  fn listdir(path: Optional(Named { module: "", name: "StrPath" })) -> List(Str)  [Verified]
+  class DirEntry  [Verified]
+    method inode() -> Int
+    method is_dir() -> Bool
+    method is_file() -> Bool
+    method is_symlink() -> Bool
+    method stat() -> Named { module: "", name: "stat_result" }
+    method __fspath__() -> Named { module: "", name: "AnyStr" }
+    method __class_getitem__() -> Named { module: "", name: "GenericAlias" }
+    method is_junction() -> Bool
+    prop name: Named { module: "", name: "AnyStr" }
+    prop path: Named { module: "", name: "AnyStr" }
+  class statvfs_result  [Verified]
+    prop f_bsize: Int
+    prop f_frsize: Int
+    prop f_blocks: Int
+    prop f_bfree: Int
+    prop f_bavail: Int
+    prop f_files: Int
+    prop f_ffree: Int
+    prop f_favail: Int
+    prop f_flag: Int
+    prop f_namemax: Int
+    prop f_fsid: Int
+  fn fsencode(filename: Named { module: "", name: "StrOrBytesPath" }) -> Bytes  [Verified]
+  fn fsdecode(filename: Named { module: "", name: "StrOrBytesPath" }) -> Str  [Verified]
+  fn fspath(path: Str) -> Str  [Verified]
+  fn get_exec_path(env: Optional(Named { module: "", name: "Mapping" })) -> List(Str)  [Verified]
+  fn getlogin() -> Str  [Verified]
+  fn getpid() -> Int  [Verified]
+  fn getppid() -> Int  [Verified]
+  fn strerror() -> Str  [Verified]
+  fn umask() -> Int  [Verified]
+  class uname_result  [Verified]
+    prop sysname: Str
+    prop nodename: Str
+    prop release: Str
+    prop version: Str
+    prop machine: Str
+  fn getenv(key: Str) -> Optional(Str)  [Verified]
+  fn putenv() -> NoneType  [Verified]
+  fn unsetenv() -> NoneType  [Verified]
+  fn putenv() -> NoneType  [Verified]
+  fn unsetenv() -> NoneType  [Verified]
+  fn fdopen(fd: Int, mode: Named { module: "", name: "OpenTextMode" }, buffering: Int, encoding: Optional(Str), errors: Optional(Str), newline: Optional(Str), closefd: Bool, opener: Optional(Named { module: "", name: "_Opener" })) -> Named { module: "", name: "TextIOWrapper" }  [Verified]
+  fn close(fd: Int) -> NoneType  [Verified]
+  fn closerange() -> NoneType  [Verified]
+  fn device_encoding(fd: Int) -> Optional(Str)  [Verified]
+  fn dup() -> Int  [Verified]
+  fn dup2(fd: Int, fd2: Int, inheritable: Bool) -> Int  [Verified]
+  fn fstat(fd: Int) -> Named { module: "", name: "stat_result" }  [Verified]
+  fn ftruncate() -> NoneType  [Verified]
+  fn fsync(fd: Named { module: "", name: "FileDescriptorLike" }) -> NoneType  [Verified]
+  fn isatty() -> Bool  [Verified]
+  fn lseek() -> Int  [Verified]
+  fn lseek() -> Int  [Verified]
+  fn open(path: Named { module: "", name: "StrOrBytesPath" }, flags: Int, mode: Int, dir_fd: Optional(Int)) -> Int  [Verified]
+  fn pipe() -> Tuple([Int, Int])  [Verified]
+  fn read() -> Bytes  [Verified]
+  class terminal_size  [Verified]
+    prop columns: Int
+    prop lines: Int
+  fn get_terminal_size() -> Named { module: "", name: "terminal_size" }  [Verified]
+  fn get_inheritable() -> Bool  [Verified]
+  fn set_inheritable() -> NoneType  [Verified]
+  fn write() -> Int  [Verified]
+  fn access(path: Named { module: "", name: "FileDescriptorOrPath" }, mode: Int, dir_fd: Optional(Int), effective_ids: Bool, follow_symlinks: Bool) -> Bool  [Verified]
+  fn chdir(path: Named { module: "", name: "FileDescriptorOrPath" }) -> NoneType  [Verified]
   fn getcwd() -> Str  [Verified]
-  const environ: Dict(Str, Str)  [Verified]
-  const sep: Str  [Verified]
-  const linesep: Str  [Verified]
+  fn getcwdb() -> Bytes  [Verified]
+  fn chmod(path: Named { module: "", name: "FileDescriptorOrPath" }, mode: Int, dir_fd: Optional(Int), follow_symlinks: Bool) -> NoneType  [Verified]
+  fn link(src: Named { module: "", name: "StrOrBytesPath" }, dst: Named { module: "", name: "StrOrBytesPath" }, src_dir_fd: Optional(Int), dst_dir_fd: Optional(Int), follow_symlinks: Bool) -> NoneType  [Verified]
+  fn lstat(path: Named { module: "", name: "StrOrBytesPath" }, dir_fd: Optional(Int)) -> Named { module: "", name: "stat_result" }  [Verified]
+  fn mkdir(path: Named { module: "", name: "StrOrBytesPath" }, mode: Int, dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn makedirs(name: Named { module: "", name: "StrOrBytesPath" }, mode: Int, exist_ok: Bool) -> NoneType  [Verified]
+  fn readlink(path: Named { module: "", name: "GenericPath" }, dir_fd: Optional(Int)) -> Named { module: "", name: "AnyStr" }  [Verified]
+  fn remove(path: Named { module: "", name: "StrOrBytesPath" }, dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn removedirs(name: Named { module: "", name: "StrOrBytesPath" }) -> NoneType  [Verified]
+  fn rename(src: Named { module: "", name: "StrOrBytesPath" }, dst: Named { module: "", name: "StrOrBytesPath" }, src_dir_fd: Optional(Int), dst_dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn renames(old: Named { module: "", name: "StrOrBytesPath" }, new: Named { module: "", name: "StrOrBytesPath" }) -> NoneType  [Verified]
+  fn replace(src: Named { module: "", name: "StrOrBytesPath" }, dst: Named { module: "", name: "StrOrBytesPath" }, src_dir_fd: Optional(Int), dst_dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn rmdir(path: Named { module: "", name: "StrOrBytesPath" }, dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn scandir(path: NoneType) -> Named { module: "", name: "_ScandirIterator" }  [Verified]
+  fn stat(path: Named { module: "", name: "FileDescriptorOrPath" }, dir_fd: Optional(Int), follow_symlinks: Bool) -> Named { module: "", name: "stat_result" }  [Verified]
+  fn symlink(src: Named { module: "", name: "StrOrBytesPath" }, dst: Named { module: "", name: "StrOrBytesPath" }, target_is_directory: Bool, dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn truncate(path: Named { module: "", name: "FileDescriptorOrPath" }, length: Int) -> NoneType  [Verified]
+  fn unlink(path: Named { module: "", name: "StrOrBytesPath" }, dir_fd: Optional(Int)) -> NoneType  [Verified]
+  fn utime(path: Named { module: "", name: "FileDescriptorOrPath" }, times: Optional(Union([Tuple([Int, Int]), Tuple([Float, Float])])), ns: Tuple([Int, Int]), dir_fd: Optional(Int), follow_symlinks: Bool) -> NoneType  [Verified]
+  fn walk(top: Named { module: "", name: "GenericPath" }, topdown: Bool, onerror: Optional(Named { module: "", name: "_OnError" }), followlinks: Bool) -> List(Tuple([Named { module: "", name: "AnyStr" }, List(Named { module: "", name: "AnyStr" }), List(Named { module: "", name: "AnyStr" })]))  [Verified]
+  fn abort() -> Any  [Checked]
+  fn execl(file: Named { module: "", name: "StrOrBytesPath" }) -> Any  [Checked]
+  fn execlp(file: Named { module: "", name: "StrOrBytesPath" }) -> Any  [Checked]
+  fn execle(file: Named { module: "", name: "StrOrBytesPath" }) -> Any  [Checked]
+  fn execlpe(file: Named { module: "", name: "StrOrBytesPath" }) -> Any  [Checked]
+  fn execv() -> Any  [Checked]
+  fn execve(path: Named { module: "", name: "FileDescriptorOrPath" }, argv: Named { module: "", name: "_ExecVArgs" }, env: Named { module: "", name: "_ExecEnv" }) -> Any  [Checked]
+  fn execvp(file: Named { module: "", name: "StrOrBytesPath" }, args: Named { module: "", name: "_ExecVArgs" }) -> Any  [Checked]
+  fn execvpe(file: Named { module: "", name: "StrOrBytesPath" }, args: Named { module: "", name: "_ExecVArgs" }, env: Named { module: "", name: "_ExecEnv" }) -> Any  [Checked]
+  fn kill() -> NoneType  [Verified]
+  fn popen(cmd: Str, mode: Str, buffering: Int) -> Named { module: "", name: "_wrap_close" }  [Verified]
+  fn spawnl(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, arg0: Named { module: "", name: "StrOrBytesPath" }) -> Int  [Verified]
+  fn spawnle(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, arg0: Named { module: "", name: "StrOrBytesPath" }) -> Int  [Verified]
+  fn popen(cmd: Str, mode: Str, buffering: Int) -> Named { module: "", name: "_wrap_close" }  [Verified]
+  fn spawnl(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, arg0: Named { module: "", name: "StrOrBytesPath" }) -> Int  [Verified]
+  fn spawnle(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, arg0: Named { module: "", name: "StrOrBytesPath" }) -> Int  [Verified]
+  fn spawnv(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, args: Named { module: "", name: "_ExecVArgs" }) -> Int  [Verified]
+  fn spawnve(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, args: Named { module: "", name: "_ExecVArgs" }, env: Named { module: "", name: "_ExecEnv" }) -> Int  [Verified]
+  fn spawnv(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, args: Named { module: "", name: "_ExecVArgs" }) -> Int  [Verified]
+  fn spawnve(mode: Int, file: Named { module: "", name: "StrOrBytesPath" }, args: Named { module: "", name: "_ExecVArgs" }, env: Named { module: "", name: "_ExecEnv" }) -> Int  [Verified]
+  fn spawnv() -> Int  [Verified]
+  fn spawnve() -> Int  [Verified]
+  fn spawnv() -> Int  [Verified]
+  fn spawnve() -> Int  [Verified]
+  fn system(command: Named { module: "", name: "StrOrBytesPath" }) -> Int  [Verified]
+  fn system(command: Named { module: "", name: "StrOrBytesPath" }) -> Int  [Verified]
+  class times_result  [Verified]
+    prop user: Float
+    prop system: Float
+    prop children_user: Float
+    prop children_system: Float
+    prop elapsed: Float
+  fn times() -> Named { module: "", name: "times_result" }  [Verified]
+  fn waitpid() -> Tuple([Int, Int])  [Verified]
+  fn cpu_count() -> Optional(Int)  [Verified]
+  fn urandom() -> Bytes  [Verified]
+  fn waitstatus_to_exitcode(status: Int) -> Int  [Verified]
 ---
 module: sys
-source: Builtin
-trust:  Verified
-symbols (4):
+source: Typeshed
+trust:  Checked
+symbols (96):
+  const abiflags: Str  [Verified]
   const argv: List(Str)  [Verified]
-  fn exit(code: Int) -> NoneType  [Verified]
+  const base_exec_prefix: Str  [Verified]
+  const base_prefix: Str  [Verified]
+  const byteorder: Named { module: "", name: "Literal" }  [Verified]
+  const builtin_module_names: List(Str)  [Verified]
+  const copyright: Str  [Verified]
+  const dllhandle: Int  [Verified]
+  const dont_write_bytecode: Bool  [Verified]
+  const displayhook: Any  [Checked]
+  const excepthook: Any  [Checked]
+  const exec_prefix: Str  [Verified]
+  const executable: Str  [Verified]
+  const float_repr_style: Named { module: "", name: "Literal" }  [Verified]
+  const hexversion: Int  [Verified]
+  const last_type: Optional(Named { module: "", name: "BaseException" })  [Verified]
+  const last_value: Optional(Named { module: "", name: "BaseException" })  [Verified]
+  const last_traceback: Optional(Named { module: "", name: "TracebackType" })  [Verified]
+  const last_exc: Named { module: "", name: "BaseException" }  [Verified]
+  const maxsize: Int  [Verified]
+  const maxunicode: Int  [Verified]
+  const meta_path: List(Named { module: "", name: "MetaPathFinderProtocol" })  [Verified]
+  const modules: Dict(Str, Named { module: "", name: "ModuleType" })  [Verified]
+  const orig_argv: List(Str)  [Verified]
+  const path: List(Str)  [Verified]
+  const path_hooks: List(Any)  [Checked]
+  const path_importer_cache: Dict(Str, Optional(Named { module: "", name: "PathEntryFinderProtocol" }))  [Verified]
   const platform: Str  [Verified]
+  const platlibdir: Str  [Verified]
+  const prefix: Str  [Verified]
+  const pycache_prefix: Optional(Str)  [Verified]
+  const ps1: Any  [Checked]
+  const ps2: Any  [Checked]
+  const stdin: Union([Named { module: "", name: "TextIO" }, Named { module: "", name: "MaybeNone" }])  [Verified]
+  const stdout: Union([Named { module: "", name: "TextIO" }, Named { module: "", name: "MaybeNone" }])  [Verified]
+  const stderr: Union([Named { module: "", name: "TextIO" }, Named { module: "", name: "MaybeNone" }])  [Verified]
+  const stdlib_module_names: List(Str)  [Verified]
+  const tracebacklimit: Optional(Int)  [Verified]
   const version: Str  [Verified]
+  const api_version: Int  [Verified]
+  const warnoptions: Any  [Checked]
+  const winver: Str  [Verified]
+  const flags: Named { module: "", name: "_flags" }  [Verified]
+  const float_info: Named { module: "", name: "_float_info" }  [Verified]
+  const hash_info: Named { module: "", name: "_hash_info" }  [Verified]
+  const implementation: Named { module: "", name: "_implementation" }  [Verified]
+  const int_info: Named { module: "", name: "_int_info" }  [Verified]
+  const thread_info: Named { module: "", name: "_thread_info" }  [Verified]
+  const version_info: Named { module: "", name: "_version_info" }  [Verified]
+  fn call_tracing() -> Named { module: "", name: "_T" }  [Verified]
+  fn __displayhook__() -> NoneType  [Verified]
+  fn __excepthook__() -> NoneType  [Verified]
+  fn exc_info() -> Named { module: "", name: "OptExcInfo" }  [Verified]
+  fn exception() -> Optional(Named { module: "", name: "BaseException" })  [Verified]
+  fn exit() -> Any  [Checked]
+  fn getandroidapilevel() -> Int  [Verified]
+  fn getallocatedblocks() -> Int  [Verified]
+  fn getdefaultencoding() -> Named { module: "", name: "Literal" }  [Verified]
+  fn getdlopenflags() -> Int  [Verified]
+  fn getfilesystemencoding() -> Str  [Verified]
+  fn getfilesystemencodeerrors() -> Str  [Verified]
+  fn getrefcount() -> Int  [Verified]
+  fn getrecursionlimit() -> Int  [Verified]
+  fn getsizeof(obj: Any, default: Int) -> Int  [Checked]
+  fn getswitchinterval() -> Float  [Verified]
+  fn getprofile() -> Optional(Named { module: "", name: "ProfileFunction" })  [Verified]
+  fn setprofile() -> NoneType  [Verified]
+  fn gettrace() -> Optional(Named { module: "", name: "TraceFunction" })  [Verified]
+  fn settrace() -> NoneType  [Verified]
+  fn getwindowsversion() -> Named { module: "", name: "_WinVersion" }  [Verified]
+  fn intern() -> Str  [Verified]
+  fn is_finalizing() -> Bool  [Verified]
+  fn breakpointhook() -> Any  [Checked]
+  fn setdlopenflags() -> NoneType  [Verified]
+  fn setrecursionlimit() -> NoneType  [Verified]
+  fn setswitchinterval() -> NoneType  [Verified]
+  fn gettotalrefcount() -> Int  [Verified]
+  class UnraisableHookArgs  [Verified]
+    prop exc_type: Named { module: "", name: "BaseException" }
+    prop exc_value: Optional(Named { module: "", name: "BaseException" })
+    prop exc_traceback: Optional(Named { module: "", name: "TracebackType" })
+    prop err_msg: Optional(Str)
+    prop object: Named { module: "", name: "_object" }
+  const unraisablehook: Any  [Checked]
+  fn __unraisablehook__() -> Any  [Checked]
+  fn addaudithook(hook: Any) -> NoneType  [Checked]
+  fn audit() -> NoneType  [Verified]
+  fn get_asyncgen_hooks() -> Named { module: "", name: "_asyncgen_hooks" }  [Verified]
+  fn set_asyncgen_hooks(firstiter: Named { module: "", name: "_AsyncgenHook" }, finalizer: Named { module: "", name: "_AsyncgenHook" }) -> NoneType  [Verified]
+  fn get_coroutine_origin_tracking_depth() -> Int  [Verified]
+  fn set_coroutine_origin_tracking_depth(depth: Int) -> NoneType  [Verified]
+  fn set_int_max_str_digits(maxdigits: Int) -> NoneType  [Verified]
+  fn get_int_max_str_digits() -> Int  [Verified]
+  fn getunicodeinternedsize(_only_immortal: Bool) -> Int  [Verified]
+  fn getunicodeinternedsize() -> Int  [Verified]
+  fn deactivate_stack_trampoline() -> NoneType  [Verified]
+  fn is_stack_trampoline_active() -> Bool  [Verified]
+  fn activate_stack_trampoline() -> NoneType  [Verified]
+  fn activate_stack_trampoline() -> Any  [Checked]
+  fn is_remote_debug_enabled() -> Bool  [Verified]
+  fn remote_exec(pid: Int, script: Named { module: "", name: "StrOrBytesPath" }) -> NoneType  [Verified]
 ---
 module: requests
 source: Builtin

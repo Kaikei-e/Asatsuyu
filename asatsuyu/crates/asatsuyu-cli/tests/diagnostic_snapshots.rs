@@ -91,7 +91,7 @@ fn snapshot_fixture(name: &str) {
     let path = fixture_dir.join(format!("{name}.asty"));
     let source = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("cannot read fixture {}: {e}", path.display()));
-    let ffi_config = FfiResolverConfig { stdlib_only: true, stub_paths: vec![] };
+    let ffi_config = FfiResolverConfig { stdlib_only: true, ..Default::default() };
     let diags = collect_diagnostics(&source, &ffi_config);
     let text = format_diagnostics(&diags);
     insta::assert_snapshot!(name, text);

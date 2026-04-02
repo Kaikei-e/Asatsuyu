@@ -37,15 +37,60 @@ ThirModule {
                                         module: "python",
                                         symbol: "Any",
                                     },
+                                    Primitive(
+                                        Bool,
+                                    ),
+                                    Primitive(
+                                        Bool,
+                                    ),
+                                    Primitive(
+                                        Bool,
+                                    ),
+                                    Primitive(
+                                        Bool,
+                                    ),
                                     Named {
                                         def_id: Idx::<DefData>(0),
                                         name: "Option",
                                         args: [
-                                            Primitive(
-                                                Int,
-                                            ),
+                                            FfiInstance {
+                                                module: "",
+                                                class: "JSONEncoder",
+                                            },
                                         ],
                                     },
+                                    Error,
+                                    Named {
+                                        def_id: Idx::<DefData>(0),
+                                        name: "Option",
+                                        args: [
+                                            Named {
+                                                def_id: Idx::<DefData>(3),
+                                                name: "Tuple",
+                                                args: [
+                                                    Primitive(
+                                                        String,
+                                                    ),
+                                                    Primitive(
+                                                        String,
+                                                    ),
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                    Named {
+                                        def_id: Idx::<DefData>(0),
+                                        name: "Option",
+                                        args: [
+                                            Opaque {
+                                                module: "python",
+                                                symbol: "Any",
+                                            },
+                                        ],
+                                    },
+                                    Primitive(
+                                        Bool,
+                                    ),
                                 ],
                                 ret: Primitive(
                                     String,
@@ -201,28 +246,9 @@ ThirModule {
     ffi_modules: {
         "json": FfiModule {
             name: "json",
-            source: Builtin,
+            source: Typeshed,
             trust_level: Checked,
             symbols: [
-                FfiSymbol {
-                    name: "loads",
-                    kind: Function(
-                        FfiSignature {
-                            params: [
-                                FfiParam {
-                                    name: "s",
-                                    ty: Str,
-                                    has_default: false,
-                                },
-                            ],
-                            return_ty: Any,
-                            is_async: false,
-                        },
-                    ),
-                    trust_level: Some(
-                        Checked,
-                    ),
-                },
                 FfiSymbol {
                     name: "dumps",
                     kind: Function(
@@ -234,10 +260,69 @@ ThirModule {
                                     has_default: false,
                                 },
                                 FfiParam {
-                                    name: "indent",
+                                    name: "skipkeys",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "ensure_ascii",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "check_circular",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "allow_nan",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "cls",
                                     ty: Optional(
-                                        Int,
+                                        Named {
+                                            module: "",
+                                            name: "JSONEncoder",
+                                        },
                                     ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "indent",
+                                    ty: Union(
+                                        [
+                                            Optional(
+                                                Int,
+                                            ),
+                                            Str,
+                                        ],
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "separators",
+                                    ty: Optional(
+                                        Tuple(
+                                            [
+                                                Str,
+                                                Str,
+                                            ],
+                                        ),
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "default",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "sort_keys",
+                                    ty: Bool,
                                     has_default: true,
                                 },
                             ],
@@ -249,9 +334,596 @@ ThirModule {
                         Checked,
                     ),
                 },
+                FfiSymbol {
+                    name: "dump",
+                    kind: Function(
+                        FfiSignature {
+                            params: [
+                                FfiParam {
+                                    name: "obj",
+                                    ty: Any,
+                                    has_default: false,
+                                },
+                                FfiParam {
+                                    name: "fp",
+                                    ty: Named {
+                                        module: "",
+                                        name: "SupportsWrite",
+                                    },
+                                    has_default: false,
+                                },
+                                FfiParam {
+                                    name: "skipkeys",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "ensure_ascii",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "check_circular",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "allow_nan",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "cls",
+                                    ty: Optional(
+                                        Named {
+                                            module: "",
+                                            name: "JSONEncoder",
+                                        },
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "indent",
+                                    ty: Union(
+                                        [
+                                            Optional(
+                                                Int,
+                                            ),
+                                            Str,
+                                        ],
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "separators",
+                                    ty: Optional(
+                                        Tuple(
+                                            [
+                                                Str,
+                                                Str,
+                                            ],
+                                        ),
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "default",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "sort_keys",
+                                    ty: Bool,
+                                    has_default: true,
+                                },
+                            ],
+                            return_ty: NoneType,
+                            is_async: false,
+                        },
+                    ),
+                    trust_level: Some(
+                        Checked,
+                    ),
+                },
+                FfiSymbol {
+                    name: "loads",
+                    kind: Function(
+                        FfiSignature {
+                            params: [
+                                FfiParam {
+                                    name: "s",
+                                    ty: Union(
+                                        [
+                                            Union(
+                                                [
+                                                    Str,
+                                                    Bytes,
+                                                ],
+                                            ),
+                                            Bytes,
+                                        ],
+                                    ),
+                                    has_default: false,
+                                },
+                                FfiParam {
+                                    name: "cls",
+                                    ty: Optional(
+                                        Named {
+                                            module: "",
+                                            name: "JSONDecoder",
+                                        },
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "object_hook",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "parse_float",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "parse_int",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "parse_constant",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "object_pairs_hook",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                            ],
+                            return_ty: Any,
+                            is_async: false,
+                        },
+                    ),
+                    trust_level: Some(
+                        Checked,
+                    ),
+                },
+                FfiSymbol {
+                    name: "load",
+                    kind: Function(
+                        FfiSignature {
+                            params: [
+                                FfiParam {
+                                    name: "fp",
+                                    ty: Named {
+                                        module: "",
+                                        name: "SupportsRead",
+                                    },
+                                    has_default: false,
+                                },
+                                FfiParam {
+                                    name: "cls",
+                                    ty: Optional(
+                                        Named {
+                                            module: "",
+                                            name: "JSONDecoder",
+                                        },
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "object_hook",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "parse_float",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "parse_int",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "parse_constant",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                                FfiParam {
+                                    name: "object_pairs_hook",
+                                    ty: Optional(
+                                        Any,
+                                    ),
+                                    has_default: true,
+                                },
+                            ],
+                            return_ty: Any,
+                            is_async: false,
+                        },
+                    ),
+                    trust_level: Some(
+                        Checked,
+                    ),
+                },
             ],
         },
     },
+    python_api_index: Some(
+        PythonApiIndex {
+            modules: {
+                "json": PythonModuleInfo {
+                    name: "json",
+                    source: ResolvedTypeSource {
+                        module_name: "json",
+                        source_kind: Typeshed,
+                        paths: [],
+                        is_partial: false,
+                    },
+                    symbols: [
+                        PythonSymbolInfo {
+                            name: "dumps",
+                            kind: Function(
+                                PythonFunctionInfo {
+                                    signatures: [
+                                        FfiSignature {
+                                            params: [
+                                                FfiParam {
+                                                    name: "obj",
+                                                    ty: Any,
+                                                    has_default: false,
+                                                },
+                                                FfiParam {
+                                                    name: "skipkeys",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "ensure_ascii",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "check_circular",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "allow_nan",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "cls",
+                                                    ty: Optional(
+                                                        Named {
+                                                            module: "",
+                                                            name: "JSONEncoder",
+                                                        },
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "indent",
+                                                    ty: Union(
+                                                        [
+                                                            Optional(
+                                                                Int,
+                                                            ),
+                                                            Str,
+                                                        ],
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "separators",
+                                                    ty: Optional(
+                                                        Tuple(
+                                                            [
+                                                                Str,
+                                                                Str,
+                                                            ],
+                                                        ),
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "default",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "sort_keys",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                            ],
+                                            return_ty: Str,
+                                            is_async: false,
+                                        },
+                                    ],
+                                },
+                            ),
+                            doc: None,
+                            is_async: false,
+                            provenance: Typeshed,
+                        },
+                        PythonSymbolInfo {
+                            name: "dump",
+                            kind: Function(
+                                PythonFunctionInfo {
+                                    signatures: [
+                                        FfiSignature {
+                                            params: [
+                                                FfiParam {
+                                                    name: "obj",
+                                                    ty: Any,
+                                                    has_default: false,
+                                                },
+                                                FfiParam {
+                                                    name: "fp",
+                                                    ty: Named {
+                                                        module: "",
+                                                        name: "SupportsWrite",
+                                                    },
+                                                    has_default: false,
+                                                },
+                                                FfiParam {
+                                                    name: "skipkeys",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "ensure_ascii",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "check_circular",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "allow_nan",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "cls",
+                                                    ty: Optional(
+                                                        Named {
+                                                            module: "",
+                                                            name: "JSONEncoder",
+                                                        },
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "indent",
+                                                    ty: Union(
+                                                        [
+                                                            Optional(
+                                                                Int,
+                                                            ),
+                                                            Str,
+                                                        ],
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "separators",
+                                                    ty: Optional(
+                                                        Tuple(
+                                                            [
+                                                                Str,
+                                                                Str,
+                                                            ],
+                                                        ),
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "default",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "sort_keys",
+                                                    ty: Bool,
+                                                    has_default: true,
+                                                },
+                                            ],
+                                            return_ty: NoneType,
+                                            is_async: false,
+                                        },
+                                    ],
+                                },
+                            ),
+                            doc: None,
+                            is_async: false,
+                            provenance: Typeshed,
+                        },
+                        PythonSymbolInfo {
+                            name: "loads",
+                            kind: Function(
+                                PythonFunctionInfo {
+                                    signatures: [
+                                        FfiSignature {
+                                            params: [
+                                                FfiParam {
+                                                    name: "s",
+                                                    ty: Union(
+                                                        [
+                                                            Union(
+                                                                [
+                                                                    Str,
+                                                                    Bytes,
+                                                                ],
+                                                            ),
+                                                            Bytes,
+                                                        ],
+                                                    ),
+                                                    has_default: false,
+                                                },
+                                                FfiParam {
+                                                    name: "cls",
+                                                    ty: Optional(
+                                                        Named {
+                                                            module: "",
+                                                            name: "JSONDecoder",
+                                                        },
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "object_hook",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "parse_float",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "parse_int",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "parse_constant",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "object_pairs_hook",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                            ],
+                                            return_ty: Any,
+                                            is_async: false,
+                                        },
+                                    ],
+                                },
+                            ),
+                            doc: None,
+                            is_async: false,
+                            provenance: Typeshed,
+                        },
+                        PythonSymbolInfo {
+                            name: "load",
+                            kind: Function(
+                                PythonFunctionInfo {
+                                    signatures: [
+                                        FfiSignature {
+                                            params: [
+                                                FfiParam {
+                                                    name: "fp",
+                                                    ty: Named {
+                                                        module: "",
+                                                        name: "SupportsRead",
+                                                    },
+                                                    has_default: false,
+                                                },
+                                                FfiParam {
+                                                    name: "cls",
+                                                    ty: Optional(
+                                                        Named {
+                                                            module: "",
+                                                            name: "JSONDecoder",
+                                                        },
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "object_hook",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "parse_float",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "parse_int",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "parse_constant",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                                FfiParam {
+                                                    name: "object_pairs_hook",
+                                                    ty: Optional(
+                                                        Any,
+                                                    ),
+                                                    has_default: true,
+                                                },
+                                            ],
+                                            return_ty: Any,
+                                            is_async: false,
+                                        },
+                                    ],
+                                },
+                            ),
+                            doc: None,
+                            is_async: false,
+                            provenance: Typeshed,
+                        },
+                    ],
+                    submodules: [],
+                },
+            },
+        },
+    ),
     span: Span {
         file_id: FileId(
             0,

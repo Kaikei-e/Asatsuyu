@@ -14,7 +14,10 @@ asatsuyu-syntax = { workspace = true }
 asatsuyu-ast = { workspace = true }
 la-arena = { workspace = true }
 smol_str = { workspace = true }
+libcst = { workspace = true }
+include_dir = { workspace = true }
 
 [dev-dependencies]
 asatsuyu-parser = { workspace = true }
 insta = { workspace = true }
+tempfile = { workspace = true }

@@ -227,7 +227,7 @@ pub fn run() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
         Commands::Check { paths, watch, output, ffi, python } => {
-            let ffi_config = match build_ffi_config(&ffi) {
+            let ffi_config = match build_ffi_config(&ffi, &python) {
                 Ok(config) => config,
                 Err(err) => {
                     eprintln!("error: {err}");
@@ -267,7 +267,7 @@ pub fn run() -> ExitCode {
             ffi,
             python,
         } => {
-            let ffi_config = match build_ffi_config(&ffi) {
+            let ffi_config = match build_ffi_config(&ffi, &python) {
                 Ok(config) => config,
                 Err(err) => {
                     eprintln!("error: {err}");
@@ -299,7 +299,7 @@ pub fn run() -> ExitCode {
             )
         }
         Commands::Run { path, source_map, ffi_runtime, output, ffi, python } => {
-            let ffi_config = match build_ffi_config(&ffi) {
+            let ffi_config = match build_ffi_config(&ffi, &python) {
                 Ok(config) => config,
                 Err(err) => {
                     eprintln!("error: {err}");
@@ -360,7 +360,7 @@ pub fn run() -> ExitCode {
 
 // ── FFI config helpers ────────────────────────────────────────────
 
-fn build_ffi_config(ffi: &FfiArgs) -> Result<FfiResolverConfig, CliError> {
+fn build_ffi_config(ffi: &FfiArgs, python: &PythonArgs) -> Result<FfiResolverConfig, CliError> {
     for path in &ffi.ffi_stub_path {
         if !path.exists() {
             return Err(CliError::InvalidFfiStubPath {
@@ -379,6 +379,8 @@ fn build_ffi_config(ffi: &FfiArgs) -> Result<FfiResolverConfig, CliError> {
     Ok(FfiResolverConfig {
         stdlib_only: ffi.ffi_stdlib_only,
         stub_paths: ffi.ffi_stub_path.clone(),
+        typeshed_path: None,
+        python_path: python.python_path.clone(),
     })
 }
 

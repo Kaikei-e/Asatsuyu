@@ -24,7 +24,7 @@ const SMALL_FILE_BUDGET: Duration = Duration::from_millis(500);
 const MEDIUM_FILE_BUDGET: Duration = Duration::from_millis(2000);
 
 fn ffi_config() -> FfiResolverConfig {
-    FfiResolverConfig { stdlib_only: false, stub_paths: vec![] }
+    FfiResolverConfig::default()
 }
 
 fn fixture_path(project: &str) -> String {

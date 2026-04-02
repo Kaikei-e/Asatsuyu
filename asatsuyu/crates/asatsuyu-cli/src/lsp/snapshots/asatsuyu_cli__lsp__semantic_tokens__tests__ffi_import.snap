@@ -2,11 +2,11 @@
 source: crates/asatsuyu-cli/src/lsp/semantic_tokens.rs
 expression: decoded
 ---
-L1:20  len=7   "pathlib"               namespace.declaration.ffi.verified
+L1:20  len=7   "pathlib"               namespace.declaration.ffi.checked
 L2:20  len=4   "json"                  namespace.declaration.ffi.checked
 L4:8   len=4   "main"                   function.declaration
 L5:7   len=1   "p"                      variable.declaration.readonly
-L5:11  len=7   "pathlib"               namespace.ffi.verified
+L5:11  len=7   "pathlib"               namespace.ffi.checked
 L5:19  len=4   "Path"                   property
 L6:7   len=4   "data"                   variable.declaration.readonly
 L6:14  len=4   "json"                  namespace.ffi.checked

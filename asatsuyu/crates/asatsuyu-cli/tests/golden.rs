@@ -20,7 +20,7 @@ use asatsuyu_syntax::{Diagnostic, FileId, LabelStyle, Severity};
 const FID: FileId = FileId(0);
 
 fn ffi_config() -> FfiResolverConfig {
-    FfiResolverConfig { stdlib_only: false, stub_paths: vec![] }
+    FfiResolverConfig::default()
 }
 
 // ── Pipeline output ────────────────────────────────────────────────

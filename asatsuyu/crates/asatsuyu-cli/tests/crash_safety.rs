@@ -25,7 +25,7 @@ const MALFORMED_CORPUS_CASES: &[&str] = &[
 ];
 
 fn ffi_config() -> FfiResolverConfig {
-    FfiResolverConfig { stdlib_only: false, stub_paths: vec![] }
+    FfiResolverConfig::default()
 }
 
 /// Run the full pipeline with early-exit on errors (matches real CLI behavior).

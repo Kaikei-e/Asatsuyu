@@ -10,10 +10,14 @@ from . import _asatsuyu_runtime
 if not _asatsuyu_runtime.ffi_available():
     raise AsatsuyuError("_asatsuyu_runtime is not available for Checked FFI")
 _checked_runtime_json = _asatsuyu_runtime.import_module("json")
-if not hasattr(_checked_runtime_json, 'loads'):
-    raise AsatsuyuError("json.loads: symbol not available at runtime (stub/runtime mismatch)")
 if not hasattr(_checked_runtime_json, 'dumps'):
     raise AsatsuyuError("json.dumps: symbol not available at runtime (stub/runtime mismatch)")
+if not hasattr(_checked_runtime_json, 'dump'):
+    raise AsatsuyuError("json.dump: symbol not available at runtime (stub/runtime mismatch)")
+if not hasattr(_checked_runtime_json, 'loads'):
+    raise AsatsuyuError("json.loads: symbol not available at runtime (stub/runtime mismatch)")
+if not hasattr(_checked_runtime_json, 'load'):
+    raise AsatsuyuError("json.load: symbol not available at runtime (stub/runtime mismatch)")
 
 
 def f(data: str) -> int:

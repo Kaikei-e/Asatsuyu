@@ -11,11 +11,20 @@
 
 pub mod admissibility;
 pub mod builtins;
+pub mod cache;
+pub mod index;
 pub mod model;
 pub mod resolver;
+pub mod source;
+pub mod stub_parser;
 
+pub use index::{
+    PythonApiIndex, PythonClassInfo, PythonFunctionInfo, PythonMethodInfo, PythonModuleInfo,
+    PythonSymbolInfo, PythonSymbolKind,
+};
 pub use model::{
     AdmissibilityReason, AdmissibilityReport, FfiClass, FfiModule, FfiParam, FfiSignature,
     FfiSource, FfiSymbol, FfiSymbolKind, FfiTrustLevel, FfiType, SymbolAdmissibility,
 };
 pub use resolver::{BuiltinResolver, ChainResolver, FfiModuleResolver, FfiResolverConfig};
+pub use source::{ResolvedTypeSource, TypeSourceKind, TypeSourceResolver};

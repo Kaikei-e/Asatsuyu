@@ -286,6 +286,7 @@ ThirModule {
         },
     },
     ffi_modules: {},
+    python_api_index: None,
     span: Span {
         file_id: FileId(
             0,
