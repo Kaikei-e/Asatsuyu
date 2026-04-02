@@ -177,6 +177,7 @@ mod tests {
                     .map(|ty| FfiParam { name: SmolStr::from("x"), ty, has_default: false })
                     .collect(),
                 return_ty: ret,
+                is_async: false,
             }),
             trust_level: None,
         }
@@ -214,7 +215,7 @@ mod tests {
             constructor: None,
             methods: vec![(
                 SmolStr::from("bar"),
-                FfiSignature { params: vec![], return_ty: FfiType::Any },
+                FfiSignature { params: vec![], return_ty: FfiType::Any, is_async: false },
             )],
             properties: vec![],
         };
@@ -246,6 +247,7 @@ mod tests {
                     module: SmolStr::from("test"),
                     name: SmolStr::from("Foo"),
                 },
+                is_async: false,
             }),
             methods: vec![],
             properties: vec![],

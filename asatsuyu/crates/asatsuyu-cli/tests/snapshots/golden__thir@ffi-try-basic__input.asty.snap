@@ -729,6 +729,7 @@ ThirModule {
                                         module: "pathlib",
                                         name: "Path",
                                     },
+                                    is_async: false,
                                 },
                             ),
                             methods: [
@@ -745,6 +746,7 @@ ThirModule {
                                             },
                                         ],
                                         return_ty: Str,
+                                        is_async: false,
                                     },
                                 ),
                                 (
@@ -765,6 +767,7 @@ ThirModule {
                                             },
                                         ],
                                         return_ty: Int,
+                                        is_async: false,
                                     },
                                 ),
                                 (
@@ -772,6 +775,7 @@ ThirModule {
                                     FfiSignature {
                                         params: [],
                                         return_ty: Bool,
+                                        is_async: false,
                                     },
                                 ),
                                 (
@@ -779,6 +783,7 @@ ThirModule {
                                     FfiSignature {
                                         params: [],
                                         return_ty: Bool,
+                                        is_async: false,
                                     },
                                 ),
                                 (
@@ -786,6 +791,7 @@ ThirModule {
                                     FfiSignature {
                                         params: [],
                                         return_ty: Bool,
+                                        is_async: false,
                                     },
                                 ),
                                 (
@@ -802,6 +808,7 @@ ThirModule {
                                             module: "pathlib",
                                             name: "Path",
                                         },
+                                        is_async: false,
                                     },
                                 ),
                                 (
@@ -825,6 +832,7 @@ ThirModule {
                                             },
                                         ],
                                         return_ty: NoneType,
+                                        is_async: false,
                                     },
                                 ),
                             ],

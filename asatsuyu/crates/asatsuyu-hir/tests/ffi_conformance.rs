@@ -274,5 +274,6 @@ fn all_known_modules_resolve() {
     assert!(names.contains(&"os"), "os missing");
     assert!(names.contains(&"sys"), "sys missing");
     assert!(names.contains(&"requests"), "requests missing");
-    assert_eq!(modules.len(), 5, "expected 5 known modules");
+    assert!(names.contains(&"asyncio"), "asyncio missing");
+    assert_eq!(modules.len(), 6, "expected 6 known modules");
 }

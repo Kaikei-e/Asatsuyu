@@ -1538,6 +1538,44 @@ pub fn f() -> Result(Bool, PyExc) {
         );
     }
 
+    // ── Issue 99: async FFI typing ──────────────────────────────────
+
+    #[test]
+    fn async_ffi_sleep_returns_task_none() {
+        let result = thir_from_source(
+            "from python import asyncio\nasync fn f() { await asyncio.sleep(1.0) }",
+        );
+        assert!(
+            !result.has_errors(),
+            "await asyncio.sleep() should type-check in async fn: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn async_ffi_without_await_is_task() {
+        let result = thir_from_source(
+            "from python import asyncio\nfn f() -> Task(None) { asyncio.sleep(1.0) }",
+        );
+        assert!(
+            !result.has_errors(),
+            "asyncio.sleep() without await should return Task(None): {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn sync_ffi_pathlib_unchanged() {
+        let result = thir_from_source(
+            "from python import pathlib\nfn f() -> String { pathlib.Path(\".\").name }",
+        );
+        assert!(
+            !result.has_errors(),
+            "sync FFI pathlib should still work: {:?}",
+            result.diagnostics,
+        );
+    }
+
     // ── FFI: Issue 44 — ffi_modules in THIR ───────────────────────
 
     #[test]

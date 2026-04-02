@@ -28,7 +28,7 @@ pub struct FfiResolverConfig {
 }
 
 /// Standard library modules that are always allowed when `stdlib_only` is set.
-const STDLIB_MODULES: &[&str] = &["pathlib", "json", "os", "sys"];
+const STDLIB_MODULES: &[&str] = &["pathlib", "json", "os", "sys", "asyncio"];
 
 /// Trait for resolving Python module type information.
 ///
@@ -52,7 +52,7 @@ pub struct ChainResolver {
 }
 
 /// Known module names for the builtin resolver.
-const KNOWN_MODULES: &[&str] = &["pathlib", "json", "os", "sys", "requests"];
+const KNOWN_MODULES: &[&str] = &["pathlib", "json", "os", "sys", "requests", "asyncio"];
 
 impl ChainResolver {
     /// Create a new `ChainResolver` with the default MVP configuration.
@@ -118,6 +118,7 @@ impl FfiModuleResolver for BuiltinResolver {
             "os" => Some(builtins::os_module()),
             "sys" => Some(builtins::sys_module()),
             "requests" => Some(builtins::requests_module()),
+            "asyncio" => Some(builtins::asyncio_module()),
             _ => None,
         }
     }
@@ -228,7 +229,8 @@ mod tests {
         assert!(names.contains(&"os"), "should contain os: {names:?}");
         assert!(names.contains(&"sys"), "should contain sys: {names:?}");
         assert!(names.contains(&"requests"), "should contain requests: {names:?}");
-        assert_eq!(modules.len(), 5);
+        assert!(names.contains(&"asyncio"), "should contain asyncio: {names:?}");
+        assert_eq!(modules.len(), 6);
     }
 
     // ── FfiResolverConfig tests ───────────────────────────────────

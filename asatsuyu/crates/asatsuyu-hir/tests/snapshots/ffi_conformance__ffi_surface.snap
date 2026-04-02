@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-hir/tests/ffi_conformance.rs
-assertion_line: 82
 expression: formatted
 ---
 module: pathlib
@@ -65,3 +64,10 @@ symbols (5):
     prop url: Str
     prop content: Bytes
     prop encoding: Optional(Str)
+---
+module: asyncio
+source: Builtin
+trust:  Checked
+symbols (2):
+  fn sleep(delay: Float) -> NoneType  [Verified]
+  fn run(main: Any) -> Any  [Checked]

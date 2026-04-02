@@ -25,7 +25,11 @@ fn param_with_default(name: &str, ty: FfiType) -> FfiParam {
 }
 
 fn sig(params: Vec<FfiParam>, return_ty: FfiType) -> FfiSignature {
-    FfiSignature { params, return_ty }
+    FfiSignature { params, return_ty, is_async: false }
+}
+
+fn async_sig(params: Vec<FfiParam>, return_ty: FfiType) -> FfiSignature {
+    FfiSignature { params, return_ty, is_async: true }
 }
 
 fn func(name: &str, signature: FfiSignature) -> FfiSymbol {
@@ -231,6 +235,25 @@ pub fn requests_module() -> FfiModule {
     }
 }
 
+// ── asyncio ──────────────────────────────────────────────────────
+
+/// Minimal surface for `asyncio` (Verified FFI).
+///
+/// Exposes `sleep` as the primary async function for MVP testing.
+/// `run` is synchronous (it blocks until the coroutine completes).
+#[must_use]
+pub fn asyncio_module() -> FfiModule {
+    FfiModule {
+        name: SmolStr::from("asyncio"),
+        source: FfiSource::Builtin,
+        trust_level: FfiTrustLevel::Verified,
+        symbols: vec![
+            func("sleep", async_sig(vec![param("delay", FfiType::Float)], FfiType::NoneType)),
+            func("run", sig(vec![param("main", FfiType::Any)], FfiType::Any)),
+        ],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -311,6 +334,39 @@ mod tests {
                 assert!(prop_names.contains(&"ok"));
             }
             other => panic!("expected Class, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn asyncio_has_sleep_and_run() {
+        let module = asyncio_module();
+        let names: Vec<&str> = module.symbols.iter().map(|s| s.name.as_str()).collect();
+        assert!(names.contains(&"sleep"));
+        assert!(names.contains(&"run"));
+    }
+
+    #[test]
+    fn asyncio_sleep_is_async() {
+        let module = asyncio_module();
+        let sleep = module.symbols.iter().find(|s| s.name == "sleep").unwrap();
+        match &sleep.kind {
+            FfiSymbolKind::Function(sig) => {
+                assert!(sig.is_async, "asyncio.sleep should be async");
+                assert_eq!(sig.return_ty, FfiType::NoneType);
+            }
+            other => panic!("expected Function, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn asyncio_run_is_sync() {
+        let module = asyncio_module();
+        let run = module.symbols.iter().find(|s| s.name == "run").unwrap();
+        match &run.kind {
+            FfiSymbolKind::Function(sig) => {
+                assert!(!sig.is_async, "asyncio.run should be sync");
+            }
+            other => panic!("expected Function, got {other:?}"),
         }
     }
 }

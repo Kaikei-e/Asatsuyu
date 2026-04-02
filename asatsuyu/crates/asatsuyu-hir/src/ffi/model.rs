@@ -89,6 +89,9 @@ pub enum FfiSymbolKind {
 pub struct FfiSignature {
     pub params: Vec<FfiParam>,
     pub return_ty: FfiType,
+    /// Whether this function is `async def` in Python.
+    /// Async signatures produce `Task(return_ty)` in the Asatsuyu type system.
+    pub is_async: bool,
 }
 
 /// A parameter in an FFI signature.

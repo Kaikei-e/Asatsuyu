@@ -216,6 +216,7 @@ ThirModule {
                                 },
                             ],
                             return_ty: Any,
+                            is_async: false,
                         },
                     ),
                     trust_level: Some(
@@ -241,6 +242,7 @@ ThirModule {
                                 },
                             ],
                             return_ty: Str,
+                            is_async: false,
                         },
                     ),
                     trust_level: Some(

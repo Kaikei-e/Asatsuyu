@@ -1936,9 +1936,13 @@ impl TyCheckCtx {
     }
 
     /// Convert an [`FfiSignature`] to a `Ty::Function`.
+    ///
+    /// Async FFI signatures (`is_async: true`) produce `Task(return_ty)`.
     fn ffi_signature_to_ty(&self, sig: &FfiSignature) -> Ty {
         let params: Vec<Ty> = sig.params.iter().map(|p| self.ffi_type_to_ty(&p.ty)).collect();
-        let ret = Box::new(self.ffi_type_to_ty(&sig.return_ty));
+        let inner_ret = self.ffi_type_to_ty(&sig.return_ty);
+        let ret =
+            if sig.is_async { Box::new(self.make_task_ty(inner_ret)) } else { Box::new(inner_ret) };
         Ty::Function { params, ret }
     }
 

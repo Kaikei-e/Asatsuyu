@@ -394,7 +394,7 @@ fn verify_ffi_trust_summary_gate() {
     // Gate: exact trust summary line. If module counts change, this test
     // fails and forces review of the FFI surface change.
     assert!(
-        stdout.contains("Summary: 3 Verified, 2 Checked, 0 Unsafe"),
+        stdout.contains("Summary: 3 Verified, 3 Checked, 0 Unsafe"),
         "trust summary changed — review FFI surface:\n{stdout}",
     );
 
@@ -404,8 +404,8 @@ fn verify_ffi_trust_summary_gate() {
         assert!(stdout.contains(&pattern), "{module} should be Verified:\n{stdout}",);
     }
 
-    // Gate: json and requests must appear as Checked.
-    for module in &["json", "requests"] {
+    // Gate: json, requests, and asyncio must appear as Checked.
+    for module in &["json", "requests", "asyncio"] {
         let pattern = format!("{module} (Builtin) ... Checked");
         assert!(stdout.contains(&pattern), "{module} should be Checked:\n{stdout}",);
     }
