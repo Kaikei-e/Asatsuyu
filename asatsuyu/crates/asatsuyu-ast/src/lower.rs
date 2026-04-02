@@ -217,6 +217,8 @@ impl LowerCtx {
             Visibility::Private
         };
 
+        let is_async = first_token_of_kind(node, SyntaxKind::AsyncKw).is_some();
+
         // Function name: first Ident token that is a direct child of FnDef.
         let name_token = first_token_of_kind(node, SyntaxKind::Ident)?;
         let name = Ident {
@@ -242,6 +244,7 @@ impl LowerCtx {
         Some(FnDef {
             name,
             visibility,
+            is_async,
             params,
             return_type,
             body,
@@ -560,6 +563,7 @@ impl LowerCtx {
             SyntaxKind::LambdaExpr => self.lower_lambda_expr(node),
             SyntaxKind::FieldAccessExpr => self.lower_field_access_expr(node),
             SyntaxKind::TryExpr => self.lower_try_expr(node),
+            SyntaxKind::AwaitExpr => self.lower_await_expr(node),
             SyntaxKind::ListExpr => Some(self.lower_list_expr(node)),
             SyntaxKind::ParenExpr => self.lower_paren_expr(node),
             SyntaxKind::NodeError => {
@@ -688,6 +692,14 @@ impl LowerCtx {
         debug_assert_eq!(node.kind(), SyntaxKind::TryExpr);
         let inner = node.children().find_map(|c| self.lower_expr(&c))?;
         Some(Expr::Try { expr: Box::new(inner), span: span_of(node, self.file_id) })
+    }
+
+    // ── AwaitExpr ───────────────────────────────────────────────────
+
+    fn lower_await_expr(&mut self, node: &SyntaxNode) -> Option<Expr> {
+        debug_assert_eq!(node.kind(), SyntaxKind::AwaitExpr);
+        let inner = node.children().find_map(|c| self.lower_expr(&c))?;
+        Some(Expr::Await { expr: Box::new(inner), span: span_of(node, self.file_id) })
     }
 
     // ── BinaryExpr ──────────────────────────────────────────────────

@@ -42,6 +42,7 @@ Module {
                     },
                 },
                 visibility: Public,
+                is_async: false,
                 params: [],
                 return_type: None,
                 body: Block {

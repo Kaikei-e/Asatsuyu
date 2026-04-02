@@ -184,6 +184,8 @@ pub struct HirFieldType {
 pub struct HirFnDef {
     pub def_id: DefId,
     pub visibility: Visibility,
+    /// Whether this function was declared with `async`.
+    pub is_async: bool,
     pub params: Vec<HirParam>,
     /// Return type annotation. `None` when omitted.
     pub return_type: Option<HirTypeExpr>,
@@ -297,6 +299,8 @@ pub enum HirExpr {
     FieldAccess { receiver: Box<HirExpr>, field: SmolStr, span: Span },
     /// A try expression: `try expr`. Wraps FFI calls in exception handling.
     Try { expr: Box<HirExpr>, span: Span },
+    /// An await expression: `await expr`. Awaits an async value.
+    Await { expr: Box<HirExpr>, span: Span },
     /// A list literal: `[1, 2, 3]`.
     List { elements: Vec<HirExpr>, span: Span },
 }
@@ -319,6 +323,7 @@ impl HirExpr {
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
             | Self::Try { span, .. }
+            | Self::Await { span, .. }
             | Self::List { span, .. } => *span,
         }
     }

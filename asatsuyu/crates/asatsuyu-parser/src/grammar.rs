@@ -30,11 +30,11 @@ pub(crate) fn parse_source_file(p: &mut Parser<'_>) {
 /// Dispatch a top-level item.
 fn parse_top_level(p: &mut Parser<'_>) {
     match p.current() {
-        SyntaxKind::FnKw => parse_fn_def(p),
+        SyntaxKind::FnKw | SyntaxKind::AsyncKw => parse_fn_def(p),
         SyntaxKind::TypeKw => parse_type_def(p),
         SyntaxKind::PubKw => match p.nth(1) {
             SyntaxKind::TypeKw => parse_type_def(p),
-            _ => parse_fn_def(p),
+            _ => parse_fn_def(p), // handles `pub fn`, `pub async fn`
         },
         SyntaxKind::ImportKw => parse_import(p),
         SyntaxKind::FromKw => parse_from_python_import(p),
@@ -46,7 +46,7 @@ fn parse_top_level(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// FnDef = Visibility? 'fn' IDENT ParamList ReturnType? BlockExpr
+/// FnDef = Visibility? 'async'? 'fn' IDENT ParamList ReturnType? BlockExpr
 /// ```
 fn parse_fn_def(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::FnDef);
@@ -54,6 +54,11 @@ fn parse_fn_def(p: &mut Parser<'_>) {
     // Optional visibility: `pub`
     if p.at(SyntaxKind::PubKw) {
         parse_visibility(p);
+    }
+
+    // Optional `async` modifier
+    if p.at(SyntaxKind::AsyncKw) {
+        p.bump();
     }
 
     // `fn` keyword
@@ -670,6 +675,14 @@ fn parse_expr_bp(p: &mut Parser<'_>, min_bp: u8) {
         SyntaxKind::TryKw => {
             p.start_node(SyntaxKind::TryExpr);
             p.bump(); // consume `try`
+            parse_expr_bp(p, 1); // low bp: captures entire RHS
+            p.finish_node();
+        }
+
+        // Await expression: `await expr` — awaits an async value
+        SyntaxKind::AwaitKw => {
+            p.start_node(SyntaxKind::AwaitExpr);
+            p.bump(); // consume `await`
             parse_expr_bp(p, 1); // low bp: captures entire RHS
             p.finish_node();
         }

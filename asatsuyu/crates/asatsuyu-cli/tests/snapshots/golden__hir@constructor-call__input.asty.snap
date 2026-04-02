@@ -9,6 +9,7 @@ HirModule {
         HirFnDef {
             def_id: Idx::<DefData>(6),
             visibility: Public,
+            is_async: false,
             params: [
                 HirParam {
                     def_id: Idx::<DefData>(7),

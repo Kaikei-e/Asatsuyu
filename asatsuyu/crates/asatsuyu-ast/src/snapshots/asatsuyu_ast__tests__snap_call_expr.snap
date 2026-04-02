@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 403
 expression: "snapshot(\"fn f() -> Int {\\n  g(1, 2)\\n}\")"
 ---
 Module {
@@ -19,6 +18,7 @@ Module {
                     },
                 },
                 visibility: Private,
+                is_async: false,
                 params: [],
                 return_type: Some(
                     Named {

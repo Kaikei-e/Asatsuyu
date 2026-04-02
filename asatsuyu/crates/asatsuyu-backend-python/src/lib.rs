@@ -310,6 +310,16 @@ mod tests {
         assert!(py.contains("print(greet(\"world\"))"), "println call: {py}");
     }
 
+    #[test]
+    fn emit_async_def_and_await() {
+        let source = "\
+fn inner() -> Int { 1 }
+pub async fn fetch() -> Int { await inner() }";
+        let py = python_from_source(source);
+        assert!(py.contains("async def fetch() -> int:"), "should emit async def: {py}");
+        assert!(py.contains("return await inner()"), "should emit await expression in Python: {py}");
+    }
+
     // ── 4. String literal ───────────────────────────────────────────
 
     #[test]
@@ -1127,8 +1137,14 @@ pub fn accumulate() -> Int {
         let source = "pub fn f() { let mut x = 0\n x = 1 }";
         let py = python_from_source(source);
         assert!(py.contains("x = 1"), "should emit trailing assignment as a statement: {py}");
-        assert!(py.contains("return None"), "statement-typed trailing assign should return None: {py}");
-        assert!(!py.contains("return x = 1"), "must not emit invalid Python assignment in return position: {py}");
+        assert!(
+            py.contains("return None"),
+            "statement-typed trailing assign should return None: {py}"
+        );
+        assert!(
+            !py.contains("return x = 1"),
+            "must not emit invalid Python assignment in return position: {py}"
+        );
     }
 
     #[test]
@@ -1136,8 +1152,14 @@ pub fn accumulate() -> Int {
         let source = "pub fn f() { let x = 1 }";
         let py = python_from_source(source);
         assert!(py.contains("x = 1"), "should emit trailing let as a statement: {py}");
-        assert!(py.contains("return None"), "statement-typed trailing let should return None: {py}");
-        assert!(!py.contains("return x = 1"), "must not emit invalid Python assignment in return position: {py}");
+        assert!(
+            py.contains("return None"),
+            "statement-typed trailing let should return None: {py}"
+        );
+        assert!(
+            !py.contains("return x = 1"),
+            "must not emit invalid Python assignment in return position: {py}"
+        );
     }
 
     #[test]
@@ -1154,7 +1176,10 @@ pub fn refresh(url: String) -> String {
             py.contains("_asatsuyu_runtime.call_function(_checked_runtime_requests, \"get\", url)"),
             "should route reassignment through checked runtime calls: {py}"
         );
-        assert!(py.contains("response = _checked_"), "should assign validated checked value back to response: {py}");
+        assert!(
+            py.contains("response = _checked_"),
+            "should assign validated checked value back to response: {py}"
+        );
         assert!(py.contains("try:"), "checked reassignment should stay in try/except form: {py}");
     }
 
@@ -1169,8 +1194,14 @@ pub fn accumulate() -> Int {
 }";
         let py = python_from_source(source);
         assert!(py.contains("total = 0"), "should seed the accumulator variable: {py}");
-        assert!(py.contains("for _fold_item_"), "list.fold reassignment should lower to a for loop: {py}");
-        assert!(py.contains("total = add(total, _fold_item_"), "loop body should reassign the target variable: {py}");
+        assert!(
+            py.contains("for _fold_item_"),
+            "list.fold reassignment should lower to a for loop: {py}"
+        );
+        assert!(
+            py.contains("total = add(total, _fold_item_"),
+            "loop body should reassign the target variable: {py}"
+        );
     }
 
     // ── Issue 50: golden emission tests (auto-discovered) ─────────

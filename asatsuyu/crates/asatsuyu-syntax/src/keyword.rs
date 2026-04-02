@@ -67,9 +67,9 @@ pub const KEYWORDS: &[KeywordSpec] = &[
     // Contextual keywords (2)
     KeywordSpec { text: "python", kind: SyntaxKind::PythonKw, class: KeywordClass::Contextual },
     KeywordSpec { text: "as", kind: SyntaxKind::AsKw, class: KeywordClass::Contextual },
-    // Reserved keywords (2)
-    KeywordSpec { text: "async", kind: SyntaxKind::AsyncKw, class: KeywordClass::Reserved },
-    KeywordSpec { text: "await", kind: SyntaxKind::AwaitKw, class: KeywordClass::Reserved },
+    // Async keywords (2) — promoted from Reserved in Phase 3-2
+    KeywordSpec { text: "async", kind: SyntaxKind::AsyncKw, class: KeywordClass::Hard },
+    KeywordSpec { text: "await", kind: SyntaxKind::AwaitKw, class: KeywordClass::Hard },
 ];
 
 /// Look up the [`SyntaxKind`] for a keyword source text, or `None` if the text
@@ -171,9 +171,9 @@ mod tests {
     }
 
     #[test]
-    fn class_of_reserved_keywords() {
-        assert_eq!(class_of(SyntaxKind::AsyncKw), Some(KeywordClass::Reserved));
-        assert_eq!(class_of(SyntaxKind::AwaitKw), Some(KeywordClass::Reserved));
+    fn async_await_are_hard_keywords() {
+        assert_eq!(class_of(SyntaxKind::AsyncKw), Some(KeywordClass::Hard));
+        assert_eq!(class_of(SyntaxKind::AwaitKw), Some(KeywordClass::Hard));
     }
 
     #[test]

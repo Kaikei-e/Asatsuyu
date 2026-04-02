@@ -539,6 +539,7 @@ impl TyCheckCtx {
         ThirFnDef {
             def_id: fn_def.def_id,
             visibility: fn_def.visibility,
+            is_async: fn_def.is_async,
             params,
             return_ty,
             body,
@@ -643,6 +644,14 @@ impl TyCheckCtx {
                 ThirExpr::Try { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
             }
 
+            HirExpr::Await { expr, span } => {
+                let checked_inner = self.check_expr(expr);
+                // Stub: await's type = inner expression's type.
+                // Proper Task(T) → T unwrapping is Issue 97.
+                let inner_ty = self.infer.resolve(checked_inner.ty());
+                ThirExpr::Await { expr: Box::new(checked_inner), ty: inner_ty, span: *span }
+            }
+
             HirExpr::List { elements, span } => self.check_list_expr(elements, *span),
         }
     }
@@ -745,7 +754,7 @@ impl TyCheckCtx {
             ThirExpr::Lambda { body, .. } => {
                 self.validate_try_positions(body, TryPosition::Other);
             }
-            ThirExpr::Assign { value, .. } => {
+            ThirExpr::Assign { value, .. } | ThirExpr::Await { expr: value, .. } => {
                 self.validate_try_positions(value, TryPosition::Other);
             }
             ThirExpr::Literal(_) | ThirExpr::Var { .. } => {}

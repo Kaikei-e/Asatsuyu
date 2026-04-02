@@ -338,6 +338,25 @@ mod tests {
         assert!(binding.is_mutable, "symbol table should record mutable binding");
     }
 
+    #[test]
+    fn hir_propagates_async_fn_and_await() {
+        let result = hir_from_source("fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let func = &result.module.functions[1];
+        assert!(func.is_async, "HIR function should preserve async marker");
+
+        match &func.body {
+            HirExpr::Block { exprs, .. } => match &exprs[0] {
+                HirExpr::Await { expr, .. } => {
+                    assert!(matches!(expr.as_ref(), HirExpr::Call { .. }), "await should wrap call in HIR");
+                }
+                other => panic!("expected Await, got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
     // ── 14. DefId uniqueness ────────────────────────────────────────
 
     #[test]

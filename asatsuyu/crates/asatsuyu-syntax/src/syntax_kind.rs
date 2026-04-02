@@ -28,9 +28,9 @@ pub enum SyntaxKind {
     TryKw,
     /// Mutable binding modifier (Phase 3-1: scoped mutability).
     MutKw,
-    /// Reserved for future use (Phase 3-2: async functions).
+    /// Keyword: `async` (async function modifier).
     AsyncKw,
-    /// Reserved for future use (Phase 3-2: await expressions).
+    /// Keyword: `await` (await expression prefix).
     AwaitKw,
 
     // === Tokens: Literals ===
@@ -171,6 +171,8 @@ pub enum SyntaxKind {
     ParenExpr,
     /// Try expression: `try expr`
     TryExpr,
+    /// Await expression: `await expr`
+    AwaitExpr,
 
     // === Nodes: Patterns ===
     /// Wildcard pattern: `_`
@@ -417,10 +419,10 @@ mod tests {
         assert!(SyntaxKind::AsKw.is_contextual_keyword());
         assert!(!SyntaxKind::FnKw.is_contextual_keyword());
 
-        // Reserved
+        // Reserved (none remaining — async/await promoted to Hard in Phase 3-2)
         assert!(!SyntaxKind::MutKw.is_reserved_keyword());
-        assert!(SyntaxKind::AsyncKw.is_reserved_keyword());
-        assert!(SyntaxKind::AwaitKw.is_reserved_keyword());
+        assert!(!SyntaxKind::AsyncKw.is_reserved_keyword());
+        assert!(!SyntaxKind::AwaitKw.is_reserved_keyword());
         assert!(!SyntaxKind::FnKw.is_reserved_keyword());
 
         // Non-keywords

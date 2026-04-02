@@ -117,11 +117,13 @@ pub enum Definition {
 
 // ── Function definition ─────────────────────────────────────────────
 
-/// A function definition: `pub fn name(params) -> ReturnType { body }`.
+/// A function definition: `pub async fn name(params) -> ReturnType { body }`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnDef {
     pub name: Ident,
     pub visibility: Visibility,
+    /// Whether this function was declared with `async`.
+    pub is_async: bool,
     pub params: Vec<Param>,
     /// Return type annotation. `None` when omitted.
     pub return_type: Option<TypeExpr>,
@@ -293,6 +295,8 @@ pub enum Expr {
     FieldAccess { receiver: Box<Expr>, field: Ident, span: Span },
     /// A try expression: `try expr`. Captures Python exceptions as Result errors.
     Try { expr: Box<Expr>, span: Span },
+    /// An await expression: `await expr`. Awaits an async value.
+    Await { expr: Box<Expr>, span: Span },
     /// A list literal: `[1, 2, 3]`.
     List { elements: Vec<Expr>, span: Span },
 }
@@ -316,6 +320,7 @@ impl Expr {
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
             | Self::Try { span, .. }
+            | Self::Await { span, .. }
             | Self::List { span, .. } => *span,
         }
     }

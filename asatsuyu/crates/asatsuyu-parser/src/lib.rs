@@ -1453,6 +1453,33 @@ _ -> 0 } }"#;
         assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
     }
 
+    #[test]
+    fn parse_async_fn_simple() {
+        let source = "pub async fn fetch() { 42 }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("FnDef"), "tree should contain FnDef:\n{tree}");
+        assert!(tree.contains("AsyncKw"), "tree should contain AsyncKw:\n{tree}");
+    }
+
+    #[test]
+    fn parse_await_simple_call() {
+        let source = "fn f() { await fetch() }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("AwaitExpr"), "tree should contain AwaitExpr:\n{tree}");
+        assert!(tree.contains("CallExpr"), "await should capture the call expression:\n{tree}");
+    }
+
+    #[test]
+    fn parse_await_lossless() {
+        let source = "fn f() { await client.fetch() }";
+        let result = parse(FID, source);
+        assert_eq!(result.syntax().to_string(), source, "lossless roundtrip");
+    }
+
     // ── Reserved keywords ────────────────────────────────────────
 
     #[test]

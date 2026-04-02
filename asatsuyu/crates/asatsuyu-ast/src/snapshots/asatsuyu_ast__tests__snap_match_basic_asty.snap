@@ -127,6 +127,7 @@ Module {
                     },
                 },
                 visibility: Public,
+                is_async: false,
                 params: [
                     Param {
                         name: Ident {
@@ -316,6 +317,7 @@ Module {
                     },
                 },
                 visibility: Public,
+                is_async: false,
                 params: [
                     Param {
                         name: Ident {
@@ -575,6 +577,7 @@ Module {
                     },
                 },
                 visibility: Public,
+                is_async: false,
                 params: [
                     Param {
                         name: Ident {

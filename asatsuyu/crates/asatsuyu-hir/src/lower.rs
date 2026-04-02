@@ -366,6 +366,7 @@ impl HirLowerCtx {
         HirFnDef {
             def_id,
             visibility: fn_def.visibility,
+            is_async: fn_def.is_async,
             params,
             return_type,
             body,
@@ -499,6 +500,11 @@ impl HirLowerCtx {
             Expr::Try { expr, span } => {
                 let hir_expr = self.lower_expr(expr);
                 HirExpr::Try { expr: Box::new(hir_expr), span: *span }
+            }
+
+            Expr::Await { expr, span } => {
+                let hir_expr = self.lower_expr(expr);
+                HirExpr::Await { expr: Box::new(hir_expr), span: *span }
             }
 
             Expr::List { elements, span } => {

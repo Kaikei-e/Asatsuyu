@@ -53,7 +53,8 @@ fn find_in_expr(expr: &ThirExpr, offset: u32) -> Option<NodeInfo<'_>> {
         }
         ThirExpr::UnaryOp { expr: inner, .. }
         | ThirExpr::FieldAccess { receiver: inner, .. }
-        | ThirExpr::Try { expr: inner, .. } => find_in_expr(inner, offset),
+        | ThirExpr::Try { expr: inner, .. }
+        | ThirExpr::Await { expr: inner, .. } => find_in_expr(inner, offset),
         ThirExpr::If { condition, then_body, else_body, .. } => find_in_expr(condition, offset)
             .or_else(|| find_in_expr(then_body, offset))
             .or_else(|| else_body.as_ref().and_then(|e| find_in_expr(e, offset))),
@@ -156,7 +157,8 @@ fn collect_refs_in_expr(expr: &ThirExpr, target: DefId, spans: &mut Vec<Span>) {
         }
         ThirExpr::UnaryOp { expr: inner, .. }
         | ThirExpr::FieldAccess { receiver: inner, .. }
-        | ThirExpr::Try { expr: inner, .. } => {
+        | ThirExpr::Try { expr: inner, .. }
+        | ThirExpr::Await { expr: inner, .. } => {
             collect_refs_in_expr(inner, target, spans);
         }
         ThirExpr::If { condition, then_body, else_body, .. } => {
@@ -604,9 +606,9 @@ mod tests {
         assert!(keywords.iter().any(|spec| spec.text == "as"));
         // `mut` is a hard keyword (Phase 3-1) but filtered by allowed lists in completions
         assert!(keywords.iter().any(|spec| spec.text == "mut"));
-        // `async`/`await` remain reserved and excluded from completion specs
-        assert!(!keywords.iter().any(|spec| spec.text == "async"));
-        assert!(!keywords.iter().any(|spec| spec.text == "await"));
+        // `async`/`await` promoted to hard keywords in Phase 3-2
+        assert!(keywords.iter().any(|spec| spec.text == "async"));
+        assert!(keywords.iter().any(|spec| spec.text == "await"));
     }
 
     // ── Context classification ──────────────────────────────────

@@ -156,6 +156,8 @@ pub struct ThirModule {
 pub struct ThirFnDef {
     pub def_id: DefId,
     pub visibility: Visibility,
+    /// Whether this function was declared with `async`.
+    pub is_async: bool,
     pub params: Vec<ThirParam>,
     /// The resolved return type of this function.
     pub return_ty: Ty,
@@ -267,6 +269,8 @@ pub enum ThirExpr {
     FieldAccess { receiver: Box<ThirExpr>, field: SmolStr, ty: Ty, span: Span },
     /// A try expression: `try expr`. The type is the success type (unwrapped).
     Try { expr: Box<ThirExpr>, ty: Ty, span: Span },
+    /// An await expression: `await expr`. Stub: type = inner type until Task(T) is introduced.
+    Await { expr: Box<ThirExpr>, ty: Ty, span: Span },
     /// A list literal: `[1, 2, 3]`.
     List { elements: Vec<ThirExpr>, ty: Ty, span: Span },
 }
@@ -289,6 +293,7 @@ impl ThirExpr {
             | Self::Lambda { ty, .. }
             | Self::FieldAccess { ty, .. }
             | Self::Try { ty, .. }
+            | Self::Await { ty, .. }
             | Self::List { ty, .. } => ty,
         }
     }
@@ -310,6 +315,7 @@ impl ThirExpr {
             | Self::Lambda { span, .. }
             | Self::FieldAccess { span, .. }
             | Self::Try { span, .. }
+            | Self::Await { span, .. }
             | Self::List { span, .. } => *span,
         }
     }

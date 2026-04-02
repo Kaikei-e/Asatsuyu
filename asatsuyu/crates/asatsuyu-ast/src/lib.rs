@@ -126,6 +126,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn lower_async_fn_marks_flag() {
+        let result = lower_source("pub async fn fetch() { 42 }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let f = get_fn(&result.module, 0);
+        assert!(f.is_async, "async fn should set is_async on AST fn def");
+    }
+
+    #[test]
+    fn lower_await_expr() {
+        let result = lower_source("fn f() { await fetch() }");
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
+
+        let f = get_fn(&result.module, 0);
+        match &f.body {
+            Expr::Block { exprs, .. } => match &exprs[0] {
+                Expr::Await { expr, .. } => {
+                    assert!(matches!(expr.as_ref(), Expr::Call { .. }), "await should wrap the call");
+                }
+                other => panic!("expected Await, got {other:?}"),
+            },
+            other => panic!("expected Block, got {other:?}"),
+        }
+    }
+
     // ── 3. Function without pub ─────────────────────────────────────
 
     #[test]

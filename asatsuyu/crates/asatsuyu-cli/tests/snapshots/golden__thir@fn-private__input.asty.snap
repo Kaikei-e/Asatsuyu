@@ -8,6 +8,7 @@ ThirModule {
         ThirFnDef {
             def_id: Idx::<DefData>(3),
             visibility: Private,
+            is_async: false,
             params: [],
             return_ty: Primitive(
                 Int,

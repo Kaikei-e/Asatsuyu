@@ -8,6 +8,7 @@ ThirModule {
         ThirFnDef {
             def_id: Idx::<DefData>(3),
             visibility: Public,
+            is_async: false,
             params: [
                 ThirParam {
                     def_id: Idx::<DefData>(6),
@@ -103,6 +104,7 @@ ThirModule {
         ThirFnDef {
             def_id: Idx::<DefData>(4),
             visibility: Public,
+            is_async: false,
             params: [
                 ThirParam {
                     def_id: Idx::<DefData>(7),
@@ -198,6 +200,7 @@ ThirModule {
         ThirFnDef {
             def_id: Idx::<DefData>(5),
             visibility: Public,
+            is_async: false,
             params: [],
             return_ty: Primitive(
                 Int,

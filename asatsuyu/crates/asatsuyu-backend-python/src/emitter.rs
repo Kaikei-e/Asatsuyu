@@ -323,8 +323,11 @@ impl<'a> Emitter<'a> {
         collect_type_vars(&fn_def.return_ty, &mut var_ids);
         let var_map = build_fn_type_param_map(&var_ids);
 
-        // def name[T, U](params) -> return_ty:
+        // async def name[T, U](params) -> return_ty:
         self.write_indent();
+        if fn_def.is_async {
+            self.output.push_str("async ");
+        }
         let name = &self.module.symbol_table.get(fn_def.def_id).name;
         let _ = write!(self.output, "def {name}");
 
@@ -483,11 +486,10 @@ impl<'a> Emitter<'a> {
 
     // ── Expressions (inline, no newline) ───────────────────────────
 
+    #[allow(clippy::too_many_lines)]
     fn emit_expr(&mut self, expr: &ThirExpr) {
         match expr {
-            ThirExpr::Literal(lit) => {
-                self.output.push_str(lit.value.as_str());
-            }
+            ThirExpr::Literal(lit) => self.output.push_str(lit.value.as_str()),
             ThirExpr::Var { def_id, .. } => {
                 let def = self.module.symbol_table.get(*def_id);
                 if def.kind == DefKind::Constructor {
@@ -496,8 +498,8 @@ impl<'a> Emitter<'a> {
                     self.output.push_str(def.name.as_str());
                 }
             }
+            // Nested block in expression position: emit the last expression.
             ThirExpr::Block { exprs, .. } => {
-                // Nested block in expression position: emit the last expression.
                 if let Some(last) = exprs.last() {
                     self.emit_expr(last);
                 }
@@ -543,9 +545,8 @@ impl<'a> Emitter<'a> {
                 }
                 self.output.push(')');
             }
+            // Match in inline expression position — full match/case in emit_stmt.
             ThirExpr::Match { arms, .. } => {
-                // Fallback for match in inline expression position.
-                // Proper match/case is emitted in emit_return_stmt/emit_stmt.
                 if let Some(first) = arms.first() {
                     self.emit_expr(&first.body);
                 }
@@ -556,6 +557,10 @@ impl<'a> Emitter<'a> {
                 self.output.push_str(name.as_str());
                 self.output.push_str(" = ");
                 self.emit_expr(value);
+            }
+            ThirExpr::Await { expr, .. } => {
+                self.output.push_str("await ");
+                self.emit_expr(expr);
             }
             ThirExpr::Lambda { params, body, .. } => {
                 self.output.push_str("lambda ");
@@ -994,11 +999,11 @@ impl<'a> Emitter<'a> {
             ThirExpr::BinaryOp { lhs, rhs, .. } => {
                 self.expr_contains_checked_ffi(lhs) || self.expr_contains_checked_ffi(rhs)
             }
-            ThirExpr::UnaryOp { expr, .. } | ThirExpr::Lambda { body: expr, .. } => {
-                self.expr_contains_checked_ffi(expr)
-            }
+            ThirExpr::UnaryOp { expr, .. }
+            | ThirExpr::Lambda { body: expr, .. }
+            | ThirExpr::Try { expr, .. }
+            | ThirExpr::Await { expr, .. } => self.expr_contains_checked_ffi(expr),
             ThirExpr::FieldAccess { receiver, .. } => self.expr_contains_checked_ffi(receiver),
-            ThirExpr::Try { expr, .. } => self.expr_contains_checked_ffi(expr),
             ThirExpr::List { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_checked_ffi(e))
             }
@@ -1029,11 +1034,11 @@ impl<'a> Emitter<'a> {
             ThirExpr::BinaryOp { lhs, rhs, .. } => {
                 self.expr_contains_list_fold(lhs) || self.expr_contains_list_fold(rhs)
             }
-            ThirExpr::UnaryOp { expr, .. } | ThirExpr::Lambda { body: expr, .. } => {
-                self.expr_contains_list_fold(expr)
-            }
+            ThirExpr::UnaryOp { expr, .. }
+            | ThirExpr::Lambda { body: expr, .. }
+            | ThirExpr::Try { expr, .. }
+            | ThirExpr::Await { expr, .. } => self.expr_contains_list_fold(expr),
             ThirExpr::FieldAccess { receiver, .. } => self.expr_contains_list_fold(receiver),
-            ThirExpr::Try { expr, .. } => self.expr_contains_list_fold(expr),
             ThirExpr::List { elements, .. } => {
                 elements.iter().any(|e| self.expr_contains_list_fold(e))
             }
@@ -1495,7 +1500,7 @@ fn expr_contains_try(expr: &ThirExpr) -> bool {
             expr_contains_try(subject) || arms.iter().any(|a| expr_contains_try(&a.body))
         }
         ThirExpr::BinaryOp { lhs, rhs, .. } => expr_contains_try(lhs) || expr_contains_try(rhs),
-        ThirExpr::UnaryOp { expr, .. } => expr_contains_try(expr),
+        ThirExpr::UnaryOp { expr, .. } | ThirExpr::Await { expr, .. } => expr_contains_try(expr),
         ThirExpr::Lambda { body, .. } => expr_contains_try(body),
         ThirExpr::FieldAccess { receiver, .. } => expr_contains_try(receiver),
         ThirExpr::List { elements, .. } => elements.iter().any(expr_contains_try),

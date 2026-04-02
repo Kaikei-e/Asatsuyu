@@ -18,6 +18,7 @@ Module {
                     },
                 },
                 visibility: Private,
+                is_async: false,
                 params: [
                     Param {
                         name: Ident {
