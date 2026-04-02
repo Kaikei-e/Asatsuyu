@@ -262,7 +262,7 @@ pub enum ThirExpr {
     /// A let binding: `let x = expr` or `let mut x = expr`.
     Let { binding: DefId, value: Box<ThirExpr>, is_mutable: bool, ty: Ty, span: Span },
     /// A reassignment: `x = expr`. Enforcement rules are in Issue 94.
-    Assign { target: DefId, value: Box<ThirExpr>, ty: Ty, span: Span },
+    Assign { target: DefId, value: Box<ThirExpr>, target_span: Span, ty: Ty, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda { params: Vec<ThirParam>, body: Box<ThirExpr>, ty: Ty, span: Span },
     /// A field access: `expr.field`.

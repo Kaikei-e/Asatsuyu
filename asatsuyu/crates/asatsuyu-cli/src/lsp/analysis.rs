@@ -9,6 +9,7 @@ use asatsuyu_ty::{ThirExpr, ThirModule, ThirPattern, Ty};
 use smol_str::SmolStr;
 
 /// Information about a node at a specific position.
+#[derive(Debug)]
 pub(super) enum NodeInfo<'a> {
     /// An expression with its type.
     Expr { ty: &'a Ty },
@@ -26,7 +27,7 @@ pub(super) fn find_node_at_offset(module: &ThirModule, offset: u32) -> Option<No
             if !body_span.contains(offset) {
                 return Some(NodeInfo::FnDef { ty: &func.ty, def_id: func.def_id });
             }
-            if let Some(info) = find_in_expr(&func.body, offset) {
+            if let Some(info) = find_in_expr(&func.body, offset, &module.symbol_table) {
                 return Some(info);
             }
             return Some(NodeInfo::FnDef { ty: &func.ty, def_id: func.def_id });
@@ -36,7 +37,14 @@ pub(super) fn find_node_at_offset(module: &ThirModule, offset: u32) -> Option<No
 }
 
 /// Recursively find the most specific expression at `offset`.
-fn find_in_expr(expr: &ThirExpr, offset: u32) -> Option<NodeInfo<'_>> {
+///
+/// The symbol table is threaded through so that assignment targets and let
+/// binding names can be resolved to their `DefId` (Issue 104).
+fn find_in_expr<'a>(
+    expr: &'a ThirExpr,
+    offset: u32,
+    st: &asatsuyu_hir::SymbolTable,
+) -> Option<NodeInfo<'a>> {
     let span = expr.span();
     if !span.contains(offset) {
         return None;
@@ -44,26 +52,40 @@ fn find_in_expr(expr: &ThirExpr, offset: u32) -> Option<NodeInfo<'_>> {
 
     // Try children first (most specific wins).
     let child_result = match expr {
-        ThirExpr::Block { exprs, .. } => exprs.iter().find_map(|e| find_in_expr(e, offset)),
-        ThirExpr::Call { func, args, .. } => {
-            find_in_expr(func, offset).or_else(|| args.iter().find_map(|a| find_in_expr(a, offset)))
-        }
+        ThirExpr::Block { exprs, .. } => exprs.iter().find_map(|e| find_in_expr(e, offset, st)),
+        ThirExpr::Call { func, args, .. } => find_in_expr(func, offset, st)
+            .or_else(|| args.iter().find_map(|a| find_in_expr(a, offset, st))),
         ThirExpr::BinaryOp { lhs, rhs, .. } => {
-            find_in_expr(lhs, offset).or_else(|| find_in_expr(rhs, offset))
+            find_in_expr(lhs, offset, st).or_else(|| find_in_expr(rhs, offset, st))
         }
         ThirExpr::UnaryOp { expr: inner, .. }
         | ThirExpr::FieldAccess { receiver: inner, .. }
         | ThirExpr::Try { expr: inner, .. }
-        | ThirExpr::Await { expr: inner, .. } => find_in_expr(inner, offset),
-        ThirExpr::If { condition, then_body, else_body, .. } => find_in_expr(condition, offset)
-            .or_else(|| find_in_expr(then_body, offset))
-            .or_else(|| else_body.as_ref().and_then(|e| find_in_expr(e, offset))),
-        ThirExpr::Match { subject, arms, .. } => find_in_expr(subject, offset)
-            .or_else(|| arms.iter().find_map(|arm| find_in_expr(&arm.body, offset))),
-        ThirExpr::Let { value, .. }
-        | ThirExpr::Assign { value, .. }
-        | ThirExpr::Lambda { body: value, .. } => find_in_expr(value, offset),
-        ThirExpr::List { elements, .. } => elements.iter().find_map(|e| find_in_expr(e, offset)),
+        | ThirExpr::Await { expr: inner, .. } => find_in_expr(inner, offset, st),
+        ThirExpr::If { condition, then_body, else_body, .. } => find_in_expr(condition, offset, st)
+            .or_else(|| find_in_expr(then_body, offset, st))
+            .or_else(|| else_body.as_ref().and_then(|e| find_in_expr(e, offset, st))),
+        ThirExpr::Match { subject, arms, .. } => find_in_expr(subject, offset, st)
+            .or_else(|| arms.iter().find_map(|arm| find_in_expr(&arm.body, offset, st))),
+        ThirExpr::Let { binding, value, ty, .. } => {
+            // Check if cursor is on the binding name itself.
+            let def = st.get(*binding);
+            if def.span.contains(offset) {
+                return Some(NodeInfo::Var { ty, def_id: *binding });
+            }
+            find_in_expr(value, offset, st)
+        }
+        ThirExpr::Assign { target, value, target_span, ty, .. } => {
+            // Check if cursor is on the assignment target identifier.
+            if target_span.contains(offset) {
+                return Some(NodeInfo::Var { ty, def_id: *target });
+            }
+            find_in_expr(value, offset, st)
+        }
+        ThirExpr::Lambda { body, .. } => find_in_expr(body, offset, st),
+        ThirExpr::List { elements, .. } => {
+            elements.iter().find_map(|e| find_in_expr(e, offset, st))
+        }
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => None,
     };
 
@@ -107,14 +129,550 @@ pub(super) fn hover_at_offset(module: &ThirModule, offset: u32) -> Option<String
     }
 }
 
+// ── Signature help ─────────────────────────────────────────────
+
+/// Parameter information for signature help.
+pub(super) struct ParamInfo {
+    pub label: String,
+}
+
+/// Signature help information for a function call.
+pub(super) struct SignatureHelpInfo {
+    pub label: String,
+    pub parameters: Vec<ParamInfo>,
+    pub active_parameter: u32,
+}
+
+/// Compute signature help at the given byte offset.
+///
+/// Returns `None` if the cursor is not inside a function call's argument list.
+pub(super) fn signature_help_at_offset(
+    module: &ThirModule,
+    source: &str,
+    offset: u32,
+) -> Option<SignatureHelpInfo> {
+    // Find the enclosing Call node.
+    for func in &module.functions {
+        if !func.span.contains(offset) {
+            continue;
+        }
+        if let Some(info) = sig_help_in_expr(&func.body, source, offset, module) {
+            return Some(info);
+        }
+    }
+    None
+}
+
+/// Walk the THIR looking for the innermost Call whose argument list contains `offset`.
+fn sig_help_in_expr(
+    expr: &ThirExpr,
+    source: &str,
+    offset: u32,
+    module: &ThirModule,
+) -> Option<SignatureHelpInfo> {
+    if !expr.span().contains(offset) {
+        return None;
+    }
+
+    // Recurse into children first — innermost call wins.
+    let child = match expr {
+        ThirExpr::Block { exprs, .. } => {
+            exprs.iter().find_map(|e| sig_help_in_expr(e, source, offset, module))
+        }
+        ThirExpr::Call { func, args, .. } => sig_help_in_expr(func, source, offset, module)
+            .or_else(|| args.iter().find_map(|a| sig_help_in_expr(a, source, offset, module))),
+        ThirExpr::BinaryOp { lhs, rhs, .. } => sig_help_in_expr(lhs, source, offset, module)
+            .or_else(|| sig_help_in_expr(rhs, source, offset, module)),
+        ThirExpr::UnaryOp { expr: inner, .. }
+        | ThirExpr::FieldAccess { receiver: inner, .. }
+        | ThirExpr::Try { expr: inner, .. }
+        | ThirExpr::Await { expr: inner, .. } => sig_help_in_expr(inner, source, offset, module),
+        ThirExpr::If { condition, then_body, else_body, .. } => {
+            sig_help_in_expr(condition, source, offset, module)
+                .or_else(|| sig_help_in_expr(then_body, source, offset, module))
+                .or_else(|| {
+                    else_body.as_ref().and_then(|e| sig_help_in_expr(e, source, offset, module))
+                })
+        }
+        ThirExpr::Match { subject, arms, .. } => sig_help_in_expr(subject, source, offset, module)
+            .or_else(|| {
+                arms.iter().find_map(|arm| sig_help_in_expr(&arm.body, source, offset, module))
+            }),
+        ThirExpr::Let { value, .. } | ThirExpr::Assign { value, .. } => {
+            sig_help_in_expr(value, source, offset, module)
+        }
+        ThirExpr::Lambda { body, .. } => sig_help_in_expr(body, source, offset, module),
+        ThirExpr::List { elements, .. } => {
+            elements.iter().find_map(|e| sig_help_in_expr(e, source, offset, module))
+        }
+        ThirExpr::Literal(_) | ThirExpr::Var { .. } => None,
+    };
+
+    if child.is_some() {
+        return child;
+    }
+
+    // Check if *this* node is a Call and the cursor is inside the argument list.
+    if let ThirExpr::Call { func, args, span, .. } = expr {
+        return build_sig_help(func, args, *span, source, offset, module);
+    }
+
+    None
+}
+
+/// Build `SignatureHelpInfo` for a Call node, if the cursor is inside the parens.
+fn build_sig_help(
+    func: &ThirExpr,
+    args: &[ThirExpr],
+    call_span: Span,
+    source: &str,
+    offset: u32,
+    module: &ThirModule,
+) -> Option<SignatureHelpInfo> {
+    // Find the opening `(` in the source after the callee expression.
+    let func_end = func.span().end as usize;
+    let call_end = call_span.end as usize;
+    let call_text = source.get(func_end..call_end)?;
+    let paren_offset_in_call = call_text.find('(')?;
+    let paren_pos = func_end + paren_offset_in_call;
+
+    // Cursor must be after `(` and within the call span.
+    if (offset as usize) <= paren_pos {
+        return None;
+    }
+
+    // Count active parameter by counting top-level commas before cursor.
+    let active = count_active_parameter(source, paren_pos + 1, offset as usize);
+
+    // Resolve the callee to get parameter names and types.
+    let (label, params) = resolve_callee_signature(func, args, module)?;
+
+    Some(SignatureHelpInfo { label, parameters: params, active_parameter: active })
+}
+
+/// Count commas at the top level (respecting nesting) between `start` and `cursor`.
+fn count_active_parameter(source: &str, start: usize, cursor: usize) -> u32 {
+    let mut count = 0u32;
+    let mut depth = 0i32;
+    let end = cursor.min(source.len());
+    for byte in source.get(start..end).unwrap_or("").bytes() {
+        match byte {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b',' if depth == 0 => count += 1,
+            _ => {}
+        }
+    }
+    count
+}
+
+/// Resolve a callee expression to its signature label and parameter list.
+fn resolve_callee_signature(
+    func: &ThirExpr,
+    _args: &[ThirExpr],
+    module: &ThirModule,
+) -> Option<(String, Vec<ParamInfo>)> {
+    match func {
+        // Asatsuyu function or constructor call: `f(...)` or `Some(...)`
+        ThirExpr::Var { def_id, .. } => {
+            let def = module.symbol_table.get(*def_id);
+            match def.kind {
+                DefKind::Function => resolve_asatsuyu_fn(*def_id, module),
+                DefKind::Constructor => resolve_constructor(*def_id, module),
+                _ => None,
+            }
+        }
+        // FFI field access: `module.func(...)` or `instance.method(...)`
+        ThirExpr::FieldAccess { receiver, field, .. } => {
+            let receiver_ty = receiver.ty();
+            match receiver_ty {
+                Ty::FfiModule { module_name } => {
+                    resolve_ffi_module_fn(module_name, field, &module.ffi_modules)
+                }
+                Ty::FfiInstance { module: mod_name, class } => {
+                    resolve_ffi_instance_method(mod_name, class, field, &module.ffi_modules)
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn resolve_asatsuyu_fn(def_id: DefId, module: &ThirModule) -> Option<(String, Vec<ParamInfo>)> {
+    let fn_def = module.functions.iter().find(|f| f.def_id == def_id)?;
+    let fn_name = module.symbol_table.get(def_id).name.clone();
+
+    let params: Vec<ParamInfo> = fn_def
+        .params
+        .iter()
+        .map(|p| {
+            let name = module.symbol_table.get(p.def_id).name.clone();
+            ParamInfo { label: format!("{name}: {}", p.ty) }
+        })
+        .collect();
+
+    let param_labels: Vec<&str> = params.iter().map(|p| p.label.as_str()).collect();
+    let label = format!("fn {}({}) -> {}", fn_name, param_labels.join(", "), fn_def.return_ty);
+
+    Some((label, params))
+}
+
+fn resolve_constructor(
+    ctor_def_id: DefId,
+    module: &ThirModule,
+) -> Option<(String, Vec<ParamInfo>)> {
+    let ctor_name = module.symbol_table.get(ctor_def_id).name.clone();
+
+    // Find the custom type that contains this constructor.
+    for ct in &module.custom_types {
+        for variant in &ct.variants {
+            if variant.def_id == ctor_def_id {
+                let params: Vec<ParamInfo> = variant
+                    .fields
+                    .iter()
+                    .enumerate()
+                    .map(|(i, field)| {
+                        let name = field.label.as_deref().unwrap_or(&format!("_{i}")).to_owned();
+                        ParamInfo { label: format!("{name}: {}", field.type_expr.name) }
+                    })
+                    .collect();
+
+                let param_labels: Vec<&str> = params.iter().map(|p| p.label.as_str()).collect();
+                let label = format!("{}({})", ctor_name, param_labels.join(", "));
+                return Some((label, params));
+            }
+        }
+    }
+    None
+}
+
+fn resolve_ffi_module_fn(
+    module_name: &SmolStr,
+    field: &SmolStr,
+    ffi_modules: &std::collections::HashMap<SmolStr, asatsuyu_hir::ffi::FfiModule>,
+) -> Option<(String, Vec<ParamInfo>)> {
+    let ffi_mod = ffi_modules.get(module_name)?;
+    let symbol = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
+    match &symbol.kind {
+        asatsuyu_hir::ffi::FfiSymbolKind::Function(sig) => {
+            Some(build_ffi_sig_label(&format!("{module_name}.{field}"), sig))
+        }
+        asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) => {
+            let sig = cls.constructor.as_ref()?;
+            Some(build_ffi_sig_label(&format!("{module_name}.{}", cls.name), sig))
+        }
+        asatsuyu_hir::ffi::FfiSymbolKind::Constant(_) => None,
+    }
+}
+
+fn resolve_ffi_instance_method(
+    module_name: &SmolStr,
+    class_name: &SmolStr,
+    method: &SmolStr,
+    ffi_modules: &std::collections::HashMap<SmolStr, asatsuyu_hir::ffi::FfiModule>,
+) -> Option<(String, Vec<ParamInfo>)> {
+    let ffi_mod = ffi_modules.get(module_name)?;
+    let class_symbol = ffi_mod.symbols.iter().find(|s| s.name == *class_name)?;
+    let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_symbol.kind else {
+        return None;
+    };
+    let (_, sig) = cls.methods.iter().find(|(name, _)| name == method)?;
+    Some(build_ffi_sig_label(&format!("{class_name}.{method}"), sig))
+}
+
+fn build_ffi_sig_label(
+    name: &str,
+    sig: &asatsuyu_hir::ffi::FfiSignature,
+) -> (String, Vec<ParamInfo>) {
+    let params: Vec<ParamInfo> = sig
+        .params
+        .iter()
+        .map(|p| ParamInfo { label: format!("{}: {}", p.name, format_ffi_type(&p.ty)) })
+        .collect();
+
+    let param_labels: Vec<&str> = params.iter().map(|p| p.label.as_str()).collect();
+    let ret = format_ffi_type(&sig.return_ty);
+    let label = format!("{}({}) -> {}", name, param_labels.join(", "), ret);
+
+    (label, params)
+}
+
+fn format_ffi_type(ty: &asatsuyu_hir::ffi::FfiType) -> String {
+    use asatsuyu_hir::ffi::FfiType;
+    match ty {
+        FfiType::Int => "Int".to_owned(),
+        FfiType::Float => "Float".to_owned(),
+        FfiType::Str => "String".to_owned(),
+        FfiType::Bool => "Bool".to_owned(),
+        FfiType::NoneType => "None".to_owned(),
+        FfiType::Bytes => "Bytes".to_owned(),
+        FfiType::List(inner) => format!("List({})", format_ffi_type(inner)),
+        FfiType::Dict(k, v) => format!("Dict({}, {})", format_ffi_type(k), format_ffi_type(v)),
+        FfiType::Tuple(elems) => {
+            let inner: Vec<String> = elems.iter().map(format_ffi_type).collect();
+            format!("Tuple({})", inner.join(", "))
+        }
+        FfiType::Optional(inner) => format!("Option({})", format_ffi_type(inner)),
+        FfiType::Union(members) => {
+            let inner: Vec<String> = members.iter().map(format_ffi_type).collect();
+            inner.join(" | ")
+        }
+        FfiType::Named { module, name } => format!("{module}.{name}"),
+        FfiType::Any => "Any".to_owned(),
+    }
+}
+
+// ── Code actions ────────────────────────────────────────────────
+
+/// What kind of code action this is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CodeActionKindTag {
+    QuickFix,
+    Refactor,
+}
+
+/// A code action produced by analysis.
+pub(super) struct CodeActionInfo {
+    pub title: String,
+    pub kind: CodeActionKindTag,
+    /// Range in the source to replace (byte offsets).
+    pub replace_start: u32,
+    pub replace_end: u32,
+    pub new_text: String,
+}
+
+/// Collect code actions relevant to the given diagnostics and cursor range.
+///
+/// Diagnostic-driven actions use the diagnostic message/hints text to extract
+/// the fix. Refactor actions (e.g. add type annotation) are driven by the
+/// cursor position in the THIR.
+pub(super) fn collect_code_actions(
+    thir: Option<&ThirModule>,
+    source: &str,
+    diagnostics: &[(String, String)],
+    cursor_offset: u32,
+) -> Vec<CodeActionInfo> {
+    let mut actions = Vec::new();
+
+    // Diagnostic-driven actions.
+    for (code, message) in diagnostics {
+        match code.as_str() {
+            "E0300" => {
+                if let Some(action) = action_add_missing_match_arms(source, message, cursor_offset)
+                {
+                    actions.push(action);
+                }
+            }
+            "E0215" => {
+                if let Some(action) = action_make_mutable(source, message) {
+                    actions.push(action);
+                }
+            }
+            _ => {
+                // E0200 with "consider adding `await`" hint.
+                if code == "E0200" && message.contains("consider adding `await`") {
+                    actions.push(action_add_await(source, message, cursor_offset));
+                }
+            }
+        }
+    }
+
+    // Refactor: add type annotation for let binding at cursor.
+    if let Some(module) = thir
+        && let Some(action) = action_add_type_annotation(module, source, cursor_offset)
+    {
+        actions.push(action);
+    }
+
+    actions
+}
+
+/// E0300: Add missing match arms.
+///
+/// Parses the hint `"add arms for: X, Y"` from the diagnostic message.
+#[allow(clippy::items_after_statements)]
+fn action_add_missing_match_arms(
+    source: &str,
+    message: &str,
+    diag_offset: u32,
+) -> Option<CodeActionInfo> {
+    // Extract constructor names from "hint: add arms for: X, Y".
+    let prefix = "hint: add arms for: ";
+    let hint_start = message.find(prefix)?;
+    let constructors_str = &message[hint_start + prefix.len()..];
+    // The hint may be followed by more lines; take only the first line.
+    let constructors_str = constructors_str.lines().next().unwrap_or(constructors_str);
+    let constructors: Vec<&str> = constructors_str.split(", ").collect();
+
+    if constructors.is_empty() {
+        return None;
+    }
+
+    // Find the closing `}` of the match block after the diagnostic span.
+    let search_start = diag_offset as usize;
+    let match_end = find_match_closing_brace(source, search_start)?;
+
+    // Build the new arms text.
+    use std::fmt::Write;
+    let mut arms_text = String::new();
+    for ctor in &constructors {
+        let _ = writeln!(arms_text, "    {ctor}(_) -> todo()");
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    let insert_pos = match_end as u32;
+    Some(CodeActionInfo {
+        title: format!("Add missing match arms: {}", constructors.join(", ")),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: arms_text,
+    })
+}
+
+/// Find the `}` that closes a match block, starting from `start`.
+fn find_match_closing_brace(source: &str, start: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    let mut seen_open = false;
+    for (i, byte) in source[start..].bytes().enumerate() {
+        match byte {
+            b'{' => {
+                depth += 1;
+                seen_open = true;
+            }
+            b'}' => {
+                if !seen_open {
+                    continue;
+                }
+                depth -= 1;
+                if depth == 0 {
+                    return Some(start + i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// E0215: Make binding mutable.
+///
+/// Extracts the binding name from the diagnostic message
+/// and finds `let x` in source to insert `mut `.
+fn action_make_mutable(source: &str, message: &str) -> Option<CodeActionInfo> {
+    // Extract binding name from message.
+    let prefix = "cannot assign to immutable binding `";
+    let name_start = message.find(prefix)? + prefix.len();
+    let name_end = message[name_start..].find('`')? + name_start;
+    let binding_name = &message[name_start..name_end];
+
+    // Find `let <name>` in source (first occurrence).
+    let let_pattern = format!("let {binding_name}");
+    let let_pos = source.find(&let_pattern)?;
+    let insert_pos = let_pos + 4; // after "let "
+
+    #[allow(clippy::cast_possible_truncation)]
+    Some(CodeActionInfo {
+        title: format!("Make `{binding_name}` mutable"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos as u32,
+        replace_end: insert_pos as u32,
+        new_text: "mut ".to_owned(),
+    })
+}
+
+/// E0200 with Task hint: Add missing `await`.
+fn action_add_await(_source: &str, _message: &str, diag_offset: u32) -> CodeActionInfo {
+    // The diagnostic span points to the expression that has type Task(T).
+    // Insert `await ` before the expression.
+    CodeActionInfo {
+        title: "Add `await` to unwrap Task".to_owned(),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: diag_offset,
+        replace_end: diag_offset,
+        new_text: "await ".to_owned(),
+    }
+}
+
+/// Refactor: Add type annotation to a let binding.
+fn action_add_type_annotation(
+    module: &ThirModule,
+    source: &str,
+    offset: u32,
+) -> Option<CodeActionInfo> {
+    // Find a Let node at the cursor position.
+    for func in &module.functions {
+        if !func.span.contains(offset) {
+            continue;
+        }
+        if let Some(action) =
+            find_let_for_annotation(&func.body, source, offset, &module.symbol_table)
+        {
+            return Some(action);
+        }
+    }
+    None
+}
+
+fn find_let_for_annotation(
+    expr: &ThirExpr,
+    source: &str,
+    offset: u32,
+    st: &asatsuyu_hir::SymbolTable,
+) -> Option<CodeActionInfo> {
+    if !expr.span().contains(offset) {
+        return None;
+    }
+    match expr {
+        ThirExpr::Let { binding, value, span, .. } if span.contains(offset) => {
+            let def = st.get(*binding);
+            let name_end = def.span.end;
+            // Check if there's already a `:` between name and `=`.
+            let between = source.get(name_end as usize..span.end as usize).unwrap_or("");
+            if between.contains(':') {
+                return None; // Already has annotation.
+            }
+            // Use the value's type (the binding's inferred type), not the
+            // let expression's type (which is always `None`).
+            let value_ty = value.ty();
+            if matches!(value_ty, Ty::Error) {
+                return None; // Don't suggest error types.
+            }
+            Some(CodeActionInfo {
+                title: format!("Add type annotation: {value_ty}"),
+                kind: CodeActionKindTag::Refactor,
+                replace_start: name_end,
+                replace_end: name_end,
+                new_text: format!(": {value_ty}"),
+            })
+        }
+        ThirExpr::Block { exprs, .. } => {
+            exprs.iter().find_map(|e| find_let_for_annotation(e, source, offset, st))
+        }
+        ThirExpr::If { condition, then_body, else_body, .. } => {
+            find_let_for_annotation(condition, source, offset, st)
+                .or_else(|| find_let_for_annotation(then_body, source, offset, st))
+                .or_else(|| {
+                    else_body.as_ref().and_then(|e| find_let_for_annotation(e, source, offset, st))
+                })
+        }
+        ThirExpr::Match { arms, .. } => {
+            arms.iter().find_map(|arm| find_let_for_annotation(&arm.body, source, offset, st))
+        }
+        _ => None,
+    }
+}
+
 // ── Find all references ─────────────────────────────────────────
 
 /// Collect all spans that reference or define the given `DefId`.
 pub(super) fn find_all_references(module: &ThirModule, target: DefId) -> Vec<Span> {
     let mut spans = Vec::new();
+    let st = &module.symbol_table;
 
     // Include the definition itself.
-    let def = module.symbol_table.get(target);
+    let def = st.get(target);
     spans.push(def.span);
 
     // Search all function bodies.
@@ -129,63 +687,71 @@ pub(super) fn find_all_references(module: &ThirModule, target: DefId) -> Vec<Spa
                 spans.push(param.span);
             }
         }
-        collect_refs_in_expr(&func.body, target, &mut spans);
+        collect_refs_in_expr(&func.body, target, &mut spans, st);
     }
 
     spans
 }
 
-fn collect_refs_in_expr(expr: &ThirExpr, target: DefId, spans: &mut Vec<Span>) {
+#[allow(clippy::only_used_in_recursion)] // `st` is used in the Assign branch
+fn collect_refs_in_expr(
+    expr: &ThirExpr,
+    target: DefId,
+    spans: &mut Vec<Span>,
+    st: &asatsuyu_hir::SymbolTable,
+) {
     match expr {
         ThirExpr::Var { def_id, span, .. } if *def_id == target => {
             spans.push(*span);
         }
         ThirExpr::Block { exprs, .. } => {
             for e in exprs {
-                collect_refs_in_expr(e, target, spans);
+                collect_refs_in_expr(e, target, spans, st);
             }
         }
         ThirExpr::Call { func, args, .. } => {
-            collect_refs_in_expr(func, target, spans);
+            collect_refs_in_expr(func, target, spans, st);
             for a in args {
-                collect_refs_in_expr(a, target, spans);
+                collect_refs_in_expr(a, target, spans, st);
             }
         }
         ThirExpr::BinaryOp { lhs, rhs, .. } => {
-            collect_refs_in_expr(lhs, target, spans);
-            collect_refs_in_expr(rhs, target, spans);
+            collect_refs_in_expr(lhs, target, spans, st);
+            collect_refs_in_expr(rhs, target, spans, st);
         }
         ThirExpr::UnaryOp { expr: inner, .. }
         | ThirExpr::FieldAccess { receiver: inner, .. }
         | ThirExpr::Try { expr: inner, .. }
         | ThirExpr::Await { expr: inner, .. } => {
-            collect_refs_in_expr(inner, target, spans);
+            collect_refs_in_expr(inner, target, spans, st);
         }
         ThirExpr::If { condition, then_body, else_body, .. } => {
-            collect_refs_in_expr(condition, target, spans);
-            collect_refs_in_expr(then_body, target, spans);
+            collect_refs_in_expr(condition, target, spans, st);
+            collect_refs_in_expr(then_body, target, spans, st);
             if let Some(e) = else_body {
-                collect_refs_in_expr(e, target, spans);
+                collect_refs_in_expr(e, target, spans, st);
             }
         }
         ThirExpr::Match { subject, arms, .. } => {
-            collect_refs_in_expr(subject, target, spans);
+            collect_refs_in_expr(subject, target, spans, st);
             for arm in arms {
                 collect_refs_in_pattern(&arm.pattern, target, spans);
-                collect_refs_in_expr(&arm.body, target, spans);
+                collect_refs_in_expr(&arm.body, target, spans, st);
             }
         }
         ThirExpr::Let { binding, value, .. } => {
             if *binding == target {
                 // The let binding itself — definition span is already included.
             }
-            collect_refs_in_expr(value, target, spans);
+            collect_refs_in_expr(value, target, spans, st);
         }
-        ThirExpr::Assign { target: t, value, span, .. } => {
+        ThirExpr::Assign { target: t, value, target_span, .. } => {
             if *t == target {
-                spans.push(*span);
+                // Use the target identifier span, not the full assignment
+                // expression span (Issue 104).
+                spans.push(*target_span);
             }
-            collect_refs_in_expr(value, target, spans);
+            collect_refs_in_expr(value, target, spans, st);
         }
         ThirExpr::Lambda { params, body, .. } => {
             for p in params {
@@ -193,11 +759,11 @@ fn collect_refs_in_expr(expr: &ThirExpr, target: DefId, spans: &mut Vec<Span>) {
                     spans.push(p.span);
                 }
             }
-            collect_refs_in_expr(body, target, spans);
+            collect_refs_in_expr(body, target, spans, st);
         }
         ThirExpr::List { elements, .. } => {
             for e in elements {
-                collect_refs_in_expr(e, target, spans);
+                collect_refs_in_expr(e, target, spans, st);
             }
         }
         ThirExpr::Literal(_) | ThirExpr::Var { .. } => {}
@@ -749,5 +1315,231 @@ mod tests {
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"fn"));
         assert!(names.contains(&"type"));
+    }
+
+    // ── Compilation helper for tests ───────────────────────────
+
+    fn compile_to_thir(source: &str) -> Option<ThirModule> {
+        use asatsuyu_hir::ffi::FfiResolverConfig;
+        use asatsuyu_syntax::FileId;
+
+        let parse = asatsuyu_parser::parse(FileId(0), source);
+        if parse.has_errors() {
+            return None;
+        }
+        let ast = asatsuyu_ast::lower(&parse, FileId(0));
+        if ast.has_errors() {
+            return None;
+        }
+        let hir = asatsuyu_hir::lower_to_hir(&ast.module);
+        if hir.has_errors() {
+            return None;
+        }
+        let ffi_config = FfiResolverConfig::default();
+        let ty = asatsuyu_ty::check_types_with_ffi_config(&hir.module, &ffi_config);
+        Some(ty.module)
+    }
+
+    // ── Signature help tests ───────────────────────────────────
+
+    #[test]
+    fn signature_help_asatsuyu_fn() {
+        let source = "fn add(a: Int, b: Int) -> Int { a }\nfn main() { add(1, 2) }";
+        let thir = compile_to_thir(source).expect("should compile");
+        // Cursor after `add(` — offset points inside the argument list.
+        let paren_pos = source.find("add(1").unwrap() + 4; // after '('
+        #[allow(clippy::cast_possible_truncation)]
+        let info =
+            signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
+        assert!(info.label.contains("add"), "label should contain fn name: {}", info.label);
+        assert_eq!(info.parameters.len(), 2);
+        assert!(info.parameters[0].label.contains('a'));
+        assert!(info.parameters[1].label.contains('b'));
+        assert_eq!(info.active_parameter, 0);
+    }
+
+    #[test]
+    fn signature_help_active_param_advances() {
+        let source = "fn add(a: Int, b: Int) -> Int { a }\nfn main() { add(1, 2) }";
+        let thir = compile_to_thir(source).expect("should compile");
+        // Cursor after the comma: `add(1, |2)`
+        let comma_pos = source.find("add(1, ").unwrap() + 7; // after ", "
+        #[allow(clippy::cast_possible_truncation)]
+        let info =
+            signature_help_at_offset(&thir, source, comma_pos as u32).expect("should have sig");
+        assert_eq!(info.active_parameter, 1);
+    }
+
+    #[test]
+    fn signature_help_none_outside_parens() {
+        let source = "fn add(a: Int, b: Int) -> Int { a }\nfn main() { add(1, 2) }";
+        let thir = compile_to_thir(source).expect("should compile");
+        // Cursor before `add(` — not in any call.
+        let before_add = source.find("add(1").unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        let result = signature_help_at_offset(&thir, source, before_add as u32);
+        assert!(result.is_none(), "should be None outside call parens");
+    }
+
+    #[test]
+    fn signature_help_ffi_call() {
+        let source = "from python import pathlib\nfn main() { pathlib.Path(\"test\") }";
+        let thir = compile_to_thir(source).expect("should compile");
+        let paren_pos = source.find("Path(\"").unwrap() + 5; // after '('
+        #[allow(clippy::cast_possible_truncation)]
+        let info =
+            signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
+        assert!(!info.parameters.is_empty(), "should have params");
+    }
+
+    #[test]
+    fn signature_help_async_ffi_call() {
+        let source = "from python import asyncio\nasync fn main() { await asyncio.sleep(1.0) }";
+        let thir = compile_to_thir(source).expect("should compile");
+        let paren_pos = source.find("sleep(1.0").unwrap() + 6; // after '('
+        #[allow(clippy::cast_possible_truncation)]
+        let info =
+            signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
+        assert!(info.label.contains("asyncio.sleep"), "label: {}", info.label);
+        assert_eq!(info.parameters.len(), 1);
+        assert_eq!(info.parameters[0].label, "delay: Float");
+    }
+
+    #[test]
+    fn count_active_parameter_handles_nesting() {
+        // `f(a, g(b, c), d)` — commas inside g() should not count.
+        let source = "f(a, g(b, c), d)";
+        assert_eq!(count_active_parameter(source, 2, 3), 0); // at `a`
+        assert_eq!(count_active_parameter(source, 2, 5), 1); // after first `,`
+        assert_eq!(count_active_parameter(source, 2, 14), 2); // after `g(b, c),`
+    }
+
+    // ── Issue 104: rename/references hardening tests ───────────
+
+    #[test]
+    fn cursor_on_let_binding_name_resolves() {
+        let source = "fn main() { let x = 1\n  x }";
+        let thir = compile_to_thir(source).expect("should compile");
+        // Cursor on `x` in `let x = 1`
+        let x_pos = source.find("let x").unwrap() + 4; // on `x`
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, x_pos as u32);
+        assert!(
+            matches!(info, Some(NodeInfo::Var { .. })),
+            "cursor on let binding name should resolve to Var"
+        );
+    }
+
+    #[test]
+    fn cursor_on_assign_target_resolves() {
+        let source = "fn main() { let mut x = 0\n  x = 1\n  x }";
+        let thir = compile_to_thir(source).expect("should compile");
+        // Cursor on `x` in `x = 1`
+        let assign_x_pos = source.find("x = 1").unwrap(); // on `x`
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, assign_x_pos as u32);
+        assert!(
+            matches!(info, Some(NodeInfo::Var { .. })),
+            "cursor on assign target should resolve to Var"
+        );
+    }
+
+    #[test]
+    fn references_include_assignment_target() {
+        let source = "fn main() { let mut x = 0\n  x = 1\n  x }";
+        let thir = compile_to_thir(source).expect("should compile");
+        // Find def_id for `x` by looking at the let binding position.
+        let x_pos = source.find("let mut x").unwrap() + 8; // on `x` in `let mut x`
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, x_pos as u32);
+        let def_id = match info {
+            Some(NodeInfo::Var { def_id, .. }) => def_id,
+            other => panic!("expected Var, got {other:?}"),
+        };
+        let refs = find_all_references(&thir, def_id);
+        // Should have: definition (let x), assignment target (x = 1), and usage (x).
+        assert!(
+            refs.len() >= 3,
+            "expected at least 3 references (def + assign + use), got {}",
+            refs.len()
+        );
+    }
+
+    // ── Issue 103: code action tests ───────────────────────────
+
+    #[test]
+    fn code_action_make_mutable() {
+        let message =
+            "cannot assign to immutable binding `x`\nhint: make this binding mutable: `let mut x`";
+        let source = "fn main() { let x = 0\n  x = 1\n  x }";
+        let action = action_make_mutable(source, message).expect("should produce action");
+        assert_eq!(action.kind, CodeActionKindTag::QuickFix);
+        assert_eq!(action.new_text, "mut ");
+        // Insert position should be after "let " (4 bytes from the start of "let x").
+        let let_pos = source.find("let x").unwrap();
+        assert_eq!(action.replace_start as usize, let_pos + 4);
+    }
+
+    #[test]
+    fn code_action_add_type_annotation() {
+        let source = "fn main() { let x = 1\n  x }";
+        let thir = compile_to_thir(source).expect("should compile");
+        let let_pos = source.find("let x").unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        let action = action_add_type_annotation(&thir, source, let_pos as u32)
+            .expect("should produce action");
+        assert_eq!(action.kind, CodeActionKindTag::Refactor);
+        assert!(
+            action.new_text.contains(": Int"),
+            "annotation should include type: {}",
+            action.new_text
+        );
+    }
+
+    #[test]
+    fn code_action_none_without_actionable_diagnostics() {
+        let actions = collect_code_actions(None, "", &[], 0);
+        assert!(actions.is_empty());
+    }
+
+    #[test]
+    fn code_action_add_missing_match_arms() {
+        let message = "non-exhaustive match on `Color`: missing Blue\nhint: add arms for: Blue";
+        // Source with a match block.
+        let source = "type Color { Red Green Blue }\nfn f(c: Color) -> Int { match c { Red -> 1\n    Green -> 2\n  } }";
+        // diag_offset should point inside the match.
+        let match_pos = source.find("match c").unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        let action = action_add_missing_match_arms(source, message, match_pos as u32)
+            .expect("should produce action");
+        assert_eq!(action.kind, CodeActionKindTag::QuickFix);
+        assert!(
+            action.new_text.contains("Blue"),
+            "should contain missing arm: {}",
+            action.new_text
+        );
+        let expected_insert = source[match_pos..]
+            .find('}')
+            .map(|rel| match_pos + rel)
+            .expect("match block closing brace");
+        assert_eq!(action.replace_start as usize, expected_insert);
+    }
+
+    #[test]
+    fn code_action_add_await() {
+        let actions = collect_code_actions(
+            None,
+            "async fn main() {\n  fetch()\n}",
+            &[(
+                "E0200".to_owned(),
+                "type mismatch: expected `Int`, found `Task(Int)`\nhint: consider adding `await` to unwrap the Task value"
+                    .to_owned(),
+            )],
+            20,
+        );
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].kind, CodeActionKindTag::QuickFix);
+        assert_eq!(actions[0].title, "Add `await` to unwrap Task");
+        assert_eq!(actions[0].new_text, "await ");
     }
 }

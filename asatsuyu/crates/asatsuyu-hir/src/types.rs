@@ -287,7 +287,7 @@ pub enum HirExpr {
     /// A let binding: `let x = expr` or `let mut x = expr`.
     Let { binding: DefId, value: Box<HirExpr>, is_mutable: bool, span: Span },
     /// A reassignment: `x = expr`. Type-check enforcement is in Issue 94.
-    Assign { target: DefId, value: Box<HirExpr>, span: Span },
+    Assign { target: DefId, value: Box<HirExpr>, target_span: Span, span: Span },
     /// An anonymous function: `fn(params) { body }`.
     Lambda {
         params: Vec<HirParam>,

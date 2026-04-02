@@ -549,7 +549,12 @@ impl HirLowerCtx {
             })
         };
         let hir_value = self.lower_expr(value);
-        HirExpr::Assign { target: target_id, value: Box::new(hir_value), span }
+        HirExpr::Assign {
+            target: target_id,
+            value: Box::new(hir_value),
+            target_span: target.span,
+            span,
+        }
     }
 
     fn lower_lambda(

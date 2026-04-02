@@ -968,8 +968,10 @@ Implemented features:
 - go to definition (DefId -> jump to definition site)
 - document formatting (CST-based formatter integration)
 - completion (keyword-aware + symbol completion with lightweight context classification)
-- rename (bulk rename of all references via DefId)
-- find references (find all references via DefId)
+- signature help (parameter hints for function and FFI calls, triggered on `(` and `,`)
+- code actions (add missing match arms, make binding mutable, add type annotation, suggest await)
+- rename (bulk rename of all references via DefId, including assignment targets and let binding names)
+- find references (find all references via DefId, with correct identifier spans for assignments)
 - document symbols (list of functions and types)
 
 The design supports HIR/type information caching from Phases 2-3 for incremental

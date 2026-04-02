@@ -12,13 +12,16 @@ use asatsuyu_ty::ThirModule;
 use tokio::sync::{RwLock, mpsc};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams, CompletionResponse,
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    DidSaveTextDocumentParams, DocumentFormattingParams, DocumentSymbol, DocumentSymbolParams,
-    DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents,
-    HoverParams, HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams,
-    Location, MarkupContent, MarkupKind, MessageType, OneOf, Position, PrepareRenameResponse,
-    ReferenceParams, RenameOptions, RenameParams, ServerCapabilities, ServerInfo, SymbolKind,
+    CodeAction, CodeActionKind, CodeActionOptions, CodeActionOrCommand, CodeActionParams,
+    CodeActionResponse, CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams,
+    CompletionResponse, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams, DocumentSymbol,
+    DocumentSymbolParams, DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse,
+    Hover, HoverContents, HoverParams, HoverProviderCapability, InitializeParams, InitializeResult,
+    InitializedParams, Location, MarkupContent, MarkupKind, MessageType, OneOf,
+    ParameterInformation, ParameterLabel, Position, PrepareRenameResponse, ReferenceParams,
+    RenameOptions, RenameParams, ServerCapabilities, ServerInfo, SignatureHelp,
+    SignatureHelpOptions, SignatureHelpParams, SignatureInformation, SymbolKind,
     TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind,
     TextDocumentSyncOptions, TextEdit, Url, WorkspaceEdit,
 };
@@ -155,11 +158,30 @@ impl LanguageServer for Backend {
                     trigger_characters: Some(vec![".".to_owned()]),
                     ..Default::default()
                 }),
+                signature_help_provider: Some(SignatureHelpOptions {
+                    trigger_characters: Some(vec!["(".to_owned(), ",".to_owned()]),
+                    retrigger_characters: Some(vec![")".to_owned()]),
+                    work_done_progress_options:
+                        tower_lsp::lsp_types::WorkDoneProgressOptions::default(),
+                }),
                 rename_provider: Some(OneOf::Right(RenameOptions {
                     prepare_provider: Some(true),
                     work_done_progress_options:
                         tower_lsp::lsp_types::WorkDoneProgressOptions::default(),
                 })),
+                code_action_provider: Some(
+                    tower_lsp::lsp_types::CodeActionProviderCapability::Options(
+                        CodeActionOptions {
+                            code_action_kinds: Some(vec![
+                                CodeActionKind::QUICKFIX,
+                                CodeActionKind::REFACTOR,
+                            ]),
+                            work_done_progress_options:
+                                tower_lsp::lsp_types::WorkDoneProgressOptions::default(),
+                            resolve_provider: None,
+                        },
+                    ),
+                ),
                 references_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(true)),
                 ..Default::default()
@@ -254,6 +276,49 @@ impl LanguageServer for Backend {
                 value: format!("```asatsuyu\n{text}\n```"),
             }),
             range: None,
+        }))
+    }
+
+    // ── Signature help ──────────────────────────────────────────
+
+    async fn signature_help(&self, params: SignatureHelpParams) -> Result<Option<SignatureHelp>> {
+        let uri = &params.text_document_position_params.text_document.uri;
+        let pos = params.text_document_position_params.position;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let offset = position_to_offset(pos, &file_state.source);
+        let Some(info) = analysis::signature_help_at_offset(thir, &file_state.source, offset)
+        else {
+            return Ok(None);
+        };
+
+        let parameters: Vec<ParameterInformation> = info
+            .parameters
+            .iter()
+            .map(|p| ParameterInformation {
+                label: ParameterLabel::Simple(p.label.clone()),
+                documentation: None,
+            })
+            .collect();
+
+        let signature = SignatureInformation {
+            label: info.label,
+            documentation: None,
+            parameters: Some(parameters),
+            active_parameter: Some(info.active_parameter),
+        };
+
+        Ok(Some(SignatureHelp {
+            signatures: vec![signature],
+            active_signature: Some(0),
+            active_parameter: Some(info.active_parameter),
         }))
     }
 
@@ -418,6 +483,77 @@ impl LanguageServer for Backend {
         Ok(Some(WorkspaceEdit { changes: Some(changes), ..Default::default() }))
     }
 
+    // ── Code actions ────────────────────────────────────────────
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = &params.text_document.uri;
+        let range = params.range;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+
+        let cursor_offset = position_to_offset(range.start, &file_state.source);
+
+        // Extract diagnostic (code, message) pairs from the request.
+        let diag_pairs: Vec<(String, String)> = params
+            .context
+            .diagnostics
+            .iter()
+            .filter_map(|d| {
+                let code = d.code.as_ref().map(|c| match c {
+                    tower_lsp::lsp_types::NumberOrString::String(s) => s.clone(),
+                    tower_lsp::lsp_types::NumberOrString::Number(n) => n.to_string(),
+                })?;
+                Some((code, d.message.clone()))
+            })
+            .collect();
+
+        let action_infos = analysis::collect_code_actions(
+            file_state.thir.as_ref(),
+            &file_state.source,
+            &diag_pairs,
+            cursor_offset,
+        );
+
+        if action_infos.is_empty() {
+            return Ok(None);
+        }
+
+        let actions: Vec<CodeActionOrCommand> = action_infos
+            .into_iter()
+            .map(|info| {
+                let kind = match info.kind {
+                    analysis::CodeActionKindTag::QuickFix => CodeActionKind::QUICKFIX,
+                    analysis::CodeActionKindTag::Refactor => CodeActionKind::REFACTOR,
+                };
+
+                let edit_range = tower_lsp::lsp_types::Range {
+                    start: offset_to_position(info.replace_start, &file_state.source),
+                    end: offset_to_position(info.replace_end, &file_state.source),
+                };
+
+                let text_edit = TextEdit { range: edit_range, new_text: info.new_text };
+                let mut changes = HashMap::new();
+                changes.insert(uri.clone(), vec![text_edit]);
+
+                CodeActionOrCommand::CodeAction(CodeAction {
+                    title: info.title,
+                    kind: Some(kind),
+                    diagnostics: None,
+                    edit: Some(WorkspaceEdit { changes: Some(changes), ..Default::default() }),
+                    command: None,
+                    is_preferred: None,
+                    disabled: None,
+                    data: None,
+                })
+            })
+            .collect();
+
+        Ok(Some(actions))
+    }
+
     // ── References ──────────────────────────────────────────────
 
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
@@ -496,6 +632,25 @@ impl LanguageServer for Backend {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
+
+/// Convert a byte offset to an LSP `Position` (0-based line, 0-based character).
+fn offset_to_position(offset: u32, source: &str) -> Position {
+    let offset = (offset as usize).min(source.len());
+    let mut line = 0u32;
+    let mut line_start = 0usize;
+    for (i, byte) in source.bytes().enumerate() {
+        if i == offset {
+            #[allow(clippy::cast_possible_truncation)]
+            return Position { line, character: (i - line_start) as u32 };
+        }
+        if byte == b'\n' {
+            line += 1;
+            line_start = i + 1;
+        }
+    }
+    #[allow(clippy::cast_possible_truncation)]
+    Position { line, character: (offset - line_start) as u32 }
+}
 
 /// Convert an LSP `Position` (0-based line, 0-based character) to a byte offset.
 ///

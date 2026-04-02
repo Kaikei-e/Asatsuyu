@@ -323,6 +323,15 @@ impl TyCheckCtx {
                         }
                     }
 
+                    // Suggest `await` when found is `Task(T)` and expected is `T`.
+                    if let Ty::Named { name, args, .. } = &fnd
+                        && name == "Task"
+                        && args.len() == 1
+                        && exp == args[0]
+                    {
+                        diag = diag.with_hint("consider adding `await` to unwrap the Task value");
+                    }
+
                     self.push_diagnostic(diag);
                 }
                 UnifyErrorKind::InfiniteType { var, ty } => {
@@ -657,7 +666,9 @@ impl TyCheckCtx {
                 }
             }
 
-            HirExpr::Assign { target, value, span } => self.check_assign(*target, value, *span),
+            HirExpr::Assign { target, value, target_span, span } => {
+                self.check_assign(*target, value, *target_span, *span)
+            }
 
             HirExpr::Lambda { params, return_type, body, span } => {
                 self.check_lambda(params, return_type.as_ref(), body, *span)
@@ -1117,11 +1128,17 @@ impl TyCheckCtx {
 
     // ── Assign ─────────────────────────────────────────────────────
 
-    fn check_assign(&mut self, target: DefId, value: &HirExpr, span: Span) -> ThirExpr {
+    fn check_assign(
+        &mut self,
+        target: DefId,
+        value: &HirExpr,
+        target_span: Span,
+        span: Span,
+    ) -> ThirExpr {
         let checked_value = self.check_expr(value);
         let target_def = self.module_symbols.get(target);
         let target_name = target_def.name.clone();
-        let target_span = target_def.span;
+        let def_span = target_def.span;
         let target_kind = target_def.kind;
         let target_mutable = target_def.is_mutable;
 
@@ -1131,7 +1148,7 @@ impl TyCheckCtx {
                 Diagnostic::error(format!("cannot assign to parameter `{target_name}`"), span)
                     .with_code(DiagnosticCode::E0216)
                     .with_label(span, "assignment to parameter")
-                    .with_secondary_label(target_span, "parameter defined here")
+                    .with_secondary_label(def_span, "parameter defined here")
                     .with_hint(format!(
                         "consider using a local binding: `let mut {target_name} = {target_name}`"
                     ))
@@ -1147,7 +1164,7 @@ impl TyCheckCtx {
                 )
                 .with_code(DiagnosticCode::E0215)
                 .with_label(span, "assignment to immutable binding")
-                .with_secondary_label(target_span, "defined as immutable here")
+                .with_secondary_label(def_span, "defined as immutable here")
                 .with_hint(format!("make this binding mutable: `let mut {target_name}`"))
                 .with_note("only `let mut` bindings may be reassigned"),
             );
@@ -1162,7 +1179,7 @@ impl TyCheckCtx {
                 )
                 .with_code(DiagnosticCode::E0218)
                 .with_label(span, "assignment to captured variable")
-                .with_secondary_label(target_span, "defined in outer scope")
+                .with_secondary_label(def_span, "defined in outer scope")
                 .with_hint("introduce a new `let mut` binding inside the lambda instead")
                 .with_note("closures cannot mutate variables captured from an enclosing scope"),
             );
@@ -1176,13 +1193,14 @@ impl TyCheckCtx {
                 &expected,
                 &found,
                 span,
-                DiagnosticContext::Assignment { binding_span: target_span },
+                DiagnosticContext::Assignment { binding_span: def_span },
             );
         }
 
         ThirExpr::Assign {
             target,
             value: Box::new(checked_value),
+            target_span,
             ty: Ty::Primitive(PrimTy::None),
             span,
         }
