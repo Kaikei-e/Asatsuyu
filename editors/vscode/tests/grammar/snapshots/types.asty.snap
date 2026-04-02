@@ -1,0 +1,97 @@
+>type Option(a) {
+#^^^^ source.asatsuyu keyword.declaration.type.asatsuyu
+#    ^ source.asatsuyu
+#     ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^ source.asatsuyu
+#             ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  Some(a)
+#^^ source.asatsuyu
+#  ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#      ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#       ^ source.asatsuyu
+#        ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  None
+#^^ source.asatsuyu
+#  ^^^^ source.asatsuyu entity.name.type.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub type Result(value, error) {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^^^ source.asatsuyu keyword.declaration.type.asatsuyu
+#        ^ source.asatsuyu
+#         ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#               ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                ^^^^^ source.asatsuyu
+#                     ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                      ^^^^^^ source.asatsuyu
+#                            ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  Ok(value)
+#^^ source.asatsuyu
+#  ^^ source.asatsuyu entity.name.type.asatsuyu
+#    ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#     ^^^^^ source.asatsuyu
+#          ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  Error(error)
+#^^ source.asatsuyu
+#  ^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#       ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#        ^^^^^ source.asatsuyu
+#             ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub type User {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^^^ source.asatsuyu keyword.declaration.type.asatsuyu
+#        ^ source.asatsuyu
+#         ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#             ^ source.asatsuyu
+#              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  User(name: String, age: Int, email: String)
+#^^ source.asatsuyu
+#  ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#      ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#       ^^^^ source.asatsuyu
+#           ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#            ^ source.asatsuyu
+#             ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                   ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                    ^^^^ source.asatsuyu
+#                        ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                         ^ source.asatsuyu
+#                          ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                             ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                              ^^^^^^ source.asatsuyu
+#                                    ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                                     ^ source.asatsuyu
+#                                      ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                            ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>type Color {
+#^^^^ source.asatsuyu keyword.declaration.type.asatsuyu
+#    ^ source.asatsuyu
+#     ^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#          ^ source.asatsuyu
+#           ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  Red
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu entity.name.type.asatsuyu
+>  Green
+#^^ source.asatsuyu
+#  ^^^^^ source.asatsuyu entity.name.type.asatsuyu
+>  Blue
+#^^ source.asatsuyu
+#  ^^^^ source.asatsuyu entity.name.type.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

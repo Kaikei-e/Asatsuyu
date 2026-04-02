@@ -1,0 +1,121 @@
+>// A basic function
+#^^^^^^^^^^^^^^^^^^^ source.asatsuyu comment.line.double-slash.asatsuyu
+>fn add(a: Int, b: Int) -> Int {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^ source.asatsuyu entity.name.function.asatsuyu
+#      ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#       ^ source.asatsuyu
+#        ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#         ^ source.asatsuyu
+#          ^^^ source.asatsuyu entity.name.type.asatsuyu
+#             ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#              ^^ source.asatsuyu
+#                ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                 ^ source.asatsuyu
+#                  ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                     ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                         ^ source.asatsuyu
+#                          ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  a + b
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#     ^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub fn main() {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#      ^ source.asatsuyu
+#       ^^^^ source.asatsuyu entity.name.function.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#             ^ source.asatsuyu
+#              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  let x = 42
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^ source.asatsuyu variable.other.asatsuyu
+#       ^ source.asatsuyu
+#        ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#         ^ source.asatsuyu
+#          ^^ source.asatsuyu constant.numeric.integer.asatsuyu
+>  let greeting = "hello"
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^^^^^ source.asatsuyu variable.other.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#                ^ source.asatsuyu
+#                 ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#                  ^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                       ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+>  let pi = 3.14
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^ source.asatsuyu variable.other.asatsuyu
+#        ^ source.asatsuyu
+#         ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#          ^ source.asatsuyu
+#           ^^^^ source.asatsuyu constant.numeric.float.asatsuyu
+>  let flag = True
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^ source.asatsuyu variable.other.asatsuyu
+#          ^ source.asatsuyu
+#           ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#            ^ source.asatsuyu
+#             ^^^^ source.asatsuyu constant.language.boolean.asatsuyu
+>  let nothing = False
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^^^^ source.asatsuyu variable.other.asatsuyu
+#             ^ source.asatsuyu
+#              ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#               ^ source.asatsuyu
+#                ^^^^^ source.asatsuyu constant.language.boolean.asatsuyu
+>  if x > 10 {
+#^^ source.asatsuyu
+#  ^^ source.asatsuyu keyword.control.conditional.asatsuyu
+#    ^^^ source.asatsuyu
+#       ^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#        ^ source.asatsuyu
+#         ^^ source.asatsuyu constant.numeric.integer.asatsuyu
+#           ^ source.asatsuyu
+#            ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>    println(greeting)
+#^^^^^^^^^^^ source.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^^^^^^^^ source.asatsuyu
+#                    ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  } else {
+#^^ source.asatsuyu
+#  ^ source.asatsuyu punctuation.section.block.end.asatsuyu
+#   ^ source.asatsuyu
+#    ^^^^ source.asatsuyu keyword.control.conditional.asatsuyu
+#        ^ source.asatsuyu
+#         ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>    println("small")
+#^^^^^^^^^^^ source.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#             ^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                  ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+#                   ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  }
+#^^ source.asatsuyu
+#  ^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

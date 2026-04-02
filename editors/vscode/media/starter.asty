@@ -1,0 +1,91 @@
+// ── Welcome to Asatsuyu ──────────────────────────────────────
+// A statically typed functional language that compiles to Python 3.12+.
+// This file walks you through the core features.
+
+// ── Python FFI ───────────────────────────────────────────────
+// Import Python modules directly. Verified modules (pathlib, os, sys)
+// have full type information. Use `try` to convert exceptions to Result.
+
+from python import pathlib
+
+// ── Types ────────────────────────────────────────────────────
+// Algebraic data types model your domain clearly.
+// Each variant is a named constructor.
+
+type Color {
+  Red
+  Green
+  Blue
+}
+
+type Shape {
+  Circle(radius: Float)
+  Rectangle(width: Float, height: Float)
+}
+
+// ── Pattern Matching ─────────────────────────────────────────
+// `match` is exhaustive — the compiler catches missing cases.
+
+fn color_name(c: Color) -> String {
+  match c {
+    Red -> "red"
+    Green -> "green"
+    Blue -> "blue"
+  }
+}
+
+fn area(s: Shape) -> Float {
+  match s {
+    Circle(r) -> 3.14159 * r * r
+    Rectangle(w, h) -> w * h
+  }
+}
+
+// ── Functions ────────────────────────────────────────────────
+// Use `fn` for private, `pub fn` for public.
+// The last expression is the return value.
+
+fn greet(name: String) -> String {
+  "Hello, " <> name <> "!"
+}
+
+fn classify(n: Int) -> String {
+  if n > 100 {
+    "large"
+  } else if n > 10 {
+    "medium"
+  } else {
+    "small"
+  }
+}
+
+// ── Main ─────────────────────────────────────────────────────
+
+pub fn main() {
+  // Immutable bindings are the default.
+  let message = greet("world")
+  println(message)
+
+  // Use `let mut` to opt in to mutability.
+  let mut counter = 0
+  counter = counter + 1
+  counter = counter + 1
+  println(counter)
+
+  // Types and pattern matching.
+  let c = Red
+  println(color_name(c))
+  println(area(Circle(5.0)))
+  println(classify(42))
+
+  // Pipelines chain transformations left-to-right.
+  [1, 2, 3, 4, 5]
+  |> list.filter(fn(n) { n > 2 })
+  |> list.map(fn(n) { n * 10 })
+  |> println
+
+  // Python FFI — `try` converts exceptions to Result.
+  let p = pathlib.Path(".")
+  let exists = try p.exists()
+  println(exists)
+}

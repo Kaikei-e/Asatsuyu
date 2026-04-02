@@ -1,0 +1,10 @@
+async fn fetch(url: String) -> String {
+  let response = await get(url)
+  response.text
+}
+
+pub async fn process() -> Int {
+  let data = await fetch("https://example.com")
+  println(data)
+  0
+}

@@ -1,0 +1,80 @@
+>async fn fetch(url: String) -> String {
+#^^^^^ source.asatsuyu storage.modifier.async.asatsuyu
+#     ^ source.asatsuyu
+#      ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#        ^ source.asatsuyu
+#         ^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#              ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#               ^^^ source.asatsuyu
+#                  ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                   ^ source.asatsuyu
+#                    ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                          ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                           ^ source.asatsuyu
+#                            ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                              ^ source.asatsuyu
+#                               ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                     ^ source.asatsuyu
+#                                      ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  let response = await get(url)
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^^^^^ source.asatsuyu variable.other.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#                ^ source.asatsuyu
+#                 ^^^^^ source.asatsuyu keyword.control.await.asatsuyu
+#                      ^^^^ source.asatsuyu
+#                          ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                           ^^^ source.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  response.text
+#^^^^^^^^^^ source.asatsuyu
+#          ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#           ^^^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub async fn process() -> Int {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^^^^ source.asatsuyu storage.modifier.async.asatsuyu
+#         ^ source.asatsuyu
+#          ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#            ^ source.asatsuyu
+#             ^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#                    ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                     ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                         ^ source.asatsuyu
+#                          ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  let data = await fetch("https://example.com")
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^ source.asatsuyu variable.other.asatsuyu
+#          ^ source.asatsuyu
+#           ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#            ^ source.asatsuyu
+#             ^^^^^ source.asatsuyu keyword.control.await.asatsuyu
+#                  ^^^^^^ source.asatsuyu
+#                        ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                         ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#                          ^^^^^^^^^^^^^^^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                                             ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+#                                              ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  println(data)
+#^^^^^^^^^ source.asatsuyu
+#         ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#          ^^^^ source.asatsuyu
+#              ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  0
+#^^ source.asatsuyu
+#  ^ source.asatsuyu constant.numeric.integer.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

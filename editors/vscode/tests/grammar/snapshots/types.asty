@@ -1,0 +1,19 @@
+type Option(a) {
+  Some(a)
+  None
+}
+
+pub type Result(value, error) {
+  Ok(value)
+  Error(error)
+}
+
+pub type User {
+  User(name: String, age: Int, email: String)
+}
+
+type Color {
+  Red
+  Green
+  Blue
+}

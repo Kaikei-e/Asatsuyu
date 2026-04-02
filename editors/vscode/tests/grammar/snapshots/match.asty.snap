@@ -1,0 +1,121 @@
+>fn describe(value: Option) -> String {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^^^^^ source.asatsuyu
+#                 ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                  ^ source.asatsuyu
+#                   ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                         ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                          ^ source.asatsuyu
+#                           ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                    ^ source.asatsuyu
+#                                     ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  match value {
+#^^ source.asatsuyu
+#  ^^^^^ source.asatsuyu keyword.control.conditional.asatsuyu
+#       ^^^^^^^ source.asatsuyu
+#              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>    Some(n) if n > 100 -> "large"
+#^^^^ source.asatsuyu
+#    ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#        ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#           ^ source.asatsuyu
+#            ^^ source.asatsuyu keyword.control.conditional.asatsuyu
+#              ^^^ source.asatsuyu
+#                 ^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#                  ^ source.asatsuyu
+#                   ^^^ source.asatsuyu constant.numeric.integer.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                         ^ source.asatsuyu
+#                          ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#                           ^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                                ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+>    Some(n) -> "small"
+#^^^^ source.asatsuyu
+#    ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#        ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#           ^ source.asatsuyu
+#            ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#                ^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                     ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+>    None -> "nothing"
+#^^^^ source.asatsuyu
+#    ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#        ^ source.asatsuyu
+#         ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#           ^ source.asatsuyu
+#            ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#             ^^^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                    ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+>    _ -> "fallback"
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu variable.language.wildcard.asatsuyu
+#     ^ source.asatsuyu
+#      ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#        ^ source.asatsuyu
+#         ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#          ^^^^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                  ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+>  }
+#^^ source.asatsuyu
+#  ^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>fn first(items: List) -> Int {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#        ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#         ^^^^^ source.asatsuyu
+#              ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#               ^ source.asatsuyu
+#                ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                    ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                     ^ source.asatsuyu
+#                      ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                        ^ source.asatsuyu
+#                         ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                            ^ source.asatsuyu
+#                             ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  match items {
+#^^ source.asatsuyu
+#  ^^^^^ source.asatsuyu keyword.control.conditional.asatsuyu
+#       ^^^^^^^ source.asatsuyu
+#              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>    [head, ..] -> head
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu punctuation.section.brackets.begin.asatsuyu
+#     ^^^^ source.asatsuyu
+#         ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#          ^ source.asatsuyu
+#           ^^ source.asatsuyu keyword.operator.spread.asatsuyu
+#             ^ source.asatsuyu punctuation.section.brackets.end.asatsuyu
+#              ^ source.asatsuyu
+#               ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                 ^^^^^^ source.asatsuyu
+>    [] -> 0
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu punctuation.section.brackets.begin.asatsuyu
+#     ^ source.asatsuyu punctuation.section.brackets.end.asatsuyu
+#      ^ source.asatsuyu
+#       ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu constant.numeric.integer.asatsuyu
+>  }
+#^^ source.asatsuyu
+#  ^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

@@ -1,0 +1,15 @@
+fn describe(value: Option) -> String {
+  match value {
+    Some(n) if n > 100 -> "large"
+    Some(n) -> "small"
+    None -> "nothing"
+    _ -> "fallback"
+  }
+}
+
+fn first(items: List) -> Int {
+  match items {
+    [head, ..] -> head
+    [] -> 0
+  }
+}

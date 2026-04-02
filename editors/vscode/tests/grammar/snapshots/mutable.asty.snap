@@ -1,0 +1,108 @@
+>fn counter() -> Int {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#          ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#            ^ source.asatsuyu
+#             ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#               ^ source.asatsuyu
+#                ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                   ^ source.asatsuyu
+#                    ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  let mut count = 0
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^ source.asatsuyu storage.modifier.mutable.asatsuyu
+#         ^ source.asatsuyu
+#          ^^^^^ source.asatsuyu variable.other.asatsuyu
+#               ^ source.asatsuyu
+#                ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#                 ^ source.asatsuyu
+#                  ^ source.asatsuyu constant.numeric.integer.asatsuyu
+>  count = count + 1
+#^^^^^^^^ source.asatsuyu
+#        ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#         ^^^^^^^ source.asatsuyu
+#                ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#                 ^ source.asatsuyu
+#                  ^ source.asatsuyu constant.numeric.integer.asatsuyu
+>  count = count + 1
+#^^^^^^^^ source.asatsuyu
+#        ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#         ^^^^^^^ source.asatsuyu
+#                ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#                 ^ source.asatsuyu
+#                  ^ source.asatsuyu constant.numeric.integer.asatsuyu
+>  count
+#^^^^^^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub fn swap(a: Int, b: Int) -> Int {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#      ^ source.asatsuyu
+#       ^^^^ source.asatsuyu entity.name.function.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^ source.asatsuyu
+#             ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#              ^ source.asatsuyu
+#               ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                  ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                   ^^ source.asatsuyu
+#                     ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                          ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                           ^ source.asatsuyu
+#                            ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                              ^ source.asatsuyu
+#                               ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                  ^ source.asatsuyu
+#                                   ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  let mut x = a
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^ source.asatsuyu storage.modifier.mutable.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu variable.other.asatsuyu
+#           ^ source.asatsuyu
+#            ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#             ^^^ source.asatsuyu
+>  let mut y = b
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^ source.asatsuyu storage.modifier.mutable.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu variable.other.asatsuyu
+#           ^ source.asatsuyu
+#            ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#             ^^^ source.asatsuyu
+>  let tmp = x
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^ source.asatsuyu variable.other.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#           ^^^ source.asatsuyu
+>  x = y
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#     ^^^ source.asatsuyu
+>  y = tmp
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#     ^^^^^ source.asatsuyu
+>  x + y
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#     ^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

@@ -17,7 +17,8 @@
   },
   "categories": [
     "Programming Languages",
-    "Snippets"
+    "Snippets",
+    "Themes"
   ],
   "activationEvents": [
     "onLanguage:asatsuyu"
@@ -74,6 +75,134 @@
         "description": "Verified FFI — fully typed, sound boundary"
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "asatsuyu",
+        "scopes": {
+          "namespace": [
+            "entity.name.namespace.asatsuyu"
+          ],
+          "type": [
+            "entity.name.type.asatsuyu"
+          ],
+          "enumMember": [
+            "variable.other.enummember.asatsuyu"
+          ],
+          "typeParameter": [
+            "entity.name.type.parameter.asatsuyu"
+          ],
+          "parameter": [
+            "variable.parameter.asatsuyu"
+          ],
+          "variable": [
+            "variable.other.asatsuyu"
+          ],
+          "variable.readonly": [
+            "variable.other.constant.asatsuyu"
+          ],
+          "variable.modification": [
+            "variable.other.readwrite.asatsuyu"
+          ],
+          "property": [
+            "variable.other.property.asatsuyu"
+          ],
+          "function": [
+            "entity.name.function.asatsuyu"
+          ],
+          "function.async": [
+            "entity.name.function.async.asatsuyu"
+          ],
+          "*.declaration": [
+            "entity.name.asatsuyu"
+          ],
+          "*.defaultLibrary": [
+            "support.function.builtin.asatsuyu"
+          ],
+          "*.ffi": [
+            "support.other.module.asatsuyu"
+          ],
+          "*.checked": [
+            "support.other.module.checked.asatsuyu"
+          ],
+          "*.verified": [
+            "support.other.module.verified.asatsuyu"
+          ]
+        }
+      }
+    ],
+    "themes": [
+      {
+        "label": "Asatsuyu Dawn (Reference)",
+        "uiTheme": "vs",
+        "path": "./themes/asatsuyu-dawn-color-theme.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "asatsuyu.openStarter",
+        "title": "Asatsuyu: Open Starter File"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "asatsuyu.getStarted",
+        "title": "Get Started with Asatsuyu",
+        "description": "Learn the core features of Asatsuyu — a statically typed language for the Python ecosystem.",
+        "steps": [
+          {
+            "id": "asatsuyu.openStarter",
+            "title": "Open a Starter File",
+            "description": "Create your first `.asty` file and explore the language.\n\n[Open Starter File](command:asatsuyu.openStarter)",
+            "media": {
+              "markdown": "media/walkthrough/step-functions.md"
+            },
+            "completionEvents": [
+              "onLanguage:asatsuyu"
+            ]
+          },
+          {
+            "id": "asatsuyu.learnTypes",
+            "title": "Define Types and Match",
+            "description": "Model your domain with algebraic data types. The compiler ensures exhaustive pattern matching.",
+            "media": {
+              "markdown": "media/walkthrough/step-types.md"
+            }
+          },
+          {
+            "id": "asatsuyu.learnMut",
+            "title": "Mutability and Assignment",
+            "description": "Bindings are immutable by default. Use `let mut` to opt in — the editor highlights reassignment sites.",
+            "media": {
+              "markdown": "media/walkthrough/step-mutability.md"
+            }
+          },
+          {
+            "id": "asatsuyu.learnPipelines",
+            "title": "Transform Data with Pipelines",
+            "description": "Chain transformations with `|>` for left-to-right data flow.",
+            "media": {
+              "markdown": "media/walkthrough/step-pipelines.md"
+            }
+          },
+          {
+            "id": "asatsuyu.learnFFI",
+            "title": "Use Python Libraries",
+            "description": "Import Python modules with `from python import`. Use `try` to safely convert exceptions to `Result`.",
+            "media": {
+              "markdown": "media/walkthrough/step-ffi.md"
+            }
+          },
+          {
+            "id": "asatsuyu.nextSteps",
+            "title": "Next Steps",
+            "description": "Explore more examples, editor features, and build your first program.",
+            "media": {
+              "markdown": "media/walkthrough/step-next.md"
+            }
+          }
+        ]
+      }
+    ],
     "configuration": {
       "title": "Asatsuyu",
       "properties": {
@@ -87,13 +216,18 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "test:grammar": "vscode-tmgrammar-snap -s source.asatsuyu -g syntaxes/asatsuyu.tmLanguage.json 'tests/grammar/snapshots/*.asty'",
+    "test:snippets": "node tests/snippet-check.mjs",
+    "test": "pnpm run test:grammar && pnpm run test:snippets"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@types/vscode": "^1.109.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0",
+    "vscode-tmgrammar-test": "^0.1.3"
   }
 }

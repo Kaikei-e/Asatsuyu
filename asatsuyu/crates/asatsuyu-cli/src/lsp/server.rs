@@ -276,11 +276,25 @@ impl LanguageServer for Backend {
         let Some(file_state) = state.get(uri) else {
             return Ok(None);
         };
+
+        let offset = position_to_offset(pos, &file_state.source);
+
+        // Check keyword hover first — works even without THIR.
+        let word = word_at_offset(&file_state.source, offset);
+        if let Some(doc) = analysis::keyword_hover(&word) {
+            return Ok(Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: doc,
+                }),
+                range: None,
+            }));
+        }
+
+        // Fall back to THIR-based hover (type info).
         let Some(ref thir) = file_state.thir else {
             return Ok(None);
         };
-
-        let offset = position_to_offset(pos, &file_state.source);
         let Some(text) = analysis::hover_at_offset(thir, offset) else {
             return Ok(None);
         };

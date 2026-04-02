@@ -1,6 +1,10 @@
+import * as path from "path";
 import {
+  commands,
   ExtensionContext,
+  window,
   workspace,
+  Uri,
 } from "vscode";
 import {
   LanguageClient,
@@ -35,6 +39,25 @@ export function activate(context: ExtensionContext) {
   );
 
   client.start();
+
+  // Register the "Open Starter File" command for the walkthrough.
+  const openStarter = commands.registerCommand(
+    "asatsuyu.openStarter",
+    async () => {
+      const starterPath = path.join(
+        context.extensionPath,
+        "media",
+        "starter.asty"
+      );
+      const content = await workspace.fs.readFile(Uri.file(starterPath));
+      const doc = await workspace.openTextDocument({
+        language: "asatsuyu",
+        content: new TextDecoder().decode(content),
+      });
+      await window.showTextDocument(doc, { preview: false });
+    }
+  );
+  context.subscriptions.push(openStarter);
 }
 
 export function deactivate(): Thenable<void> | undefined {

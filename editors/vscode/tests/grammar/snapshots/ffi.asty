@@ -1,0 +1,12 @@
+from python import pathlib
+from python import requests
+from python import numpy as np
+
+import io as output
+
+fn download(url: String) -> Result {
+  let response = try requests.get(url)
+  let path = pathlib.Path("output.txt")
+  let _ = try path.write_text(response.text)
+  Ok(response.text)
+}

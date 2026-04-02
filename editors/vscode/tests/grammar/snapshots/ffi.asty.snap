@@ -1,0 +1,112 @@
+>from python import pathlib
+#^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#    ^ source.asatsuyu
+#     ^^^^^^ source.asatsuyu support.other.module.asatsuyu
+#           ^ source.asatsuyu
+#            ^^^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#                  ^ source.asatsuyu
+#                   ^^^^^^^ source.asatsuyu entity.name.namespace.asatsuyu
+>from python import requests
+#^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#    ^ source.asatsuyu
+#     ^^^^^^ source.asatsuyu support.other.module.asatsuyu
+#           ^ source.asatsuyu
+#            ^^^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#                  ^ source.asatsuyu
+#                   ^^^^^^^^ source.asatsuyu entity.name.namespace.asatsuyu
+>from python import numpy as np
+#^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#    ^ source.asatsuyu
+#     ^^^^^^ source.asatsuyu support.other.module.asatsuyu
+#           ^ source.asatsuyu
+#            ^^^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#                  ^ source.asatsuyu
+#                   ^^^^^ source.asatsuyu entity.name.namespace.asatsuyu
+#                        ^ source.asatsuyu
+#                         ^^ source.asatsuyu keyword.control.as.asatsuyu
+#                           ^ source.asatsuyu
+#                            ^^ source.asatsuyu entity.name.namespace.asatsuyu
+>
+>import io as output
+#^^^^^^ source.asatsuyu keyword.control.import.asatsuyu
+#      ^ source.asatsuyu
+#       ^^ source.asatsuyu entity.name.namespace.asatsuyu
+#         ^ source.asatsuyu
+#          ^^ source.asatsuyu keyword.control.as.asatsuyu
+#            ^ source.asatsuyu
+#             ^^^^^^ source.asatsuyu entity.name.namespace.asatsuyu
+>
+>fn download(url: String) -> Result {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^^^ source.asatsuyu
+#               ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                ^ source.asatsuyu
+#                 ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                       ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                        ^ source.asatsuyu
+#                         ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                           ^ source.asatsuyu
+#                            ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                  ^ source.asatsuyu
+#                                   ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  let response = try requests.get(url)
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^^^^^ source.asatsuyu variable.other.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#                ^ source.asatsuyu
+#                 ^^^ source.asatsuyu keyword.control.trycatch.asatsuyu
+#                    ^^^^^^^^^ source.asatsuyu
+#                             ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#                              ^^^ source.asatsuyu
+#                                 ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                                  ^^^ source.asatsuyu
+#                                     ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  let path = pathlib.Path("output.txt")
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^^^^ source.asatsuyu variable.other.asatsuyu
+#          ^ source.asatsuyu
+#           ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#            ^^^^^^^^ source.asatsuyu
+#                    ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#                     ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                         ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                          ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#                           ^^^^^^^^^^ source.asatsuyu string.quoted.double.asatsuyu
+#                                     ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+#                                      ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  let _ = try path.write_text(response.text)
+#^^ source.asatsuyu
+#  ^^^ source.asatsuyu keyword.declaration.variable.asatsuyu
+#     ^ source.asatsuyu
+#      ^ source.asatsuyu variable.other.asatsuyu
+#       ^ source.asatsuyu
+#        ^ source.asatsuyu keyword.operator.assignment.asatsuyu
+#         ^ source.asatsuyu
+#          ^^^ source.asatsuyu keyword.control.trycatch.asatsuyu
+#             ^^^^^ source.asatsuyu
+#                  ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#                   ^^^^^^^^^^ source.asatsuyu
+#                             ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                              ^^^^^^^^ source.asatsuyu
+#                                      ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#                                       ^^^^ source.asatsuyu
+#                                           ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  Ok(response.text)
+#^^ source.asatsuyu
+#  ^^ source.asatsuyu entity.name.type.asatsuyu
+#    ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#     ^^^^^^^^ source.asatsuyu
+#             ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#              ^^^^ source.asatsuyu
+#                  ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

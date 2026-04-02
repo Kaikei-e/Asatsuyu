@@ -1,0 +1,209 @@
+>fn pipeline_demo(xs: List(Int)) -> List(Int) {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#                ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                 ^^ source.asatsuyu
+#                   ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                    ^ source.asatsuyu
+#                     ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                         ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                          ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                             ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                               ^ source.asatsuyu
+#                                ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                                  ^ source.asatsuyu
+#                                   ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                       ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                                        ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                           ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                                            ^ source.asatsuyu
+#                                             ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  xs
+#^^^^^ source.asatsuyu
+>  |> list.filter(fn(x) { x > 0 })
+#^^ source.asatsuyu
+#  ^^ source.asatsuyu keyword.operator.pipe.asatsuyu
+#    ^^^^^ source.asatsuyu
+#         ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#          ^^^^^^ source.asatsuyu
+#                ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                 ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#                   ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                    ^ source.asatsuyu
+#                     ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+#                        ^^^ source.asatsuyu
+#                           ^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#                            ^ source.asatsuyu
+#                             ^ source.asatsuyu constant.numeric.integer.asatsuyu
+#                              ^ source.asatsuyu
+#                               ^ source.asatsuyu punctuation.section.block.end.asatsuyu
+#                                ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>  |> list.map(fn(x) { x * 2 })
+#^^ source.asatsuyu
+#  ^^ source.asatsuyu keyword.operator.pipe.asatsuyu
+#    ^^^^^ source.asatsuyu
+#         ^ source.asatsuyu punctuation.accessor.dot.asatsuyu
+#          ^^^ source.asatsuyu
+#             ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#              ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#                ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                 ^ source.asatsuyu
+#                  ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                   ^ source.asatsuyu
+#                    ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+#                     ^^^ source.asatsuyu
+#                        ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#                         ^ source.asatsuyu
+#                          ^ source.asatsuyu constant.numeric.integer.asatsuyu
+#                           ^ source.asatsuyu
+#                            ^ source.asatsuyu punctuation.section.block.end.asatsuyu
+#                             ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>fn string_ops(a: String, b: String) -> String {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#             ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                ^ source.asatsuyu
+#                 ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                       ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                        ^^ source.asatsuyu
+#                          ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                           ^ source.asatsuyu
+#                            ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                  ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                                   ^ source.asatsuyu
+#                                    ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                                      ^ source.asatsuyu
+#                                       ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                             ^ source.asatsuyu
+#                                              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  a <> " " <> b
+#^^^^ source.asatsuyu
+#    ^^ source.asatsuyu keyword.operator.string-concat.asatsuyu
+#      ^ source.asatsuyu
+#       ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.begin.asatsuyu
+#        ^ source.asatsuyu string.quoted.double.asatsuyu
+#         ^ source.asatsuyu string.quoted.double.asatsuyu punctuation.definition.string.end.asatsuyu
+#          ^ source.asatsuyu
+#           ^^ source.asatsuyu keyword.operator.string-concat.asatsuyu
+#             ^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>fn logic(a: Bool, b: Bool) -> Bool {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#        ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#         ^ source.asatsuyu
+#          ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#           ^ source.asatsuyu
+#            ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                 ^^ source.asatsuyu
+#                   ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                    ^ source.asatsuyu
+#                     ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                         ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                          ^ source.asatsuyu
+#                           ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                  ^ source.asatsuyu
+#                                   ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  a && b || !a
+#^^^^ source.asatsuyu
+#    ^^ source.asatsuyu keyword.operator.logical.asatsuyu
+#      ^^^ source.asatsuyu
+#         ^^ source.asatsuyu keyword.operator.logical.asatsuyu
+#           ^ source.asatsuyu
+#            ^ source.asatsuyu keyword.operator.logical.asatsuyu
+#             ^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>fn compare(x: Int, y: Int) -> Bool {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#          ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#           ^ source.asatsuyu
+#            ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#             ^ source.asatsuyu
+#              ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                 ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                  ^^ source.asatsuyu
+#                    ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                     ^ source.asatsuyu
+#                      ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                         ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                          ^ source.asatsuyu
+#                           ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                  ^ source.asatsuyu
+#                                   ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  x == y || x != y || x <= y || x >= y
+#^^^^ source.asatsuyu
+#    ^^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#      ^^^ source.asatsuyu
+#         ^^ source.asatsuyu keyword.operator.logical.asatsuyu
+#           ^^^ source.asatsuyu
+#              ^^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#                ^^^ source.asatsuyu
+#                   ^^ source.asatsuyu keyword.operator.logical.asatsuyu
+#                     ^^^ source.asatsuyu
+#                        ^^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#                          ^^^ source.asatsuyu
+#                             ^^ source.asatsuyu keyword.operator.logical.asatsuyu
+#                               ^^^ source.asatsuyu
+#                                  ^^ source.asatsuyu keyword.operator.comparison.asatsuyu
+#                                    ^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>fn arithmetic(a: Int, b: Int) -> Int {
+#^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#  ^ source.asatsuyu
+#   ^^^^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#             ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#              ^ source.asatsuyu
+#               ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                ^ source.asatsuyu
+#                 ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                    ^ source.asatsuyu punctuation.separator.comma.asatsuyu
+#                     ^^ source.asatsuyu
+#                       ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                        ^ source.asatsuyu
+#                         ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                            ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                                ^ source.asatsuyu
+#                                 ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                    ^ source.asatsuyu
+#                                     ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  a + b - a * b / a % b
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#     ^^^ source.asatsuyu
+#        ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#         ^^^ source.asatsuyu
+#            ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#             ^^^ source.asatsuyu
+#                ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#                 ^^^ source.asatsuyu
+#                    ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#                     ^^^ source.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

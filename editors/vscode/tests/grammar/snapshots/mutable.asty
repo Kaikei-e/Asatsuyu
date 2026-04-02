@@ -1,0 +1,15 @@
+fn counter() -> Int {
+  let mut count = 0
+  count = count + 1
+  count = count + 1
+  count
+}
+
+pub fn swap(a: Int, b: Int) -> Int {
+  let mut x = a
+  let mut y = b
+  let tmp = x
+  x = y
+  y = tmp
+  x + y
+}

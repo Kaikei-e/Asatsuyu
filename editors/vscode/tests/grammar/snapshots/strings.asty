@@ -1,0 +1,8 @@
+fn string_examples() -> String {
+  let simple = "hello world"
+  let escaped = "line one\nline two"
+  let with_tab = "col1\tcol2"
+  let with_quote = "she said \"hi\""
+  let empty = ""
+  simple <> " " <> escaped
+}

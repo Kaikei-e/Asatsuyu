@@ -1,0 +1,17 @@
+// A basic function
+fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+pub fn main() {
+  let x = 42
+  let greeting = "hello"
+  let pi = 3.14
+  let flag = True
+  let nothing = False
+  if x > 10 {
+    println(greeting)
+  } else {
+    println("small")
+  }
+}

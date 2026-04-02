@@ -1,0 +1,184 @@
+{
+  "$schema": "vscode://schemas/color-theme",
+  "name": "Asatsuyu Dawn (Reference)",
+  "type": "light",
+  "semanticHighlighting": true,
+  "colors": {
+    "editor.background": "#FAFAF8",
+    "editor.foreground": "#2E3440",
+    "editorLineNumber.foreground": "#B0B8C4",
+    "editorLineNumber.activeForeground": "#5E6A78"
+  },
+  "semanticTokenColors": {
+    "namespace": "#4A7B9D",
+    "type": "#8B5E3C",
+    "type.declaration": { "foreground": "#8B5E3C", "bold": true },
+    "enumMember": "#2E8B7A",
+    "enumMember.declaration": { "foreground": "#2E8B7A", "bold": true },
+    "typeParameter": "#9A6E3A",
+    "parameter": "#6A5ACD",
+    "parameter.declaration": "#6A5ACD",
+    "variable": "#2E3440",
+    "variable.readonly": "#37474F",
+    "variable.declaration.readonly": "#37474F",
+    "variable.modification": { "foreground": "#D4710E", "underline": true },
+    "property": "#5D6D7E",
+    "function": "#3A6EA5",
+    "function.declaration": { "foreground": "#3A6EA5", "bold": true },
+    "function.async": "#7B52AB",
+    "function.async.declaration": { "foreground": "#7B52AB", "bold": true },
+    "function.defaultLibrary": "#5B8C5A",
+    "*.ffi": "#1B8A8A",
+    "*.ffi.declaration": { "foreground": "#1B8A8A", "bold": true },
+    "*.checked": "#B8860B",
+    "*.checked.declaration": { "foreground": "#B8860B", "bold": true },
+    "*.verified": "#2E8B57",
+    "*.verified.declaration": { "foreground": "#2E8B57", "bold": true }
+  },
+  "tokenColors": [
+    {
+      "name": "Comments",
+      "scope": "comment",
+      "settings": {
+        "foreground": "#8A9BA8",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Strings",
+      "scope": "string",
+      "settings": {
+        "foreground": "#5B8C5A"
+      }
+    },
+    {
+      "name": "Escape characters",
+      "scope": "constant.character.escape",
+      "settings": {
+        "foreground": "#D4710E"
+      }
+    },
+    {
+      "name": "Numbers",
+      "scope": "constant.numeric",
+      "settings": {
+        "foreground": "#C75050"
+      }
+    },
+    {
+      "name": "Boolean constants",
+      "scope": "constant.language.boolean",
+      "settings": {
+        "foreground": "#C75050"
+      }
+    },
+    {
+      "name": "Declaration keywords (fn, type, let)",
+      "scope": [
+        "keyword.declaration",
+        "storage.type"
+      ],
+      "settings": {
+        "foreground": "#AF5F00"
+      }
+    },
+    {
+      "name": "Control flow keywords (if, else, match, await, try)",
+      "scope": "keyword.control",
+      "settings": {
+        "foreground": "#A626A4"
+      }
+    },
+    {
+      "name": "Storage modifiers (pub, mut, async)",
+      "scope": "storage.modifier",
+      "settings": {
+        "foreground": "#AF5F00",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Mutable modifier",
+      "scope": "storage.modifier.mutable",
+      "settings": {
+        "foreground": "#D4710E",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Async modifier",
+      "scope": "storage.modifier.async",
+      "settings": {
+        "foreground": "#7B52AB",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "FFI module target (python)",
+      "scope": "support.other.module",
+      "settings": {
+        "foreground": "#1B8A8A"
+      }
+    },
+    {
+      "name": "Type names (uppercase identifiers)",
+      "scope": "entity.name.type",
+      "settings": {
+        "foreground": "#8B5E3C"
+      }
+    },
+    {
+      "name": "Function names",
+      "scope": "entity.name.function",
+      "settings": {
+        "foreground": "#3A6EA5"
+      }
+    },
+    {
+      "name": "Parameters",
+      "scope": "variable.parameter",
+      "settings": {
+        "foreground": "#6A5ACD"
+      }
+    },
+    {
+      "name": "Operators",
+      "scope": "keyword.operator",
+      "settings": {
+        "foreground": "#5E6A78"
+      }
+    },
+    {
+      "name": "Pipeline operator",
+      "scope": "keyword.operator.pipe",
+      "settings": {
+        "foreground": "#A626A4"
+      }
+    },
+    {
+      "name": "String concat operator",
+      "scope": "keyword.operator.string-concat",
+      "settings": {
+        "foreground": "#5B8C5A"
+      }
+    },
+    {
+      "name": "Punctuation",
+      "scope": [
+        "punctuation.definition",
+        "punctuation.separator",
+        "punctuation.section"
+      ],
+      "settings": {
+        "foreground": "#5E6A78"
+      }
+    },
+    {
+      "name": "Wildcard pattern",
+      "scope": "variable.language.wildcard",
+      "settings": {
+        "foreground": "#8A9BA8"
+      }
+    }
+  ]
+}
