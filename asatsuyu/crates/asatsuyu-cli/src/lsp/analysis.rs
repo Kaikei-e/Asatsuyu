@@ -673,7 +673,7 @@ pub(super) fn resolve_completion_detail(
             description: Some(prov.to_owned()),
         });
     }
-    None
+    resolve_from_ffi_module_info(data, &ffi_module)
 }
 
 /// Resolve from the rich `PythonApiIndex` stored in THIR.
@@ -759,6 +759,72 @@ fn resolve_from_ffi_module(
                 });
             }
             // Search properties.
+            if let Some((_, ty)) =
+                cls.properties.iter().find(|(n, _)| n.as_str() == data.symbol_name)
+            {
+                let documentation =
+                    format!("{trust}\n\n`{}: {}`", data.symbol_name, format_ffi_type(ty));
+                return Some(CompletionResolveResult {
+                    documentation,
+                    description: Some("builtin".to_owned()),
+                });
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+/// Fallback: resolve from a standalone [`FfiModule`] when no THIR is available.
+fn resolve_from_ffi_module_info(
+    data: &CompletionResolveData,
+    ffi_module: &asatsuyu_hir::ffi::FfiModule,
+) -> Option<CompletionResolveResult> {
+    use std::fmt::Write;
+    let trust = ffi_trust_doc(ffi_module.trust_level);
+
+    match data.context.as_str() {
+        "module_member" => {
+            let sym = ffi_module.symbols.iter().find(|s| s.name == data.symbol_name)?;
+            let mut doc = String::from(trust);
+            match &sym.kind {
+                asatsuyu_hir::ffi::FfiSymbolKind::Function(sig) => {
+                    let callee = format!("{}.{}", data.module_name, data.symbol_name);
+                    let (label, _) = build_ffi_sig_label(&callee, sig);
+                    let _ = write!(doc, "\n\n```\n{label}\n```");
+                }
+                asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) => {
+                    let _ = write!(doc, "\n\n**class** `{}`", cls.name);
+                    if let Some(ctor) = &cls.constructor {
+                        let (label, _) = build_ffi_sig_label(&cls.name, ctor);
+                        let _ = write!(doc, "\n\n```\n{label}\n```");
+                    }
+                }
+                asatsuyu_hir::ffi::FfiSymbolKind::Constant(ty) => {
+                    let _ = write!(doc, "\n\n`{}: {}`", data.symbol_name, format_ffi_type(ty));
+                }
+            }
+            Some(CompletionResolveResult {
+                documentation: doc,
+                description: Some("builtin".to_owned()),
+            })
+        }
+        "instance_member" => {
+            let class_name = data.class_name.as_deref()?;
+            let class_sym = ffi_module.symbols.iter().find(|s| s.name == class_name)?;
+            let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_sym.kind else {
+                return None;
+            };
+            if let Some((_, sig)) = cls.methods.iter().find(|(n, _)| n.as_str() == data.symbol_name)
+            {
+                let (label, _) = build_ffi_sig_label(&data.symbol_name, sig);
+                let trust_str = build_ffi_doc(trust, sig.is_async);
+                let documentation = format!("{trust_str}\n\n```\n{label}\n```");
+                return Some(CompletionResolveResult {
+                    documentation,
+                    description: Some("builtin".to_owned()),
+                });
+            }
             if let Some((_, ty)) =
                 cls.properties.iter().find(|(n, _)| n.as_str() == data.symbol_name)
             {
@@ -1254,13 +1320,8 @@ fn action_generate_python_imports_with_index(
 
     // Check if we have trust level information from the index.
     let trust_label = thir
-        .and_then(|m| m.python_api_index.as_ref())
-        .and_then(|idx| idx.get(module_name))
-        .and_then(|_info| {
-            // Determine trust level via admissibility of the FfiModule.
-            thir.and_then(|m| m.ffi_modules.get(module_name))
-                .map(|ffi_mod| ffi_trust_doc(ffi_mod.trust_level))
-        });
+        .and_then(|m| m.ffi_modules.get(module_name))
+        .map(|ffi_mod| ffi_trust_doc(ffi_mod.trust_level));
 
     let trust_suffix = trust_label.map_or(String::new(), |t| format!(" {t}"));
     let alias = import_alias(module_name);
@@ -3287,6 +3348,26 @@ mod tests {
         assert_eq!(actions.len(), 2);
         assert!(actions.iter().any(|a| a.new_text == "from python import pathlib\n"));
         assert!(actions.iter().any(|a| a.new_text == "from python import pathlib as py_pathlib\n"));
+    }
+
+    #[test]
+    fn resolve_completion_detail_falls_back_to_builtin_module_info() {
+        let data = CompletionResolveData {
+            uri: "file:///tmp/demo.asty".to_owned(),
+            module_name: "requests".to_owned(),
+            symbol_name: "get".to_owned(),
+            context: "module_member".to_owned(),
+            class_name: None,
+        };
+
+        let result =
+            resolve_completion_detail(&data, None).expect("builtin fallback should resolve");
+        assert!(
+            result.documentation.contains("[Checked FFI]"),
+            "documentation should include trust information: {}",
+            result.documentation
+        );
+        assert_eq!(result.description.as_deref(), Some("builtin"));
     }
 
     // ── Completion snapshot tests ──────────────────────────────

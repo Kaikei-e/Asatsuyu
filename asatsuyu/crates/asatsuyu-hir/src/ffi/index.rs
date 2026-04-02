@@ -47,12 +47,15 @@ impl PythonApiIndex {
     /// Returns `(module_name, symbol_info)` pairs for each match.
     #[must_use]
     pub fn find_modules_for_symbol(&self, symbol_name: &str) -> Vec<(&SmolStr, &PythonSymbolInfo)> {
-        self.modules
+        let mut matches: Vec<_> = self
+            .modules
             .values()
             .flat_map(|m| {
                 m.symbols.iter().filter(|s| s.name == symbol_name).map(move |s| (&m.name, s))
             })
-            .collect()
+            .collect();
+        matches.sort_by(|left, right| left.0.cmp(right.0));
+        matches
     }
 }
 
@@ -556,5 +559,26 @@ mod tests {
         let names: Vec<&str> = primary.symbols.iter().map(|symbol| symbol.name.as_str()).collect();
         assert!(names.contains(&"stubbed"));
         assert!(names.contains(&"runtime_only"));
+    }
+
+    #[test]
+    fn reverse_lookup_is_sorted_by_module_name() {
+        let mut index = PythonApiIndex::new();
+        for module_name in ["beta", "alpha"] {
+            let mut module =
+                PythonModuleInfo::new(SmolStr::from(module_name), dummy_source(module_name));
+            module.add_symbol(PythonSymbolInfo {
+                name: SmolStr::from("foo"),
+                kind: PythonSymbolKind::Constant(FfiType::Int),
+                doc: None,
+                is_async: false,
+                provenance: TypeSourceKind::Typeshed,
+            });
+            index.insert(module);
+        }
+
+        let matches = index.find_modules_for_symbol("foo");
+        let ordered: Vec<&str> = matches.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(ordered, vec!["alpha", "beta"]);
     }
 }
