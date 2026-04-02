@@ -521,7 +521,7 @@ fn cmd_build(
 
     // Clean the package subdirectory before writing.
     // Use the normalized Python package name to match backend output.
-    let pkg_dir_name = config.name.replace('-', "_");
+    let pkg_dir_name = asatsuyu_backend_python::python_package_name(&config.name);
     let pkg_dir = output_dir.join("python").join(&pkg_dir_name);
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
@@ -575,7 +575,7 @@ fn cmd_run(
         asatsuyu_backend_python::emit_package(&result.module, &config, Some(&result.source));
 
     // Always clean run output to avoid stale files.
-    let pkg_dir_name = config.name.replace('-', "_");
+    let pkg_dir_name = asatsuyu_backend_python::python_package_name(&config.name);
     let pkg_dir = output_dir.join("python").join(&pkg_dir_name);
     if pkg_dir.exists() {
         let _ = std::fs::remove_dir_all(&pkg_dir);
@@ -600,8 +600,7 @@ fn cmd_run(
     // When inside a project, the package name comes from the config (e.g., "myapp"),
     // not the file stem (e.g., "main"). Use pkg_dir_name for project mode.
     let python_dir = output_dir.join("python");
-    let module_name =
-        if discovered_project.is_some() { pkg_dir_name.clone() } else { stem.to_string() };
+    let module_name = pkg_dir_name.clone();
     let status_result = if has_main {
         Command::new("python3").arg("-m").arg(&module_name).current_dir(&python_dir).status()
     } else {

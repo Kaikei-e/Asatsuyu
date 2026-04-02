@@ -84,12 +84,148 @@ pub struct GeneratedPackage {
     pub files: Vec<GeneratedFile>,
 }
 
-/// Convert a project name to a valid Python package directory name.
+/// Convert a project name to a safe Python package directory name.
 ///
-/// Replaces hyphens and dots with underscores and lowercases.
-/// E.g., `"my-app"` → `"my_app"`, `"hello"` → `"hello"`.
-fn python_package_name(name: &str) -> String {
-    name.chars().map(|c| if c == '-' || c == '.' { '_' } else { c.to_ascii_lowercase() }).collect()
+/// Replaces hyphens and dots with underscores, lowercases, and avoids
+/// collisions with top-level stdlib packages such as `http`.
+#[must_use]
+pub fn python_package_name(name: &str) -> String {
+    let normalized: String = name
+        .chars()
+        .map(|c| if c == '-' || c == '.' { '_' } else { c.to_ascii_lowercase() })
+        .collect();
+
+    if is_stdlib_package_name(&normalized) { format!("{normalized}_app") } else { normalized }
+}
+
+const STDLIB_PACKAGE_NAMES: &[&str] = &[
+    "abc",
+    "argparse",
+    "array",
+    "ast",
+    "asyncio",
+    "base64",
+    "binascii",
+    "bisect",
+    "calendar",
+    "cgi",
+    "cgitb",
+    "collections",
+    "concurrent",
+    "contextlib",
+    "copy",
+    "csv",
+    "ctypes",
+    "dataclasses",
+    "datetime",
+    "decimal",
+    "difflib",
+    "dis",
+    "doctest",
+    "email",
+    "enum",
+    "errno",
+    "faulthandler",
+    "filecmp",
+    "fnmatch",
+    "fractions",
+    "ftplib",
+    "functools",
+    "gc",
+    "getopt",
+    "getpass",
+    "gettext",
+    "glob",
+    "graphlib",
+    "gzip",
+    "hashlib",
+    "heapq",
+    "hmac",
+    "html",
+    "http",
+    "imaplib",
+    "importlib",
+    "inspect",
+    "io",
+    "ipaddress",
+    "itertools",
+    "json",
+    "keyword",
+    "linecache",
+    "locale",
+    "logging",
+    "lzma",
+    "mailbox",
+    "mailcap",
+    "mimetypes",
+    "multiprocessing",
+    "numbers",
+    "operator",
+    "optparse",
+    "os",
+    "pathlib",
+    "pickle",
+    "pkgutil",
+    "platform",
+    "plistlib",
+    "pprint",
+    "profile",
+    "pstats",
+    "queue",
+    "quopri",
+    "random",
+    "re",
+    "reprlib",
+    "resource",
+    "runpy",
+    "sched",
+    "secrets",
+    "selectors",
+    "shelve",
+    "shlex",
+    "shutil",
+    "signal",
+    "site",
+    "socket",
+    "sqlite3",
+    "ssl",
+    "stat",
+    "statistics",
+    "string",
+    "stringprep",
+    "struct",
+    "subprocess",
+    "sys",
+    "tarfile",
+    "tempfile",
+    "textwrap",
+    "threading",
+    "timeit",
+    "tkinter",
+    "token",
+    "tokenize",
+    "tomllib",
+    "trace",
+    "traceback",
+    "tracemalloc",
+    "tty",
+    "typing",
+    "unittest",
+    "urllib",
+    "uuid",
+    "venv",
+    "warnings",
+    "weakref",
+    "webbrowser",
+    "xml",
+    "xmlrpc",
+    "zipfile",
+    "zipimport",
+    "zoneinfo",
+];
+
+fn is_stdlib_package_name(name: &str) -> bool {
+    STDLIB_PACKAGE_NAMES.contains(&name)
 }
 
 /// Generate a Python package from a type-checked module.
@@ -1464,6 +1600,22 @@ pub fn accumulate() -> Int {
         // pyproject.toml should use original name.
         let pyproject = get_pyproject(&pkg);
         assert!(pyproject.contains("name = \"my-app\""), "original name in pyproject: {pyproject}",);
+    }
+
+    #[test]
+    fn package_name_avoids_stdlib_collision() {
+        let config = super::PackageConfig {
+            name: "http".into(),
+            version: "0.1.0".into(),
+            source_map: false,
+            ffi_runtime: super::FfiRuntimeMode::Auto,
+            requires_python: None,
+            dependencies: Vec::new(),
+        };
+        let pkg = package_with_config("pub fn main() { 42 }", &config);
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(paths.contains(&"python/http_app/__init__.py".to_string()), "paths: {paths:?}");
+        assert!(paths.contains(&"python/http_app/http_app.py".to_string()), "paths: {paths:?}");
     }
 
     // ── PEP 695 generic functions ─────────────────────────────────
