@@ -1485,6 +1485,10 @@ fn keyword_snippet_expand(label: &'static str, snippet: &'static str) -> Complet
 
 /// Detect whether the cursor is immediately after `identifier.` and determine
 /// the FFI context from the receiver's THIR type.
+///
+/// Falls back to text-based analysis when THIR is unavailable (e.g., during
+/// active editing with parse errors). Scans `from python import X` lines to
+/// identify Python module names.
 fn classify_dot_context(
     before_cursor: &str,
     cursor_offset: u32,
@@ -1499,21 +1503,50 @@ fn classify_dot_context(
     let before_dot = &trimmed[..trimmed.len() - 1];
     let ident = extract_trailing_identifier(before_dot)?;
 
-    let module = thir?;
-
-    // Walk the symbol table to find the identifier's type.
-    let ty = resolve_identifier_type(ident, cursor_offset, module)?;
-
-    match ty {
-        Ty::FfiModule { module_name } => {
-            Some(CompletionContext::FfiModuleMember { module_name: module_name.clone() })
-        }
-        Ty::FfiInstance { module, class } => Some(CompletionContext::FfiInstanceMember {
-            module_name: module.clone(),
-            class_name: class.clone(),
-        }),
-        _ => None,
+    // Try THIR-based resolution first (most accurate).
+    if let Some(module) = thir
+        && let Some(ty) = resolve_identifier_type(ident, cursor_offset, module)
+    {
+        return match ty {
+            Ty::FfiModule { module_name } => {
+                Some(CompletionContext::FfiModuleMember { module_name: module_name.clone() })
+            }
+            Ty::FfiInstance { module, class } => Some(CompletionContext::FfiInstanceMember {
+                module_name: module.clone(),
+                class_name: class.clone(),
+            }),
+            _ => None,
+        };
     }
+
+    // Fallback: scan source text for `from python import X` matching `ident`.
+    // This works even without THIR (e.g., during active editing with parse errors).
+    if let Some(module_name) = find_python_import_in_source(before_cursor, ident) {
+        return Some(CompletionContext::FfiModuleMember { module_name });
+    }
+
+    None
+}
+
+/// Scan source text for `from python import <name>` lines and return the
+/// module name if `ident` matches an imported Python module.
+fn find_python_import_in_source(source: &str, ident: &str) -> Option<SmolStr> {
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("from python import ") {
+            // Handle `from python import X` and `from python import X as Y`
+            let module_and_alias = rest.trim();
+            if let Some((module, alias)) = module_and_alias.split_once(" as ") {
+                let alias = alias.trim();
+                if alias == ident {
+                    return Some(SmolStr::new(module.trim()));
+                }
+            } else if module_and_alias == ident {
+                return Some(SmolStr::new(module_and_alias));
+            }
+        }
+    }
+    None
 }
 
 /// Extract the trailing identifier from text (e.g., `"  pathlib"` → `"pathlib"`).
@@ -1894,6 +1927,96 @@ fn format_ffi_signature_brief(sig: &asatsuyu_hir::ffi::FfiSignature) -> String {
     format!("({}) -> {}", params.join(", "), ret)
 }
 
+/// Resolve an FFI module on-demand and collect its member completions.
+///
+/// Used when THIR is unavailable (e.g., during active editing with parse errors)
+/// but text-based analysis identified a Python module import.
+fn collect_ffi_module_member_completions_on_demand(module_name: &str) -> Vec<CompletionEntry> {
+    let resolver = asatsuyu_hir::ffi::ChainResolver::new();
+    let Some((ffi_module, index_info)) = resolver.resolve_with_index(module_name) else {
+        return Vec::new();
+    };
+
+    // Prefer the rich PythonApiIndex if available.
+    if let Some(info) = &index_info {
+        return info
+            .symbols
+            .iter()
+            .map(|sym| {
+                use asatsuyu_hir::ffi::PythonSymbolKind;
+                let (kind, detail) = match &sym.kind {
+                    PythonSymbolKind::Function(f) => {
+                        let detail = f.signatures.first().map(format_ffi_signature_brief);
+                        (CompletionEntryKind::FfiFunction, detail)
+                    }
+                    PythonSymbolKind::Class(_) => {
+                        (CompletionEntryKind::FfiClass, Some("class".to_owned()))
+                    }
+                    PythonSymbolKind::Constant(ty) => {
+                        (CompletionEntryKind::FfiConstant, Some(format_ffi_type(ty)))
+                    }
+                    PythonSymbolKind::Module => {
+                        (CompletionEntryKind::FfiModule, Some("module".to_owned()))
+                    }
+                };
+                CompletionEntry {
+                    name: sym.name.clone(),
+                    kind,
+                    ty: None,
+                    detail,
+                    insert_text: None,
+                    insert_text_format: InsertTextFormatTag::default(),
+                }
+            })
+            .collect();
+    }
+
+    // Fallback to FfiModule symbols.
+    ffi_module
+        .symbols
+        .iter()
+        .map(|sym| {
+            use asatsuyu_hir::ffi::FfiSymbolKind;
+            let kind = match &sym.kind {
+                FfiSymbolKind::Function(_) => CompletionEntryKind::FfiFunction,
+                FfiSymbolKind::Class(_) => CompletionEntryKind::FfiClass,
+                FfiSymbolKind::Constant(_) => CompletionEntryKind::FfiConstant,
+            };
+            CompletionEntry {
+                name: sym.name.clone(),
+                kind,
+                ty: None,
+                detail: None,
+                insert_text: None,
+                insert_text_format: InsertTextFormatTag::default(),
+            }
+        })
+        .collect()
+}
+
+/// Resolve an FFI class on-demand and collect instance member completions.
+fn collect_ffi_instance_member_completions_on_demand(
+    module_name: &str,
+    class_name: &str,
+) -> Vec<CompletionEntry> {
+    let resolver = asatsuyu_hir::ffi::ChainResolver::new();
+    let Some((_, index_info)) = resolver.resolve_with_index(module_name) else {
+        return Vec::new();
+    };
+
+    if let Some(info) = &index_info {
+        for sym in &info.symbols {
+            if let asatsuyu_hir::ffi::PythonSymbolKind::Class(cls) = &sym.kind
+                && sym.name == class_name
+            {
+                return collect_instance_members_from_class(cls);
+            }
+        }
+    }
+
+    Vec::new()
+}
+
 /// Collect all completion candidates (keywords + symbols + FFI) at the given offset.
 ///
 /// Works even when THIR is unavailable (keyword completions only in that case).
@@ -1912,13 +2035,15 @@ pub(super) fn collect_all_completions(
             if let Some(module) = thir {
                 return collect_ffi_module_member_completions(module, module_name);
             }
-            return Vec::new();
+            // Fallback: resolve the module on-demand without THIR.
+            return collect_ffi_module_member_completions_on_demand(module_name);
         }
         CompletionContext::FfiInstanceMember { module_name, class_name } => {
             if let Some(module) = thir {
                 return collect_ffi_instance_member_completions(module, module_name, class_name);
             }
-            return Vec::new();
+            // Fallback: resolve on-demand.
+            return collect_ffi_instance_member_completions_on_demand(module_name, class_name);
         }
         _ => {}
     }
@@ -2811,5 +2936,51 @@ mod tests {
         assert_eq!(extract_trailing_identifier(""), None);
         assert_eq!(extract_trailing_identifier("  "), None);
         assert_eq!(extract_trailing_identifier("123"), None);
+    }
+
+    // ── Text-based fallback (no THIR) ──────────────────────────
+
+    #[test]
+    fn find_python_import_in_source_basic() {
+        let source = "from python import json\nfn main() { json. }";
+        assert_eq!(find_python_import_in_source(source, "json"), Some(SmolStr::new("json")));
+    }
+
+    #[test]
+    fn find_python_import_in_source_alias() {
+        let source = "from python import pathlib as pl\nfn main() { pl. }";
+        assert_eq!(find_python_import_in_source(source, "pl"), Some(SmolStr::new("pathlib")));
+    }
+
+    #[test]
+    fn find_python_import_in_source_not_found() {
+        let source = "from python import json\nfn main() { os. }";
+        assert_eq!(find_python_import_in_source(source, "os"), None);
+    }
+
+    #[test]
+    fn dot_completion_without_thir_text_fallback() {
+        // Simulates active editing: source has `json.` but no THIR.
+        let source = "from python import json\nfn main() {\n  json.\n}";
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.find("json.\n").unwrap() as u32 + 5; // after the dot
+        let entries = collect_all_completions(None, source, offset);
+        assert!(!entries.is_empty(), "json. should produce completions even without THIR");
+        // Should have loads, dumps etc.
+        assert!(entries.iter().any(|e| e.name == "loads"), "json module should offer `loads`");
+        assert!(entries.iter().any(|e| e.name == "dumps"), "json module should offer `dumps`");
+    }
+
+    #[test]
+    fn dot_completion_without_thir_unknown_module() {
+        let source = "fn main() {\n  unknown_var.\n}";
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.find("unknown_var.\n").unwrap() as u32 + 12;
+        let entries = collect_all_completions(None, source, offset);
+        // Should not crash, and no FFI completions for unknown ident.
+        assert!(
+            entries.iter().all(|e| e.kind != CompletionEntryKind::FfiFunction),
+            "unknown identifier should not produce FFI completions"
+        );
     }
 }
