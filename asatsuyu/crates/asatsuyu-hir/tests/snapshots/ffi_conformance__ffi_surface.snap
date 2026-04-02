@@ -33,7 +33,7 @@ symbols (6):
     method __class_getitem__() -> Named { module: "", name: "GenericAlias" }
     method with_segments() -> Named { module: "", name: "Self" }
     prop parser: Named { module: "types", name: "ModuleType" }
-    prop parts: Tuple([Str, Any])
+    prop parts: Tuple([Str])
     prop drive: Str
     prop root: Str
     prop anchor: Str

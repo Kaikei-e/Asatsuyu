@@ -1070,7 +1070,6 @@ ThirModule {
                                     Tuple(
                                         [
                                             Str,
-                                            Any,
                                         ],
                                     ),
                                 ),
@@ -2617,7 +2616,6 @@ ThirModule {
                                             Tuple(
                                                 [
                                                     Str,
-                                                    Any,
                                                 ],
                                             ),
                                         ),

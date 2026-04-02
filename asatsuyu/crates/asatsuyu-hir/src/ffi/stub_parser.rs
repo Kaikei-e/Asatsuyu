@@ -552,7 +552,16 @@ fn subscript_to_ffi_type(sub: &libcst_native::Subscript<'_>) -> Option<FfiType> 
             let val = args.get(1).cloned().unwrap_or(FfiType::Any);
             Some(FfiType::Dict(Box::new(key), Box::new(val)))
         }
-        "tuple" | "Tuple" => Some(FfiType::Tuple(args)),
+        "tuple" | "Tuple" => {
+            // `tuple[str, ...]` means variable-length homogeneous tuple.
+            // The `...` is parsed as Ellipsis → FfiType::Any. Strip it to
+            // produce `Tuple([Str])` rather than `Tuple([Str, Any])`.
+            if args.len() == 2 && args[1] == FfiType::Any {
+                Some(FfiType::Tuple(vec![args[0].clone()]))
+            } else {
+                Some(FfiType::Tuple(args))
+            }
+        }
         "Optional" => {
             let inner = args.first().cloned().unwrap_or(FfiType::Any);
             Some(FfiType::Optional(Box::new(inner)))
