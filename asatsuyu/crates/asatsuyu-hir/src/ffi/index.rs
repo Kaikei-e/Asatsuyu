@@ -41,6 +41,19 @@ impl PythonApiIndex {
     pub fn get(&self, module_name: &str) -> Option<&PythonModuleInfo> {
         self.modules.get(module_name)
     }
+
+    /// Reverse lookup: find modules that export a symbol with the given name.
+    ///
+    /// Returns `(module_name, symbol_info)` pairs for each match.
+    #[must_use]
+    pub fn find_modules_for_symbol(&self, symbol_name: &str) -> Vec<(&SmolStr, &PythonSymbolInfo)> {
+        self.modules
+            .values()
+            .flat_map(|m| {
+                m.symbols.iter().filter(|s| s.name == symbol_name).map(move |s| (&m.name, s))
+            })
+            .collect()
+    }
 }
 
 // ── Module info ───────────────────────────────────────────────────

@@ -259,13 +259,18 @@ pub(super) struct ParamInfo {
     pub label: String,
 }
 
-/// Signature help information for a function call.
-pub(super) struct SignatureHelpInfo {
+/// A single overload signature for signature help.
+pub(super) struct SignatureInfo {
     pub label: String,
     pub parameters: Vec<ParamInfo>,
-    pub active_parameter: u32,
-    /// Optional documentation shown alongside the signature.
     pub documentation: Option<String>,
+}
+
+/// Signature help information for a function call, supporting overloads.
+pub(super) struct SignatureHelpInfo {
+    /// One or more overload signatures.
+    pub signatures: Vec<SignatureInfo>,
+    pub active_parameter: u32,
 }
 
 /// Compute signature help at the given byte offset.
@@ -369,10 +374,13 @@ fn build_sig_help(
     // Count active parameter by counting top-level commas before cursor.
     let active = count_active_parameter(source, paren_pos + 1, offset as usize);
 
-    // Resolve the callee to get parameter names and types.
-    let (label, params, documentation) = resolve_callee_signature(func, args, module)?;
+    // Resolve the callee to get signatures (potentially multiple overloads).
+    let signatures = resolve_callee_signatures(func, args, module)?;
+    if signatures.is_empty() {
+        return None;
+    }
 
-    Some(SignatureHelpInfo { label, parameters: params, active_parameter: active, documentation })
+    Some(SignatureHelpInfo { signatures, active_parameter: active })
 }
 
 /// Count commas at the top level (respecting nesting) between `start` and `cursor`.
@@ -391,12 +399,12 @@ fn count_active_parameter(source: &str, start: usize, cursor: usize) -> u32 {
     count
 }
 
-/// Resolve a callee expression to its signature label, parameter list, and documentation.
-fn resolve_callee_signature(
+/// Resolve a callee expression to one or more signature overloads.
+fn resolve_callee_signatures(
     func: &ThirExpr,
     _args: &[ThirExpr],
     module: &ThirModule,
-) -> Option<(String, Vec<ParamInfo>, Option<String>)> {
+) -> Option<Vec<SignatureInfo>> {
     match func {
         // Asatsuyu function or constructor call: `f(...)` or `Some(...)`
         ThirExpr::Var { def_id, .. } => {
@@ -404,11 +412,11 @@ fn resolve_callee_signature(
             match def.kind {
                 DefKind::Function => {
                     let (label, params) = resolve_asatsuyu_fn(*def_id, module)?;
-                    Some((label, params, None))
+                    Some(vec![SignatureInfo { label, parameters: params, documentation: None }])
                 }
                 DefKind::Constructor => {
                     let (label, params) = resolve_constructor(*def_id, module)?;
-                    Some((label, params, None))
+                    Some(vec![SignatureInfo { label, parameters: params, documentation: None }])
                 }
                 _ => None,
             }
@@ -418,15 +426,133 @@ fn resolve_callee_signature(
             let receiver_ty = receiver.ty();
             match receiver_ty {
                 Ty::FfiModule { module_name } => {
-                    resolve_ffi_module_fn(module_name, field, &module.ffi_modules)
+                    resolve_ffi_module_fn_signatures(module_name, field, module)
                 }
                 Ty::FfiInstance { module: mod_name, class } => {
-                    resolve_ffi_instance_method(mod_name, class, field, &module.ffi_modules)
+                    resolve_ffi_instance_method_signatures(mod_name, class, field, module)
                 }
                 _ => None,
             }
         }
         _ => None,
+    }
+}
+
+/// Resolve overloaded signatures for an FFI module-level function or class constructor.
+fn resolve_ffi_module_fn_signatures(
+    module_name: &SmolStr,
+    field: &SmolStr,
+    module: &ThirModule,
+) -> Option<Vec<SignatureInfo>> {
+    let ffi_mod = module.ffi_modules.get(module_name)?;
+    let trust_doc = ffi_trust_doc(ffi_mod.trust_level);
+
+    // Try PythonApiIndex for overloads first.
+    if let Some(index) = &module.python_api_index
+        && let Some(module_info) = index.get(module_name)
+        && let Some(sym) = module_info.symbols.iter().find(|s| s.name == *field)
+    {
+        return Some(build_overloaded_signatures(sym, field, trust_doc));
+    }
+
+    // Fallback: single signature from FfiModule.
+    let symbol = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
+    match &symbol.kind {
+        asatsuyu_hir::ffi::FfiSymbolKind::Function(sig) => {
+            let (label, params) = build_ffi_sig_label(&format!("{module_name}.{field}"), sig);
+            let doc = build_ffi_doc(trust_doc, sig.is_async);
+            Some(vec![SignatureInfo { label, parameters: params, documentation: Some(doc) }])
+        }
+        asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) => {
+            let sig = cls.constructor.as_ref()?;
+            let (label, params) = build_ffi_sig_label(&format!("{module_name}.{}", cls.name), sig);
+            Some(vec![SignatureInfo {
+                label,
+                parameters: params,
+                documentation: Some(trust_doc.to_owned()),
+            }])
+        }
+        asatsuyu_hir::ffi::FfiSymbolKind::Constant(_) => None,
+    }
+}
+
+/// Resolve overloaded signatures for an FFI instance method.
+fn resolve_ffi_instance_method_signatures(
+    module_name: &SmolStr,
+    class_name: &SmolStr,
+    method: &SmolStr,
+    module: &ThirModule,
+) -> Option<Vec<SignatureInfo>> {
+    let ffi_mod = module.ffi_modules.get(module_name)?;
+    let trust_doc = ffi_trust_doc(ffi_mod.trust_level);
+
+    // Try PythonApiIndex for overloads first.
+    if let Some(index) = &module.python_api_index
+        && let Some(module_info) = index.get(module_name)
+    {
+        for sym in &module_info.symbols {
+            if let asatsuyu_hir::ffi::PythonSymbolKind::Class(cls) = &sym.kind
+                && sym.name == *class_name
+                && let Some(m) = cls.methods.iter().find(|m| m.name == *method)
+            {
+                let callee = format!("{class_name}.{method}");
+                let sigs: Vec<SignatureInfo> = m
+                    .signatures
+                    .iter()
+                    .map(|sig| {
+                        let (label, params) = build_ffi_sig_label(&callee, sig);
+                        let doc = build_ffi_doc(trust_doc, sig.is_async || m.is_async);
+                        SignatureInfo { label, parameters: params, documentation: Some(doc) }
+                    })
+                    .collect();
+                if !sigs.is_empty() {
+                    return Some(sigs);
+                }
+            }
+        }
+    }
+
+    // Fallback: single signature from FfiModule.
+    let class_symbol = ffi_mod.symbols.iter().find(|s| s.name == *class_name)?;
+    let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_symbol.kind else {
+        return None;
+    };
+    let (_, sig) = cls.methods.iter().find(|(name, _)| name == method)?;
+    let (label, params) = build_ffi_sig_label(&format!("{class_name}.{method}"), sig);
+    let doc = build_ffi_doc(trust_doc, sig.is_async);
+    Some(vec![SignatureInfo { label, parameters: params, documentation: Some(doc) }])
+}
+
+/// Build overloaded `SignatureInfo` entries from a `PythonSymbolInfo`.
+fn build_overloaded_signatures(
+    sym: &asatsuyu_hir::ffi::PythonSymbolInfo,
+    name: &str,
+    trust_doc: &str,
+) -> Vec<SignatureInfo> {
+    use asatsuyu_hir::ffi::PythonSymbolKind;
+    match &sym.kind {
+        PythonSymbolKind::Function(info) => info
+            .signatures
+            .iter()
+            .map(|sig| {
+                let (label, params) = build_ffi_sig_label(name, sig);
+                let doc = build_ffi_doc(trust_doc, sig.is_async || sym.is_async);
+                SignatureInfo { label, parameters: params, documentation: Some(doc) }
+            })
+            .collect(),
+        PythonSymbolKind::Class(cls) => {
+            if let Some(ctor) = &cls.constructor {
+                let (label, params) = build_ffi_sig_label(name, ctor);
+                vec![SignatureInfo {
+                    label,
+                    parameters: params,
+                    documentation: Some(trust_doc.to_owned()),
+                }]
+            } else {
+                vec![]
+            }
+        }
+        _ => vec![],
     }
 }
 
@@ -478,47 +604,6 @@ fn resolve_constructor(
     None
 }
 
-fn resolve_ffi_module_fn(
-    module_name: &SmolStr,
-    field: &SmolStr,
-    ffi_modules: &std::collections::HashMap<SmolStr, asatsuyu_hir::ffi::FfiModule>,
-) -> Option<(String, Vec<ParamInfo>, Option<String>)> {
-    let ffi_mod = ffi_modules.get(module_name)?;
-    let symbol = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
-    let trust_doc = ffi_trust_doc(ffi_mod.trust_level);
-    match &symbol.kind {
-        asatsuyu_hir::ffi::FfiSymbolKind::Function(sig) => {
-            let (label, params) = build_ffi_sig_label(&format!("{module_name}.{field}"), sig);
-            let doc = build_ffi_doc(trust_doc, sig.is_async);
-            Some((label, params, Some(doc)))
-        }
-        asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) => {
-            let sig = cls.constructor.as_ref()?;
-            let (label, params) = build_ffi_sig_label(&format!("{module_name}.{}", cls.name), sig);
-            Some((label, params, Some(trust_doc.to_owned())))
-        }
-        asatsuyu_hir::ffi::FfiSymbolKind::Constant(_) => None,
-    }
-}
-
-fn resolve_ffi_instance_method(
-    module_name: &SmolStr,
-    class_name: &SmolStr,
-    method: &SmolStr,
-    ffi_modules: &std::collections::HashMap<SmolStr, asatsuyu_hir::ffi::FfiModule>,
-) -> Option<(String, Vec<ParamInfo>, Option<String>)> {
-    let ffi_mod = ffi_modules.get(module_name)?;
-    let class_symbol = ffi_mod.symbols.iter().find(|s| s.name == *class_name)?;
-    let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_symbol.kind else {
-        return None;
-    };
-    let (_, sig) = cls.methods.iter().find(|(name, _)| name == method)?;
-    let trust_doc = ffi_trust_doc(ffi_mod.trust_level);
-    let (label, params) = build_ffi_sig_label(&format!("{class_name}.{method}"), sig);
-    let doc = build_ffi_doc(trust_doc, sig.is_async);
-    Some((label, params, Some(doc)))
-}
-
 fn build_ffi_sig_label(
     name: &str,
     sig: &asatsuyu_hir::ffi::FfiSignature,
@@ -552,6 +637,251 @@ fn build_ffi_doc(trust_doc: &str, is_async: bool) -> String {
         format!("{trust_doc} Returns `Task(T)` \u{2014} consider using `await`")
     } else {
         trust_doc.to_owned()
+    }
+}
+
+// ── Completion resolve ─────────────────────────────────────────────
+
+/// Resolve detailed documentation for a completion item using `PythonApiIndex`.
+///
+/// Called by the `completionItem/resolve` handler. Returns `None` if the
+/// symbol cannot be found.
+pub(super) fn resolve_completion_detail(
+    data: &CompletionResolveData,
+    thir: Option<&ThirModule>,
+) -> Option<CompletionResolveResult> {
+    // Try PythonApiIndex first (richer information).
+    if let Some(module) = thir {
+        if let Some(result) = resolve_from_api_index(data, module) {
+            return Some(result);
+        }
+        // Fallback: use FfiModule.
+        return resolve_from_ffi_module(data, module);
+    }
+
+    // No THIR — try on-demand resolution.
+    let resolver = asatsuyu_hir::ffi::ChainResolver::new();
+    let (ffi_module, index_info) = resolver.resolve_with_index(&data.module_name)?;
+    if let Some(info) = &index_info
+        && let Some(sym) = info.symbols.iter().find(|s| s.name == data.symbol_name)
+    {
+        let trust = ffi_trust_doc(ffi_module.trust_level);
+        let prov = provenance_label(sym.provenance);
+        let doc = build_symbol_documentation(sym, &data.context, data.class_name.as_deref(), trust);
+        return Some(CompletionResolveResult {
+            documentation: doc,
+            description: Some(prov.to_owned()),
+        });
+    }
+    None
+}
+
+/// Resolve from the rich `PythonApiIndex` stored in THIR.
+fn resolve_from_api_index(
+    data: &CompletionResolveData,
+    module: &ThirModule,
+) -> Option<CompletionResolveResult> {
+    let index = module.python_api_index.as_ref()?;
+    let module_info = index.get(&data.module_name)?;
+    let ffi_mod = module.ffi_modules.get(data.module_name.as_str())?;
+    let trust = ffi_trust_doc(ffi_mod.trust_level);
+    let prov = provenance_label(module_info.source.source_kind);
+
+    match data.context.as_str() {
+        "module_member" => {
+            let sym = module_info.symbols.iter().find(|s| s.name == data.symbol_name)?;
+            let doc = build_symbol_documentation(sym, "module_member", None, trust);
+            Some(CompletionResolveResult { documentation: doc, description: Some(prov.to_owned()) })
+        }
+        "instance_member" => {
+            let class_name = data.class_name.as_deref()?;
+            let class_sym = module_info.symbols.iter().find(|s| s.name == class_name)?;
+            let asatsuyu_hir::ffi::PythonSymbolKind::Class(cls) = &class_sym.kind else {
+                return None;
+            };
+            let doc = build_instance_member_documentation(&data.symbol_name, cls, trust);
+            Some(CompletionResolveResult { documentation: doc, description: Some(prov.to_owned()) })
+        }
+        _ => None,
+    }
+}
+
+/// Fallback: resolve from the simplified `FfiModule`.
+fn resolve_from_ffi_module(
+    data: &CompletionResolveData,
+    module: &ThirModule,
+) -> Option<CompletionResolveResult> {
+    use std::fmt::Write;
+    let ffi_mod = module.ffi_modules.get(data.module_name.as_str())?;
+    let trust = ffi_trust_doc(ffi_mod.trust_level);
+
+    match data.context.as_str() {
+        "module_member" => {
+            let sym = ffi_mod.symbols.iter().find(|s| s.name == data.symbol_name)?;
+            let mut doc = String::from(trust);
+            match &sym.kind {
+                asatsuyu_hir::ffi::FfiSymbolKind::Function(sig) => {
+                    let callee = format!("{}.{}", data.module_name, data.symbol_name);
+                    let (label, _) = build_ffi_sig_label(&callee, sig);
+                    let _ = write!(doc, "\n\n```\n{label}\n```");
+                }
+                asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) => {
+                    let _ = write!(doc, "\n\n**class** `{}`", cls.name);
+                    if let Some(ctor) = &cls.constructor {
+                        let (label, _) = build_ffi_sig_label(&cls.name, ctor);
+                        let _ = write!(doc, "\n\n```\n{label}\n```");
+                    }
+                }
+                asatsuyu_hir::ffi::FfiSymbolKind::Constant(ty) => {
+                    let _ = write!(doc, "\n\n`{}: {}`", data.symbol_name, format_ffi_type(ty));
+                }
+            }
+            Some(CompletionResolveResult {
+                documentation: doc,
+                description: Some("builtin".to_owned()),
+            })
+        }
+        "instance_member" => {
+            let class_name = data.class_name.as_deref()?;
+            let class_sym = ffi_mod.symbols.iter().find(|s| s.name == class_name)?;
+            let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_sym.kind else {
+                return None;
+            };
+            // Search methods.
+            if let Some((_, sig)) = cls.methods.iter().find(|(n, _)| n.as_str() == data.symbol_name)
+            {
+                let (label, _) = build_ffi_sig_label(&data.symbol_name, sig);
+                let trust_str = build_ffi_doc(trust, sig.is_async);
+                let documentation = format!("{trust_str}\n\n```\n{label}\n```");
+                return Some(CompletionResolveResult {
+                    documentation,
+                    description: Some("builtin".to_owned()),
+                });
+            }
+            // Search properties.
+            if let Some((_, ty)) =
+                cls.properties.iter().find(|(n, _)| n.as_str() == data.symbol_name)
+            {
+                let documentation =
+                    format!("{trust}\n\n`{}: {}`", data.symbol_name, format_ffi_type(ty));
+                return Some(CompletionResolveResult {
+                    documentation,
+                    description: Some("builtin".to_owned()),
+                });
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+/// Append signature block(s) to a documentation string.
+fn append_signature_docs(
+    doc: &mut String,
+    name: &str,
+    signatures: &[asatsuyu_hir::ffi::FfiSignature],
+    is_async: bool,
+) {
+    use std::fmt::Write;
+    if signatures.len() > 1 {
+        for (i, sig) in signatures.iter().enumerate() {
+            let (label, _) = build_ffi_sig_label(name, sig);
+            let _ = write!(doc, "\n\n**Overload {}:**\n```\n{label}\n```", i + 1);
+        }
+    } else if let Some(sig) = signatures.first() {
+        let (label, _) = build_ffi_sig_label(name, sig);
+        let _ = write!(doc, "\n\n```\n{label}\n```");
+    }
+    if is_async {
+        doc.push_str("\n\nReturns `Task(T)` \u{2014} consider using `await`");
+    }
+}
+
+/// Build Markdown documentation for a `PythonSymbolInfo`.
+fn build_symbol_documentation(
+    sym: &asatsuyu_hir::ffi::PythonSymbolInfo,
+    context: &str,
+    _class_name: Option<&str>,
+    trust: &str,
+) -> String {
+    use asatsuyu_hir::ffi::PythonSymbolKind;
+    use std::fmt::Write;
+    let mut doc = String::from(trust);
+
+    match &sym.kind {
+        PythonSymbolKind::Function(info) if context == "module_member" => {
+            append_signature_docs(&mut doc, &sym.name, &info.signatures, sym.is_async);
+        }
+        PythonSymbolKind::Class(cls) => {
+            let _ = write!(doc, "\n\n**class** `{}`", cls.name);
+            if let Some(ctor) = &cls.constructor {
+                let (label, _) = build_ffi_sig_label(&cls.name, ctor);
+                let _ = write!(doc, "\n\n```\n{label}\n```");
+            }
+        }
+        PythonSymbolKind::Constant(ty) => {
+            let _ = write!(doc, "\n\n`{}: {}`", sym.name, format_ffi_type(ty));
+        }
+        PythonSymbolKind::Module => {
+            let _ = write!(doc, "\n\nsubmodule `{}`", sym.name);
+        }
+        PythonSymbolKind::Function(_) => {}
+    }
+
+    doc
+}
+
+/// Build documentation for an instance member (method or property) from `PythonClassInfo`.
+fn build_instance_member_documentation(
+    member_name: &str,
+    cls: &asatsuyu_hir::ffi::PythonClassInfo,
+    trust: &str,
+) -> String {
+    use std::fmt::Write;
+    let mut doc = String::from(trust);
+
+    // Check methods.
+    if let Some(method) = cls.methods.iter().find(|m| m.name == member_name) {
+        append_signature_docs(&mut doc, member_name, &method.signatures, method.is_async);
+        return doc;
+    }
+
+    // Check properties.
+    if let Some((_, ty)) = cls.properties.iter().find(|(n, _)| n.as_str() == member_name) {
+        let _ = write!(doc, "\n\n**property** `{member_name}: {}`", format_ffi_type(ty));
+        return doc;
+    }
+
+    // Check class methods.
+    if let Some(method) = cls.class_methods.iter().find(|m| m.name == member_name) {
+        if let Some(sig) = method.signatures.first() {
+            let (label, _) = build_ffi_sig_label(member_name, sig);
+            let _ = write!(doc, "\n\n**classmethod**\n```\n{label}\n```");
+        }
+        return doc;
+    }
+
+    // Check static methods.
+    if let Some(method) = cls.static_methods.iter().find(|m| m.name == member_name) {
+        if let Some(sig) = method.signatures.first() {
+            let (label, _) = build_ffi_sig_label(member_name, sig);
+            let _ = write!(doc, "\n\n**staticmethod**\n```\n{label}\n```");
+        }
+        return doc;
+    }
+
+    doc
+}
+
+/// Human-readable provenance label.
+fn provenance_label(kind: asatsuyu_hir::ffi::TypeSourceKind) -> &'static str {
+    use asatsuyu_hir::ffi::TypeSourceKind;
+    match kind {
+        TypeSourceKind::CustomStubs => "custom stubs",
+        TypeSourceKind::Typeshed => "typeshed",
+        TypeSourceKind::StubPackage => "stubs",
+        TypeSourceKind::PyTypedInline => "inline",
+        TypeSourceKind::Builtin => "builtin",
     }
 }
 
@@ -627,10 +957,10 @@ pub(super) fn collect_code_actions(
                 }
             }
             "E0152" => {
-                actions.extend(action_add_imports(source, message));
+                actions.extend(action_add_imports_with_index(source, message, thir));
             }
             "E0208" => {
-                actions.extend(action_generate_python_imports(source, message));
+                actions.extend(action_generate_python_imports_with_index(source, message, thir));
             }
             "E0220" => {
                 if let Some(action) = action_make_fn_async(source, cursor_offset) {
@@ -805,9 +1135,11 @@ fn action_add_imports(source: &str, message: &str) -> Vec<CodeActionInfo> {
     actions
 }
 
-/// E0208: Generate `from python import` for an unknown module.
+/// E0208: Generate `from python import` for an unknown module (original text-based version).
 ///
 /// Extracts the module name from the diagnostic message.
+/// Kept for tests; production code uses `action_generate_python_imports_with_index`.
+#[cfg(test)]
 fn action_generate_python_imports(source: &str, message: &str) -> Vec<CodeActionInfo> {
     // Extract module name from "unknown Python module `foo`".
     let prefix = "unknown Python module `";
@@ -834,6 +1166,117 @@ fn action_generate_python_imports(source: &str, message: &str) -> Vec<CodeAction
     #[allow(clippy::cast_possible_truncation)]
     actions.push(CodeActionInfo {
         title: format!("Add alias import: from python import {module_name} as {alias}"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: format!("from python import {module_name} as {alias}\n"),
+    });
+    actions
+}
+
+/// E0152 (enhanced): Try `PythonApiIndex` reverse lookup first, fall back to text-based.
+fn action_add_imports_with_index(
+    source: &str,
+    message: &str,
+    thir: Option<&ThirModule>,
+) -> Vec<CodeActionInfo> {
+    // Extract name from "unresolved name `foo`".
+    let prefix = "unresolved name `";
+    let Some(name_start) = message.find(prefix).map(|idx| idx + prefix.len()) else {
+        return Vec::new();
+    };
+    let Some(name_end) = message[name_start..].find('`').map(|idx| idx + name_start) else {
+        return Vec::new();
+    };
+    let name = &message[name_start..name_end];
+
+    // Check if this symbol is exported by any known Python module.
+    if let Some(module) = thir
+        && let Some(index) = &module.python_api_index
+    {
+        let matches = index.find_modules_for_symbol(name);
+        if !matches.is_empty() {
+            let insert_pos = find_import_insert_position(source);
+            let mut actions = Vec::new();
+            for (mod_name, _sym) in matches.iter().take(5) {
+                // Skip if module is already imported.
+                if source.contains(&format!("from python import {mod_name}")) {
+                    continue;
+                }
+                let alias = import_alias(mod_name);
+                actions.push(CodeActionInfo {
+                    title: format!("Add import: from python import {mod_name}"),
+                    kind: CodeActionKindTag::QuickFix,
+                    replace_start: insert_pos,
+                    replace_end: insert_pos,
+                    new_text: format!("from python import {mod_name}\n"),
+                });
+                actions.push(CodeActionInfo {
+                    title: format!("Add alias import: from python import {mod_name} as {alias}"),
+                    kind: CodeActionKindTag::QuickFix,
+                    replace_start: insert_pos,
+                    replace_end: insert_pos,
+                    new_text: format!("from python import {mod_name} as {alias}\n"),
+                });
+            }
+            if !actions.is_empty() {
+                return actions;
+            }
+        }
+    }
+
+    // Fallback: original text-based import suggestion.
+    action_add_imports(source, message)
+}
+
+/// E0208 (enhanced): Check `PythonApiIndex` for module info, fall back to text-based.
+fn action_generate_python_imports_with_index(
+    source: &str,
+    message: &str,
+    thir: Option<&ThirModule>,
+) -> Vec<CodeActionInfo> {
+    // Extract module name from "unknown Python module `foo`".
+    let prefix = "unknown Python module `";
+    let Some(name_start) = message.find(prefix).map(|idx| idx + prefix.len()) else {
+        return Vec::new();
+    };
+    let Some(name_end) = message[name_start..].find('`').map(|idx| idx + name_start) else {
+        return Vec::new();
+    };
+    let module_name = &message[name_start..name_end];
+
+    // Skip if already imported.
+    if source.contains(&format!("from python import {module_name}")) {
+        return Vec::new();
+    }
+
+    let insert_pos = find_import_insert_position(source);
+
+    // Check if we have trust level information from the index.
+    let trust_label = thir
+        .and_then(|m| m.python_api_index.as_ref())
+        .and_then(|idx| idx.get(module_name))
+        .and_then(|_info| {
+            // Determine trust level via admissibility of the FfiModule.
+            thir.and_then(|m| m.ffi_modules.get(module_name))
+                .map(|ffi_mod| ffi_trust_doc(ffi_mod.trust_level))
+        });
+
+    let trust_suffix = trust_label.map_or(String::new(), |t| format!(" {t}"));
+    let alias = import_alias(module_name);
+    let mut actions = Vec::with_capacity(2);
+
+    actions.push(CodeActionInfo {
+        title: format!("Add: from python import {module_name}{trust_suffix}"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: format!("from python import {module_name}\n"),
+    });
+    actions.push(CodeActionInfo {
+        title: format!(
+            "Add alias import: from python import {module_name} as {alias}{trust_suffix}"
+        ),
         kind: CodeActionKindTag::QuickFix,
         replace_start: insert_pos,
         replace_end: insert_pos,
@@ -1215,6 +1658,34 @@ pub(super) struct CompletionEntry {
     pub detail: Option<String>,
     pub insert_text: Option<SmolStr>,
     pub insert_text_format: InsertTextFormatTag,
+    /// Stable identifier for `completionItem/resolve` (FFI completions only).
+    pub resolve_data: Option<CompletionResolveData>,
+}
+
+/// Identifier serialized into `CompletionItem.data` for deferred resolve.
+///
+/// Kept small — only what is needed to look up the symbol in `PythonApiIndex`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub(super) struct CompletionResolveData {
+    /// The URI of the file where completion was triggered.
+    pub uri: String,
+    /// Python module name (e.g. `"pathlib"`).
+    pub module_name: String,
+    /// Symbol name within the module (e.g. `"Path"`, `"read_text"`).
+    pub symbol_name: String,
+    /// `"module_member"` or `"instance_member"`.
+    pub context: String,
+    /// Class name for instance member context.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
+}
+
+/// Result of resolving a completion item's documentation.
+pub(super) struct CompletionResolveResult {
+    /// Markdown documentation (trust level, overloads, async hint).
+    pub documentation: String,
+    /// Short provenance label (e.g. `"typeshed"`, `"builtin"`).
+    pub description: Option<String>,
 }
 
 /// The syntactic context at the completion cursor position.
@@ -1263,6 +1734,7 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
                         detail: None,
                         insert_text: None,
                         insert_text_format: InsertTextFormatTag::default(),
+                        resolve_data: None,
                     });
                 }
             }
@@ -1288,6 +1760,7 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
                     detail: None,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
+                    resolve_data: None,
                 });
             }
         }
@@ -1407,6 +1880,7 @@ fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
             detail: None,
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
+            resolve_data: None,
         });
     }
 
@@ -1466,6 +1940,7 @@ fn keyword_snippet(label: &'static str, insert_text: &'static str) -> Completion
         detail: None,
         insert_text: Some(SmolStr::new(insert_text)),
         insert_text_format: InsertTextFormatTag::PlainText,
+        resolve_data: None,
     }
 }
 
@@ -1478,6 +1953,7 @@ fn keyword_snippet_expand(label: &'static str, snippet: &'static str) -> Complet
         detail: None,
         insert_text: Some(SmolStr::new(snippet)),
         insert_text_format: InsertTextFormatTag::Snippet,
+        resolve_data: None,
     }
 }
 
@@ -1735,6 +2211,7 @@ fn collect_ffi_import_module_completions(thir: Option<&ThirModule>) -> Vec<Compl
             detail: Some("module".to_owned()),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
+            resolve_data: None,
         })
         .collect()
 }
@@ -1749,6 +2226,7 @@ fn collect_ffi_module_member_completions(
     if let Some(index) = &thir.python_api_index
         && let Some(module_info) = index.get(module_name)
     {
+        let mod_name = module_name.to_owned();
         return module_info
             .symbols
             .iter()
@@ -1776,6 +2254,13 @@ fn collect_ffi_module_member_completions(
                     detail,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
+                    resolve_data: Some(CompletionResolveData {
+                        uri: String::new(),
+                        module_name: mod_name.clone(),
+                        symbol_name: sym.name.to_string(),
+                        context: "module_member".to_owned(),
+                        class_name: None,
+                    }),
                 }
             })
             .collect();
@@ -1793,6 +2278,7 @@ fn collect_ffi_module_member_completions_from_ffi(
     let Some(ffi_mod) = thir.ffi_modules.get(module_name) else {
         return Vec::new();
     };
+    let mod_name = module_name.to_owned();
     ffi_mod
         .symbols
         .iter()
@@ -1816,6 +2302,13 @@ fn collect_ffi_module_member_completions_from_ffi(
                 detail,
                 insert_text: None,
                 insert_text_format: InsertTextFormatTag::default(),
+                resolve_data: Some(CompletionResolveData {
+                    uri: String::new(),
+                    module_name: mod_name.clone(),
+                    symbol_name: sym.name.to_string(),
+                    context: "module_member".to_owned(),
+                    class_name: None,
+                }),
             }
         })
         .collect()
@@ -1835,7 +2328,7 @@ fn collect_ffi_instance_member_completions(
             if let asatsuyu_hir::ffi::PythonSymbolKind::Class(cls) = &sym.kind
                 && sym.name == class_name
             {
-                return collect_instance_members_from_class(cls);
+                return collect_instance_members_from_class(cls, module_name, class_name);
             }
         }
     }
@@ -1847,6 +2340,8 @@ fn collect_ffi_instance_member_completions(
 /// Build instance member completions from `PythonClassInfo`.
 fn collect_instance_members_from_class(
     cls: &asatsuyu_hir::ffi::PythonClassInfo,
+    module_name: &str,
+    class_name: &str,
 ) -> Vec<CompletionEntry> {
     let mut entries = Vec::new();
 
@@ -1860,6 +2355,13 @@ fn collect_instance_members_from_class(
             detail,
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
+            resolve_data: Some(CompletionResolveData {
+                uri: String::new(),
+                module_name: module_name.to_owned(),
+                symbol_name: method.name.to_string(),
+                context: "instance_member".to_owned(),
+                class_name: Some(class_name.to_owned()),
+            }),
         });
     }
 
@@ -1872,6 +2374,13 @@ fn collect_instance_members_from_class(
             detail: Some(format_ffi_type(ty)),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
+            resolve_data: Some(CompletionResolveData {
+                uri: String::new(),
+                module_name: module_name.to_owned(),
+                symbol_name: name.to_string(),
+                context: "instance_member".to_owned(),
+                class_name: Some(class_name.to_owned()),
+            }),
         });
     }
 
@@ -1904,6 +2413,13 @@ fn collect_ffi_instance_member_completions_from_ffi(
             detail: Some(format_ffi_signature_brief(sig)),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
+            resolve_data: Some(CompletionResolveData {
+                uri: String::new(),
+                module_name: module_name.to_owned(),
+                symbol_name: name.to_string(),
+                context: "instance_member".to_owned(),
+                class_name: Some(class_name.to_owned()),
+            }),
         });
     }
     for (name, ty) in &cls.properties {
@@ -1914,6 +2430,13 @@ fn collect_ffi_instance_member_completions_from_ffi(
             detail: Some(format_ffi_type(ty)),
             insert_text: None,
             insert_text_format: InsertTextFormatTag::default(),
+            resolve_data: Some(CompletionResolveData {
+                uri: String::new(),
+                module_name: module_name.to_owned(),
+                symbol_name: name.to_string(),
+                context: "instance_member".to_owned(),
+                class_name: Some(class_name.to_owned()),
+            }),
         });
     }
     entries
@@ -1936,6 +2459,8 @@ fn collect_ffi_module_member_completions_on_demand(module_name: &str) -> Vec<Com
     let Some((ffi_module, index_info)) = resolver.resolve_with_index(module_name) else {
         return Vec::new();
     };
+
+    let mod_name = module_name.to_owned();
 
     // Prefer the rich PythonApiIndex if available.
     if let Some(info) = &index_info {
@@ -1966,6 +2491,13 @@ fn collect_ffi_module_member_completions_on_demand(module_name: &str) -> Vec<Com
                     detail,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
+                    resolve_data: Some(CompletionResolveData {
+                        uri: String::new(),
+                        module_name: mod_name.clone(),
+                        symbol_name: sym.name.to_string(),
+                        context: "module_member".to_owned(),
+                        class_name: None,
+                    }),
                 }
             })
             .collect();
@@ -1989,6 +2521,13 @@ fn collect_ffi_module_member_completions_on_demand(module_name: &str) -> Vec<Com
                 detail: None,
                 insert_text: None,
                 insert_text_format: InsertTextFormatTag::default(),
+                resolve_data: Some(CompletionResolveData {
+                    uri: String::new(),
+                    module_name: mod_name.clone(),
+                    symbol_name: sym.name.to_string(),
+                    context: "module_member".to_owned(),
+                    class_name: None,
+                }),
             }
         })
         .collect()
@@ -2009,7 +2548,7 @@ fn collect_ffi_instance_member_completions_on_demand(
             if let asatsuyu_hir::ffi::PythonSymbolKind::Class(cls) = &sym.kind
                 && sym.name == class_name
             {
-                return collect_instance_members_from_class(cls);
+                return collect_instance_members_from_class(cls, module_name, class_name);
             }
         }
     }
@@ -2084,6 +2623,7 @@ fn collect_locals_in_expr(
                     detail: None,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
+                    resolve_data: None,
                 });
             }
             collect_locals_in_expr(value, offset, st, entries, seen);
@@ -2107,6 +2647,7 @@ fn collect_locals_in_expr(
                         detail: None,
                         insert_text: None,
                         insert_text_format: InsertTextFormatTag::default(),
+                        resolve_data: None,
                     });
                 }
             }
@@ -2144,6 +2685,7 @@ fn collect_pattern_bindings(
                     detail: None,
                     insert_text: None,
                     insert_text_format: InsertTextFormatTag::default(),
+                    resolve_data: None,
                 });
             }
         }
@@ -2424,10 +2966,12 @@ mod tests {
         #[allow(clippy::cast_possible_truncation)]
         let info =
             signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
-        assert!(info.label.contains("add"), "label should contain fn name: {}", info.label);
-        assert_eq!(info.parameters.len(), 2);
-        assert!(info.parameters[0].label.contains('a'));
-        assert!(info.parameters[1].label.contains('b'));
+        assert_eq!(info.signatures.len(), 1);
+        let sig = &info.signatures[0];
+        assert!(sig.label.contains("add"), "label should contain fn name: {}", sig.label);
+        assert_eq!(sig.parameters.len(), 2);
+        assert!(sig.parameters[0].label.contains('a'));
+        assert!(sig.parameters[1].label.contains('b'));
         assert_eq!(info.active_parameter, 0);
     }
 
@@ -2463,7 +3007,8 @@ mod tests {
         #[allow(clippy::cast_possible_truncation)]
         let info =
             signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
-        assert!(!info.parameters.is_empty(), "should have params");
+        assert!(!info.signatures.is_empty(), "should have signatures");
+        assert!(!info.signatures[0].parameters.is_empty(), "should have params");
     }
 
     #[test]
@@ -2474,9 +3019,10 @@ mod tests {
         #[allow(clippy::cast_possible_truncation)]
         let info =
             signature_help_at_offset(&thir, source, paren_pos as u32).expect("should have sig");
-        assert!(info.label.contains("asyncio.sleep"), "label: {}", info.label);
-        assert_eq!(info.parameters.len(), 1);
-        assert_eq!(info.parameters[0].label, "delay: Float");
+        let sig = &info.signatures[0];
+        assert!(sig.label.contains("asyncio.sleep"), "label: {}", sig.label);
+        assert_eq!(sig.parameters.len(), 1);
+        assert_eq!(sig.parameters[0].label, "delay: Float");
     }
 
     #[test]

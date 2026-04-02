@@ -13,12 +13,13 @@ use tokio::sync::{RwLock, mpsc};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionKind, CodeActionOptions, CodeActionOrCommand, CodeActionParams,
-    CodeActionResponse, CompletionItem, CompletionItemKind, CompletionOptions, CompletionParams,
-    CompletionResponse, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams, DocumentSymbol,
-    DocumentSymbolParams, DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse,
-    Hover, HoverContents, HoverParams, HoverProviderCapability, InitializeParams, InitializeResult,
-    InitializedParams, InsertTextFormat, Location, MarkupContent, MarkupKind, MessageType, OneOf,
+    CodeActionResponse, CompletionItem, CompletionItemKind, CompletionItemLabelDetails,
+    CompletionOptions, CompletionParams, CompletionResponse, DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
+    DocumentFormattingParams, DocumentSymbol, DocumentSymbolParams, DocumentSymbolResponse,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams,
+    HoverProviderCapability, InitializeParams, InitializeResult, InitializedParams,
+    InsertTextFormat, Location, MarkupContent, MarkupKind, MessageType, OneOf,
     ParameterInformation, ParameterLabel, Position, PrepareRenameResponse, ReferenceParams,
     RenameOptions, RenameParams, SemanticTokens, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, SemanticTokensParams, SemanticTokensResult,
@@ -158,6 +159,7 @@ impl LanguageServer for Backend {
                 document_formatting_provider: Some(OneOf::Left(true)),
                 completion_provider: Some(CompletionOptions {
                     trigger_characters: Some(vec![".".to_owned()]),
+                    resolve_provider: Some(true),
                     ..Default::default()
                 }),
                 signature_help_provider: Some(SignatureHelpOptions {
@@ -328,30 +330,38 @@ impl LanguageServer for Backend {
             return Ok(None);
         };
 
-        let parameters: Vec<ParameterInformation> = info
-            .parameters
-            .iter()
-            .map(|p| ParameterInformation {
-                label: ParameterLabel::Simple(p.label.clone()),
-                documentation: None,
+        let signatures: Vec<SignatureInformation> = info
+            .signatures
+            .into_iter()
+            .map(|sig| {
+                let parameters: Vec<ParameterInformation> = sig
+                    .parameters
+                    .iter()
+                    .map(|p| ParameterInformation {
+                        label: ParameterLabel::Simple(p.label.clone()),
+                        documentation: None,
+                    })
+                    .collect();
+                SignatureInformation {
+                    label: sig.label,
+                    documentation: sig.documentation.map(|doc| {
+                        tower_lsp::lsp_types::Documentation::MarkupContent(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: doc,
+                        })
+                    }),
+                    parameters: Some(parameters),
+                    active_parameter: Some(info.active_parameter),
+                }
             })
             .collect();
 
-        let signature = SignatureInformation {
-            label: info.label,
-            documentation: info.documentation.map(|doc| {
-                tower_lsp::lsp_types::Documentation::MarkupContent(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: doc,
-                })
-            }),
-            parameters: Some(parameters),
-            active_parameter: Some(info.active_parameter),
-        };
+        // Select the best overload based on argument count.
+        let active_sig = select_active_signature(&signatures, info.active_parameter);
 
         Ok(Some(SignatureHelp {
-            signatures: vec![signature],
-            active_signature: Some(0),
+            signatures,
+            active_signature: Some(active_sig),
             active_parameter: Some(info.active_parameter),
         }))
     }
@@ -420,6 +430,7 @@ impl LanguageServer for Backend {
         let entries =
             analysis::collect_all_completions(file_state.thir.as_ref(), &file_state.source, offset);
 
+        let uri_str = uri.to_string();
         let items: Vec<CompletionItem> = entries
             .into_iter()
             .map(|entry| {
@@ -446,6 +457,13 @@ impl LanguageServer for Backend {
                     analysis::InsertTextFormatTag::PlainText => None,
                 };
                 let detail = entry.detail.or_else(|| entry.ty.map(|t| format!("{t}")));
+
+                // Serialize resolve data (with the file URI stamped in).
+                let data = entry.resolve_data.map(|mut rd| {
+                    uri_str.clone_into(&mut rd.uri);
+                    serde_json::to_value(rd).unwrap_or_default()
+                });
+
                 CompletionItem {
                     label: entry.name.to_string(),
                     kind: Some(kind),
@@ -453,12 +471,55 @@ impl LanguageServer for Backend {
                     sort_text: Some(format!("{sort_prefix}{}", entry.name)),
                     insert_text: entry.insert_text.map(|text| text.to_string()),
                     insert_text_format,
+                    data,
                     ..Default::default()
                 }
             })
             .collect();
 
         Ok(Some(CompletionResponse::Array(items)))
+    }
+
+    // ── Completion resolve ──────────────────────────────────────
+
+    async fn completion_resolve(&self, mut item: CompletionItem) -> Result<CompletionItem> {
+        let Some(data_value) = &item.data else {
+            return Ok(item);
+        };
+        let Ok(data) =
+            serde_json::from_value::<analysis::CompletionResolveData>(data_value.clone())
+        else {
+            return Ok(item);
+        };
+
+        let state = self.state.read().await;
+
+        // Find the THIR for the file where completion was triggered.
+        let thir = state.values().find_map(|fs| {
+            // Match by URI string embedded in the resolve data.
+            fs.thir.as_ref()
+        });
+
+        // Look up the file by URI for a precise match.
+        let thir = if let Ok(resolve_uri) = data.uri.parse::<tower_lsp::lsp_types::Url>() {
+            state.get(&resolve_uri).and_then(|fs| fs.thir.as_ref())
+        } else {
+            thir
+        };
+
+        if let Some(result) = analysis::resolve_completion_detail(&data, thir) {
+            item.documentation =
+                Some(tower_lsp::lsp_types::Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: result.documentation,
+                }));
+            if let Some(desc) = result.description {
+                item.label_details =
+                    Some(CompletionItemLabelDetails { detail: None, description: Some(desc) });
+            }
+        }
+
+        Ok(item)
     }
 
     // ── Rename ──────────────────────────────────────────────────
@@ -794,6 +855,27 @@ fn word_at_offset(source: &str, offset: u32) -> String {
 /// Convert a file URI to a filesystem path.
 fn uri_to_path(uri: &Url) -> Option<PathBuf> {
     uri.to_file_path().ok()
+}
+
+/// Select the best overload based on argument count (`active_parameter` + 1).
+///
+/// Prefers the overload where the parameter count is closest to (but not less than)
+/// the number of arguments already typed.
+#[allow(clippy::cast_possible_truncation)]
+fn select_active_signature(signatures: &[SignatureInformation], active_parameter: u32) -> u32 {
+    let arg_count = active_parameter + 1;
+    let mut best_idx = 0u32;
+    let mut best_params = u32::MAX;
+
+    for (i, sig) in signatures.iter().enumerate() {
+        let param_count = sig.parameters.as_ref().map_or(0, |p| p.len() as u32);
+        // Prefer signatures that can accept the current argument count.
+        if param_count >= arg_count && param_count < best_params {
+            best_params = param_count;
+            best_idx = i as u32;
+        }
+    }
+    best_idx
 }
 
 /// Map `DefKind` to LSP `CompletionItemKind`.
