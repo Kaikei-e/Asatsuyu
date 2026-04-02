@@ -36,6 +36,30 @@ fn run_hello_asty() {
     );
 }
 
+#[test]
+fn run_async_main_asty() {
+    let dir = workspace_root().join("target/test-run-async-main");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let file = dir.join("async_main.asty");
+    std::fs::write(&file, "pub async fn main() {\n  println(\"async ok\")\n}\n").unwrap();
+
+    let file_str = file.display().to_string();
+    let output = asatsuyu().args(["run", &file_str]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "exit code: {:?}\nstderr: {}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("async ok"), "stdout: {stdout}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 // ── 2. build hello.asty ────────────────────────────────────────────
 
 #[test]

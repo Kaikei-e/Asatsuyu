@@ -43,7 +43,7 @@ Asatsuyu is not about "inventing a language." The immediate priority is
 - Mainlining direct `.pyc` generation
 - JIT / native optimization
 - Classes / inheritance / trait-style abstraction
-- Full native async/await design
+- Full native async/await design (Phase 3-2 introduces Python-interop-level `async fn` / `await` / `Task(T)`. Custom runtime and structured concurrency remain non-goals)
 - Effect system / macro system
 - Package registry
 - Multi-backend support
@@ -247,8 +247,8 @@ enum LexToken {
     #[token("False")]  FalseKw,
     #[token("try")]    TryKw,
     #[token("mut")]    MutKw,     // hard keyword (Phase 3-1)
-    #[token("async")]  AsyncKw,   // reserved
-    #[token("await")]  AwaitKw,   // reserved
+    #[token("async")]  AsyncKw,   // hard keyword (Phase 3-2)
+    #[token("await")]  AwaitKw,   // hard keyword (Phase 3-2)
 
     // === Literals ===
     #[regex("[0-9]+\\.[0-9]+")]  FloatLit,

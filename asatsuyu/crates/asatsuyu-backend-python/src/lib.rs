@@ -174,14 +174,21 @@ pub fn emit_package(
     }
 
     // __main__.py if a `main` function exists
-    let has_main =
-        module.functions.iter().any(|f| module.symbol_table.get(f.def_id).name.as_str() == "main");
+    let main_fn =
+        module.functions.iter().find(|f| module.symbol_table.get(f.def_id).name.as_str() == "main");
+    let has_main = main_fn.is_some();
+    let is_async_main = main_fn.is_some_and(|f| f.is_async);
     if has_main {
+        let content = if is_async_main {
+            format!(
+                "import asyncio\nfrom .{pkg_dir} import main\n\nif __name__ == \"__main__\":\n    asyncio.run(main())\n"
+            )
+        } else {
+            format!("from .{pkg_dir} import main\n\nif __name__ == \"__main__\":\n    main()\n")
+        };
         files.push(GeneratedFile {
             path: PathBuf::from(format!("python/{pkg_dir}/__main__.py")),
-            content: format!(
-                "from .{pkg_dir} import main\n\nif __name__ == \"__main__\":\n    main()\n"
-            ),
+            content,
         });
     }
 
@@ -339,6 +346,60 @@ pub async fn fetch() -> Int { await inner() }";
         assert!(
             py.contains("-> Coroutine[Any, Any, int]:"),
             "Task(Int) return type should map to Coroutine[Any, Any, int]: {py}"
+        );
+    }
+
+    #[test]
+    fn emit_async_fn_let_await() {
+        let source = "\
+async fn fetch() -> Int { 1 }
+async fn run() -> Int {
+  let x = await fetch()
+  x
+}";
+        let py = python_from_source(source);
+        assert!(py.contains("x = await fetch()"), "let x = await should emit assignment: {py}");
+    }
+
+    #[test]
+    fn emit_bare_await_stmt() {
+        let source = "\
+async fn do_work() -> Int { 1 }
+async fn run() -> Int {
+  await do_work()
+  1
+}";
+        let py = python_from_source(source);
+        assert!(py.contains("await do_work()"), "bare await should emit as statement: {py}");
+    }
+
+    #[test]
+    fn emit_task_return_type_triggers_coroutine_import() {
+        // Sync function returning Task(Int) with NO Task params — should still
+        // trigger the Coroutine import.
+        let source = "\
+async fn async_fn() -> Int { 1 }
+fn forward() -> Task(Int) { async_fn() }";
+        let py = python_from_source(source);
+        assert!(
+            py.contains("from collections.abc import Coroutine"),
+            "Task in return type should trigger Coroutine import: {py}"
+        );
+        assert!(
+            py.contains("-> Coroutine[Any, Any, int]:"),
+            "Task(Int) return type should map to Coroutine annotation: {py}"
+        );
+    }
+
+    #[test]
+    fn emit_async_fn_no_coroutine_import_for_inner_return() {
+        // Pure async fn with -> Int: return_ty is stored as Int (inner type),
+        // so no Coroutine import is needed.
+        let source = "async fn fetch() -> Int { 1 }";
+        let py = python_from_source(source);
+        assert!(
+            !py.contains("Coroutine"),
+            "async fn with inner return type should not need Coroutine import: {py}"
         );
     }
 
@@ -791,6 +852,54 @@ pub async fn fetch() -> Int { await inner() }";
             main_py.content.contains("if __name__ == \"__main__\":"),
             "guard: {}",
             main_py.content,
+        );
+    }
+
+    // ── Issue 101: Async main support ─────────────────────────────────
+
+    #[test]
+    fn package_async_main_uses_asyncio_run() {
+        let pkg = package_from_source("pub async fn main() { 1 }", "hello");
+        let main_py = pkg
+            .files
+            .iter()
+            .find(|f| f.path.display().to_string() == "python/hello/__main__.py")
+            .expect("__main__.py");
+        assert!(
+            main_py.content.contains("import asyncio"),
+            "async main should import asyncio: {}",
+            main_py.content,
+        );
+        assert!(
+            main_py.content.contains("asyncio.run(main())"),
+            "async main should use asyncio.run(): {}",
+            main_py.content,
+        );
+    }
+
+    #[test]
+    fn package_sync_main_no_asyncio() {
+        let pkg = package_from_source("pub fn main() { 42 }", "hello");
+        let main_py = pkg
+            .files
+            .iter()
+            .find(|f| f.path.display().to_string() == "python/hello/__main__.py")
+            .expect("__main__.py");
+        assert!(
+            !main_py.content.contains("asyncio"),
+            "sync main should not mention asyncio: {}",
+            main_py.content,
+        );
+        assert!(main_py.content.contains("main()"), "should call main(): {}", main_py.content);
+    }
+
+    #[test]
+    fn package_no_main_no_dunder_main() {
+        let pkg = package_from_source("fn add(x: Int, y: Int) -> Int { x }", "lib");
+        let paths: Vec<String> = pkg.files.iter().map(|f| f.path.display().to_string()).collect();
+        assert!(
+            !paths.contains(&"python/lib/__main__.py".to_string()),
+            "no __main__.py without main fn: {paths:?}",
         );
     }
 

@@ -115,10 +115,12 @@ impl<'a> Emitter<'a> {
         self.has_checked_ffi = self.scan_for_checked_ffi();
         self.has_functools =
             self.module.functions.iter().any(|f| self.expr_contains_list_fold(&f.body));
-        // Pre-scan for Task(T) types in parameter positions (async fn return types
-        // are emitted as the inner type T, so they don't need the Coroutine import).
-        self.has_task_type =
-            self.module.functions.iter().any(|f| f.params.iter().any(|p| ty_contains_task(&p.ty)));
+        // Pre-scan for Task(T) types in parameter or return-type positions.
+        // Async fn return types are stored as the inner type T (not Task(T)),
+        // so they won't match. But sync fns forwarding Task values need the import.
+        self.has_task_type = self.module.functions.iter().any(|f| {
+            f.params.iter().any(|p| ty_contains_task(&p.ty)) || ty_contains_task(&f.return_ty)
+        });
         if self.has_checked_ffi {
             self.has_try = true; // Checked FFI wrappers use PyException
         }
