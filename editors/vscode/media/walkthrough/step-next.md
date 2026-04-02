@@ -12,6 +12,7 @@ You now know the core features of Asatsuyu. Here's where to go next:
 - **Go to Definition** (F12) to jump to where a name is defined
 - **Rename** (F2) to rename a symbol across all references
 - Type `fn` or `match` and press Tab to expand a snippet
+- Run **Asatsuyu: Open Syntax Guide** from the Command Palette when you need the full grammar reference
 
 **Build and run** your first program:
 ```bash

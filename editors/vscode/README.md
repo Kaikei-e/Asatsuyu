@@ -20,6 +20,7 @@ VS Code language support for the Asatsuyu programming language.
 - **Document Symbols**: Outline view of functions and types (Ctrl+Shift+O)
 - **Semantic Highlighting**: LSP-driven tokens distinguish parameters, mutable variables, async functions, FFI imports (Checked/Verified/Unsafe)
 - **Reference Theme**: "Asatsuyu Dawn" light theme that exercises all semantic token scopes
+- **Starter Experience**: walkthrough-guided starter file plus a command to open the syntax guide
 
 ## Setup
 
@@ -64,6 +65,11 @@ pnpm compile
 ```
 
 Then open VS Code and run "Developer: Install Extension from Location..." pointing to the `editors/vscode` directory.
+
+After installation, open the Command Palette and try:
+
+- `Asatsuyu: Open Starter File`
+- `Asatsuyu: Open Syntax Guide`
 
 ### Neovim
 
@@ -122,3 +128,10 @@ To override specific token colors in any theme, add to your VS Code settings:
   }
 }
 ```
+
+## Learn the Syntax
+
+The walkthrough's **Next Steps** card links to the syntax guide, and you can also open it directly with **Asatsuyu: Open Syntax Guide**.
+The guide lives at:
+
+- <https://github.com/kaikei/asatsuyu/blob/main/docs/grammar.md>

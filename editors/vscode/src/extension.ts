@@ -1,6 +1,7 @@
 import * as path from "path";
 import {
   commands,
+  env,
   ExtensionContext,
   window,
   workspace,
@@ -38,9 +39,9 @@ export function activate(context: ExtensionContext) {
     clientOptions
   );
 
-  client.start();
+  void client.start();
 
-  // Register the "Open Starter File" command for the walkthrough.
+  // Walkthrough helper: open the starter buffer as an untitled Asatsuyu file.
   const openStarter = commands.registerCommand(
     "asatsuyu.openStarter",
     async () => {
@@ -57,7 +58,20 @@ export function activate(context: ExtensionContext) {
       await window.showTextDocument(doc, { preview: false });
     }
   );
-  context.subscriptions.push(openStarter);
+
+  // Walkthrough helper: open the online syntax guide from the extension.
+  const openSyntaxGuide = commands.registerCommand(
+    "asatsuyu.openSyntaxGuide",
+    async () => {
+      await env.openExternal(
+        Uri.parse(
+          "https://github.com/kaikei/asatsuyu/blob/main/docs/grammar.md"
+        )
+      );
+    }
+  );
+
+  context.subscriptions.push(openStarter, openSyntaxGuide);
 }
 
 export function deactivate(): Thenable<void> | undefined {

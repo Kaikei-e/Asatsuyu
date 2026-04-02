@@ -21,7 +21,9 @@
     "Themes"
   ],
   "activationEvents": [
-    "onLanguage:asatsuyu"
+    "onLanguage:asatsuyu",
+    "onCommand:asatsuyu.openStarter",
+    "onCommand:asatsuyu.openSyntaxGuide"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -141,6 +143,10 @@
       {
         "command": "asatsuyu.openStarter",
         "title": "Asatsuyu: Open Starter File"
+      },
+      {
+        "command": "asatsuyu.openSyntaxGuide",
+        "title": "Asatsuyu: Open Syntax Guide"
       }
     ],
     "walkthroughs": [
@@ -195,7 +201,7 @@
           {
             "id": "asatsuyu.nextSteps",
             "title": "Next Steps",
-            "description": "Explore more examples, editor features, and build your first program.",
+            "description": "Explore more examples, open the syntax guide, and build your first program.\n\n[Open Syntax Guide](command:asatsuyu.openSyntaxGuide)",
             "media": {
               "markdown": "media/walkthrough/step-next.md"
             }
