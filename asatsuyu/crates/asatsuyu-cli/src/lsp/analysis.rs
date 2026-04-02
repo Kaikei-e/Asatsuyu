@@ -132,7 +132,8 @@ pub(super) fn hover_at_offset(module: &ThirModule, offset: u32) -> Option<String
 /// Return documentation for a keyword, or `None` if the word is not a keyword.
 pub(super) fn keyword_hover(word: &str) -> Option<String> {
     let doc = match word {
-        "fn" => "\
+        "fn" => {
+            "\
 **fn** — Declare a function
 
 ```asatsuyu
@@ -141,18 +142,22 @@ fn name(param: Type) -> ReturnType {
 }
 ```
 
-Use `pub fn` to export. The last expression is the return value.",
+Use `pub fn` to export. The last expression is the return value."
+        }
 
-        "let" => "\
+        "let" => {
+            "\
 **let** — Create an immutable binding
 
 ```asatsuyu
 let x = expr
 ```
 
-Add a type annotation with `let x: Type = expr`.",
+Add a type annotation with `let x: Type = expr`."
+        }
 
-        "mut" => "\
+        "mut" => {
+            "\
 **mut** — Mark a binding as mutable
 
 ```asatsuyu
@@ -160,9 +165,11 @@ let mut x = 0
 x = x + 1
 ```
 
-Only local variables can be mutable.",
+Only local variables can be mutable."
+        }
 
-        "match" => "\
+        "match" => {
+            "\
 **match** — Exhaustive pattern matching
 
 ```asatsuyu
@@ -172,18 +179,22 @@ match value {
 }
 ```
 
-The compiler ensures all variants are handled.",
+The compiler ensures all variants are handled."
+        }
 
-        "try" => "\
+        "try" => {
+            "\
 **try** — Convert a Python exception to Result
 
 ```asatsuyu
 let result = try python_call()
 ```
 
-Catches Python exceptions at the FFI boundary and wraps them as `Error`.",
+Catches Python exceptions at the FFI boundary and wraps them as `Error`."
+        }
 
-        "async" => "\
+        "async" => {
+            "\
 **async** — Declare an async function
 
 ```asatsuyu
@@ -193,18 +204,22 @@ async fn fetch(url: String) -> String {
 }
 ```
 
-Async functions return `Task(T)`. Use `await` to unwrap.",
+Async functions return `Task(T)`. Use `await` to unwrap."
+        }
 
-        "await" => "\
+        "await" => {
+            "\
 **await** — Unwrap a Task value
 
 ```asatsuyu
 let value = await async_call()
 ```
 
-Only valid inside `async fn`.",
+Only valid inside `async fn`."
+        }
 
-        "type" => "\
+        "type" => {
+            "\
 **type** — Define an algebraic data type
 
 ```asatsuyu
@@ -214,9 +229,11 @@ type Option(a) {
 }
 ```
 
-Use `pub type` to export. Variants are constructors.",
+Use `pub type` to export. Variants are constructors."
+        }
 
-        "if" => "\
+        "if" => {
+            "\
 **if** — Conditional expression
 
 ```asatsuyu
@@ -227,7 +244,8 @@ if condition {
 }
 ```
 
-Both branches must have the same type.",
+Both branches must have the same type."
+        }
 
         _ => return None,
     };

@@ -752,16 +752,16 @@ fn position_to_offset(pos: Position, source: &str) -> u32 {
     }
 }
 
+fn is_word_char(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
 /// Extract the word (identifier or keyword) at a byte offset in source text.
 fn word_at_offset(source: &str, offset: u32) -> String {
     let bytes = source.as_bytes();
     let off = offset as usize;
     if off >= bytes.len() {
         return String::new();
-    }
-
-    fn is_word_char(b: u8) -> bool {
-        b.is_ascii_alphanumeric() || b == b'_'
     }
 
     // Walk backwards to find the start of the word.

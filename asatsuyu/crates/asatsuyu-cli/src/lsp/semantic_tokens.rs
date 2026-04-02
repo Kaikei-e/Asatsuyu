@@ -400,10 +400,7 @@ mod tests {
                 abs_col += tok.delta_start;
             }
 
-            let type_name = TYPE_NAMES
-                .get(tok.token_type as usize)
-                .copied()
-                .unwrap_or("unknown");
+            let type_name = TYPE_NAMES.get(tok.token_type as usize).copied().unwrap_or("unknown");
 
             let mut mods = Vec::new();
             for (i, name) in MODIFIER_NAMES.iter().enumerate() {
@@ -422,11 +419,8 @@ mod tests {
                 })
                 .unwrap_or("?");
 
-            let mod_str = if mods.is_empty() {
-                String::new()
-            } else {
-                format!(".{}", mods.join("."))
-            };
+            let mod_str =
+                if mods.is_empty() { String::new() } else { format!(".{}", mods.join(".")) };
 
             lines.push(format!(
                 "L{}:{:<3} len={:<3} {:<20} {:>12}{mod_str}",
@@ -448,19 +442,15 @@ mod tests {
         let ast_result = asatsuyu_ast::lower(&parse_result, asatsuyu_syntax::FileId(0));
         let hir_result = asatsuyu_hir::lower_to_hir(&ast_result.module);
         let ffi_config = FfiResolverConfig::default();
-        let ty_result =
-            asatsuyu_ty::check_types_with_ffi_config(&hir_result.module, &ffi_config);
+        let ty_result = asatsuyu_ty::check_types_with_ffi_config(&hir_result.module, &ffi_config);
         let line_index = LineIndex::new(source);
         collect_and_encode(&ty_result.module, &line_index)
     }
 
     fn snapshot_fixture(name: &str) {
-        let path = format!(
-            "{}/tests/fixtures/semtok/{name}.asty",
-            env!("CARGO_MANIFEST_DIR")
-        );
-        let source = std::fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
+        let path = format!("{}/tests/fixtures/semtok/{name}.asty", env!("CARGO_MANIFEST_DIR"));
+        let source =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
         let tokens = semantic_tokens_for(&source);
         let decoded = decode_for_snapshot(&tokens, &source);
         insta::assert_snapshot!(name, decoded);
