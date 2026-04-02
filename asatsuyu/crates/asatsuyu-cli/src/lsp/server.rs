@@ -752,6 +752,32 @@ fn position_to_offset(pos: Position, source: &str) -> u32 {
     }
 }
 
+/// Extract the word (identifier or keyword) at a byte offset in source text.
+fn word_at_offset(source: &str, offset: u32) -> String {
+    let bytes = source.as_bytes();
+    let off = offset as usize;
+    if off >= bytes.len() {
+        return String::new();
+    }
+
+    fn is_word_char(b: u8) -> bool {
+        b.is_ascii_alphanumeric() || b == b'_'
+    }
+
+    // Walk backwards to find the start of the word.
+    let mut start = off;
+    while start > 0 && is_word_char(bytes[start - 1]) {
+        start -= 1;
+    }
+    // Walk forwards to find the end.
+    let mut end = off;
+    while end < bytes.len() && is_word_char(bytes[end]) {
+        end += 1;
+    }
+
+    source[start..end].to_owned()
+}
+
 /// Convert a file URI to a filesystem path.
 fn uri_to_path(uri: &Url) -> Option<PathBuf> {
     uri.to_file_path().ok()
