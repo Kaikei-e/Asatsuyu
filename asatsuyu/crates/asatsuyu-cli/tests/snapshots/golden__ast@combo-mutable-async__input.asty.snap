@@ -1,0 +1,293 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/combo-mutable-async/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "fetch",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 9,
+                        end: 14,
+                    },
+                },
+                visibility: Private,
+                is_async: true,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 20,
+                                end: 23,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 20,
+                            end: 23,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Literal(
+                            Literal {
+                                kind: Int,
+                                value: "1",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 26,
+                                    end: 27,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 23,
+                        end: 29,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 29,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 44,
+                        end: 48,
+                    },
+                },
+                visibility: Public,
+                is_async: true,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 54,
+                                end: 57,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 54,
+                            end: 57,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Let {
+                            name: Ident {
+                                name: "total",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 70,
+                                    end: 75,
+                                },
+                            },
+                            value: Literal(
+                                Literal {
+                                    kind: Int,
+                                    value: "0",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 78,
+                                        end: 79,
+                                    },
+                                },
+                            ),
+                            is_mutable: true,
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 62,
+                                end: 79,
+                            },
+                        },
+                        Let {
+                            name: Ident {
+                                name: "result",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 86,
+                                    end: 92,
+                                },
+                            },
+                            value: Await {
+                                expr: Call {
+                                    func: Variable(
+                                        Ident {
+                                            name: "fetch",
+                                            span: Span {
+                                                file_id: FileId(
+                                                    0,
+                                                ),
+                                                start: 101,
+                                                end: 106,
+                                            },
+                                        },
+                                    ),
+                                    args: [],
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 100,
+                                        end: 108,
+                                    },
+                                },
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 94,
+                                    end: 108,
+                                },
+                            },
+                            is_mutable: false,
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 82,
+                                end: 108,
+                            },
+                        },
+                        Assign {
+                            target: Ident {
+                                name: "total",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 111,
+                                    end: 116,
+                                },
+                            },
+                            value: BinaryOp {
+                                op: Add,
+                                lhs: Variable(
+                                    Ident {
+                                        name: "total",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 119,
+                                            end: 124,
+                                        },
+                                    },
+                                ),
+                                rhs: Variable(
+                                    Ident {
+                                        name: "result",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 127,
+                                            end: 133,
+                                        },
+                                    },
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 118,
+                                    end: 133,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 111,
+                                end: 133,
+                            },
+                        },
+                        Variable(
+                            Ident {
+                                name: "total",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 136,
+                                    end: 141,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 57,
+                        end: 143,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 29,
+                    end: 143,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 144,
+    },
+}

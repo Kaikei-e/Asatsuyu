@@ -1,0 +1,3 @@
+async fn main() -> Int {
+  await 42
+}

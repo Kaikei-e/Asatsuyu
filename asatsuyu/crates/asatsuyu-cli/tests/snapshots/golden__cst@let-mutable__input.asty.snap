@@ -1,0 +1,69 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/let-mutable/input.asty
+---
+SourceFile@0..68
+  FnDef@0..67
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..14 "counter"
+    ParamList@14..16
+      LParen@14..15 "("
+      RParen@15..16 ")"
+    ReturnType@16..23
+      Whitespace@16..17 " "
+      Arrow@17..19 "->"
+      TypeExpr@19..23
+        Whitespace@19..20 " "
+        Ident@20..23 "Int"
+    BlockExpr@23..67
+      Whitespace@23..24 " "
+      LBrace@24..25 "{"
+      LetStmt@25..41
+        Newline@25..26 "\n"
+        Whitespace@26..28 "  "
+        LetKw@28..31 "let"
+        Whitespace@31..32 " "
+        MutKw@32..35 "mut"
+        Whitespace@35..36 " "
+        Ident@36..37 "x"
+        Whitespace@37..38 " "
+        Eq@38..39 "="
+        LiteralExpr@39..41
+          Whitespace@39..40 " "
+          IntLit@40..41 "0"
+      AssignStmt@41..49
+        Newline@41..42 "\n"
+        Whitespace@42..44 "  "
+        Ident@44..45 "x"
+        Whitespace@45..46 " "
+        Eq@46..47 "="
+        LiteralExpr@47..49
+          Whitespace@47..48 " "
+          IntLit@48..49 "1"
+      AssignStmt@49..61
+        Newline@49..50 "\n"
+        Whitespace@50..52 "  "
+        Ident@52..53 "x"
+        Whitespace@53..54 " "
+        Eq@54..55 "="
+        BinaryExpr@55..61
+          IdentExpr@55..57
+            Whitespace@55..56 " "
+            Ident@56..57 "x"
+          Whitespace@57..58 " "
+          Plus@58..59 "+"
+          LiteralExpr@59..61
+            Whitespace@59..60 " "
+            IntLit@60..61 "1"
+      IdentExpr@61..65
+        Newline@61..62 "\n"
+        Whitespace@62..64 "  "
+        Ident@64..65 "x"
+      Newline@65..66 "\n"
+      RBrace@66..67 "}"
+  Newline@67..68 "\n"

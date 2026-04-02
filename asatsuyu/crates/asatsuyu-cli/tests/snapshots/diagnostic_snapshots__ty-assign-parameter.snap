@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0216] Error: cannot assign to parameter `x`
+  span: 26..35
+  primary [26..35]: assignment to parameter
+  secondary [7..8]: parameter defined here
+  hint: consider using a local binding: `let mut x = x`
+  note: parameters cannot be reassigned in Asatsuyu

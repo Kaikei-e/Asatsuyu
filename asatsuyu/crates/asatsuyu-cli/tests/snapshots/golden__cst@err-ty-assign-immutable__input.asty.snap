@@ -1,0 +1,49 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-assign-immutable/input.asty
+---
+SourceFile@0..45
+  FnDef@0..44
+    FnKw@0..2 "fn"
+    Whitespace@2..3 " "
+    Ident@3..7 "main"
+    ParamList@7..9
+      LParen@7..8 "("
+      RParen@8..9 ")"
+    ReturnType@9..16
+      Whitespace@9..10 " "
+      Arrow@10..12 "->"
+      TypeExpr@12..16
+        Whitespace@12..13 " "
+        Ident@13..16 "Int"
+    BlockExpr@16..44
+      Whitespace@16..17 " "
+      LBrace@17..18 "{"
+      LetStmt@18..30
+        Newline@18..19 "\n"
+        Whitespace@19..21 "  "
+        LetKw@21..24 "let"
+        Whitespace@24..25 " "
+        Ident@25..26 "x"
+        Whitespace@26..27 " "
+        Eq@27..28 "="
+        LiteralExpr@28..30
+          Whitespace@28..29 " "
+          IntLit@29..30 "0"
+      AssignStmt@30..38
+        Newline@30..31 "\n"
+        Whitespace@31..33 "  "
+        Ident@33..34 "x"
+        Whitespace@34..35 " "
+        Eq@35..36 "="
+        LiteralExpr@36..38
+          Whitespace@36..37 " "
+          IntLit@37..38 "1"
+      IdentExpr@38..42
+        Newline@38..39 "\n"
+        Whitespace@39..41 "  "
+        Ident@41..42 "x"
+      Newline@42..43 "\n"
+      RBrace@43..44 "}"
+  Newline@44..45 "\n"

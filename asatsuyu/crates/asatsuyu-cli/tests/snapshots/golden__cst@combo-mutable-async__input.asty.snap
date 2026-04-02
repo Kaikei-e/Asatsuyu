@@ -1,0 +1,105 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/combo-mutable-async/input.asty
+---
+SourceFile@0..144
+  FnDef@0..29
+    AsyncKw@0..5 "async"
+    Whitespace@5..6 " "
+    FnKw@6..8 "fn"
+    Whitespace@8..9 " "
+    Ident@9..14 "fetch"
+    ParamList@14..16
+      LParen@14..15 "("
+      RParen@15..16 ")"
+    ReturnType@16..23
+      Whitespace@16..17 " "
+      Arrow@17..19 "->"
+      TypeExpr@19..23
+        Whitespace@19..20 " "
+        Ident@20..23 "Int"
+    BlockExpr@23..29
+      Whitespace@23..24 " "
+      LBrace@24..25 "{"
+      LiteralExpr@25..27
+        Whitespace@25..26 " "
+        IntLit@26..27 "1"
+      Whitespace@27..28 " "
+      RBrace@28..29 "}"
+  FnDef@29..143
+    Visibility@29..34
+      Newline@29..30 "\n"
+      Newline@30..31 "\n"
+      PubKw@31..34 "pub"
+    Whitespace@34..35 " "
+    AsyncKw@35..40 "async"
+    Whitespace@40..41 " "
+    FnKw@41..43 "fn"
+    Whitespace@43..44 " "
+    Ident@44..48 "main"
+    ParamList@48..50
+      LParen@48..49 "("
+      RParen@49..50 ")"
+    ReturnType@50..57
+      Whitespace@50..51 " "
+      Arrow@51..53 "->"
+      TypeExpr@53..57
+        Whitespace@53..54 " "
+        Ident@54..57 "Int"
+    BlockExpr@57..143
+      Whitespace@57..58 " "
+      LBrace@58..59 "{"
+      LetStmt@59..79
+        Newline@59..60 "\n"
+        Whitespace@60..62 "  "
+        LetKw@62..65 "let"
+        Whitespace@65..66 " "
+        MutKw@66..69 "mut"
+        Whitespace@69..70 " "
+        Ident@70..75 "total"
+        Whitespace@75..76 " "
+        Eq@76..77 "="
+        LiteralExpr@77..79
+          Whitespace@77..78 " "
+          IntLit@78..79 "0"
+      LetStmt@79..108
+        Newline@79..80 "\n"
+        Whitespace@80..82 "  "
+        LetKw@82..85 "let"
+        Whitespace@85..86 " "
+        Ident@86..92 "result"
+        Whitespace@92..93 " "
+        Eq@93..94 "="
+        AwaitExpr@94..108
+          Whitespace@94..95 " "
+          AwaitKw@95..100 "await"
+          CallExpr@100..108
+            IdentExpr@100..106
+              Whitespace@100..101 " "
+              Ident@101..106 "fetch"
+            ArgList@106..108
+              LParen@106..107 "("
+              RParen@107..108 ")"
+      AssignStmt@108..133
+        Newline@108..109 "\n"
+        Whitespace@109..111 "  "
+        Ident@111..116 "total"
+        Whitespace@116..117 " "
+        Eq@117..118 "="
+        BinaryExpr@118..133
+          IdentExpr@118..124
+            Whitespace@118..119 " "
+            Ident@119..124 "total"
+          Whitespace@124..125 " "
+          Plus@125..126 "+"
+          IdentExpr@126..133
+            Whitespace@126..127 " "
+            Ident@127..133 "result"
+      IdentExpr@133..141
+        Newline@133..134 "\n"
+        Whitespace@134..136 "  "
+        Ident@136..141 "total"
+      Newline@141..142 "\n"
+      RBrace@142..143 "}"
+  Newline@143..144 "\n"

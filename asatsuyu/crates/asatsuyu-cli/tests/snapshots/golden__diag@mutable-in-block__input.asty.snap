@@ -1,0 +1,6 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/mutable-in-block/input.asty
+---
+(no diagnostics)

@@ -157,7 +157,7 @@ fn crash_corpus_inventory_is_stable() {
         .collect::<Vec<_>>();
     files.sort();
 
-    assert_eq!(files.len(), 30, "unexpected corpus size");
+    assert_eq!(files.len(), 32, "unexpected corpus size");
     for path in files {
         let name = path.file_name().and_then(|name| name.to_str()).expect("utf-8 corpus filename");
         assert!(

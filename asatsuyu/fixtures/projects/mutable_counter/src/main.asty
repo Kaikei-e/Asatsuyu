@@ -1,0 +1,20 @@
+// Fixture: mutable_counter
+// Pure Asatsuyu project demonstrating let mut and assignment.
+// Covers: let mut, reassignment, arithmetic update, multiple mutable locals.
+
+pub fn counter() -> Int {
+  let mut x = 0
+  x = 1
+  x = x + 1
+  x
+}
+
+pub fn accumulate(a: Int, b: Int) -> Int {
+  let mut sum = a
+  sum = sum + b
+  sum
+}
+
+pub fn main() -> Int {
+  counter()
+}

@@ -1,0 +1,236 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/let-mutable/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(3),
+            visibility: Public,
+            is_async: false,
+            params: [],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 20,
+                        end: 23,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Let {
+                        binding: Idx::<DefData>(4),
+                        value: Literal(
+                            HirLiteral {
+                                kind: Int,
+                                value: "0",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 40,
+                                    end: 41,
+                                },
+                            },
+                        ),
+                        is_mutable: true,
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 28,
+                            end: 41,
+                        },
+                    },
+                    Assign {
+                        target: Idx::<DefData>(4),
+                        value: Literal(
+                            HirLiteral {
+                                kind: Int,
+                                value: "1",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 48,
+                                    end: 49,
+                                },
+                            },
+                        ),
+                        target_span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 44,
+                            end: 45,
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 44,
+                            end: 49,
+                        },
+                    },
+                    Assign {
+                        target: Idx::<DefData>(4),
+                        value: BinaryOp {
+                            op: Add,
+                            lhs: Var(
+                                Idx::<DefData>(4),
+                                Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 56,
+                                    end: 57,
+                                },
+                            ),
+                            rhs: Literal(
+                                HirLiteral {
+                                    kind: Int,
+                                    value: "1",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 60,
+                                        end: 61,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 55,
+                                end: 61,
+                            },
+                        },
+                        target_span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 52,
+                            end: 53,
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 52,
+                            end: 61,
+                        },
+                    },
+                    Var(
+                        Idx::<DefData>(4),
+                        Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 64,
+                            end: 65,
+                        },
+                    ),
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 23,
+                    end: 67,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 67,
+            },
+        },
+    ],
+    custom_types: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 5,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "counter",
+                    kind: Function,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 7,
+                        end: 14,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: LocalBinding,
+                    is_mutable: true,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 36,
+                        end: 37,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 68,
+    },
+}

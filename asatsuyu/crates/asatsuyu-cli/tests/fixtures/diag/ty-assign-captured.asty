@@ -1,0 +1,5 @@
+pub fn main() {
+  let mut x = 0
+  let f = fn() { x = 1 }
+  f()
+}

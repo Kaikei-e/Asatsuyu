@@ -1,0 +1,9 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-await-outside-async/input.asty
+---
+[E0220] Error: `await` is only allowed inside `async fn`
+  span: 49..63
+  primary [49..63]: `await` used outside async context
+  hint: move this into an `async fn`, or call the async function without `await` to get a `Task(T)` value

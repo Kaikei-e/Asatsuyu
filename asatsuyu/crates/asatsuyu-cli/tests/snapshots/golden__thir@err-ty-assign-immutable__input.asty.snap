@@ -1,0 +1,201 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-assign-immutable/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(3),
+            visibility: Private,
+            is_async: false,
+            params: [],
+            return_ty: Primitive(
+                Int,
+            ),
+            body: Block {
+                exprs: [
+                    Let {
+                        binding: Idx::<DefData>(4),
+                        value: Literal(
+                            ThirLiteral {
+                                kind: Int,
+                                value: "0",
+                                ty: Primitive(
+                                    Int,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 29,
+                                    end: 30,
+                                },
+                            },
+                        ),
+                        is_mutable: false,
+                        ty: Primitive(
+                            None,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 21,
+                            end: 30,
+                        },
+                    },
+                    Assign {
+                        target: Idx::<DefData>(4),
+                        value: Literal(
+                            ThirLiteral {
+                                kind: Int,
+                                value: "1",
+                                ty: Primitive(
+                                    Int,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 37,
+                                    end: 38,
+                                },
+                            },
+                        ),
+                        target_span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 33,
+                            end: 34,
+                        },
+                        ty: Primitive(
+                            None,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 33,
+                            end: 38,
+                        },
+                    },
+                    Var {
+                        def_id: Idx::<DefData>(4),
+                        ty: Primitive(
+                            Int,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 41,
+                            end: 42,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    Int,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 16,
+                    end: 44,
+                },
+            },
+            ty: Function {
+                params: [],
+                ret: Primitive(
+                    Int,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 44,
+            },
+        },
+    ],
+    custom_types: [],
+    imports: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 5,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "main",
+                    kind: Function,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 7,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: LocalBinding,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 25,
+                        end: 26,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {},
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 45,
+    },
+}

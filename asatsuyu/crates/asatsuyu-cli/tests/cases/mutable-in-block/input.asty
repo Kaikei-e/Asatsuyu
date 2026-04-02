@@ -1,0 +1,9 @@
+pub fn toggle(flag: Bool) -> Int {
+  let mut result = 0
+  if flag {
+    result = 1
+  } else {
+    result = 2
+  }
+  result
+}

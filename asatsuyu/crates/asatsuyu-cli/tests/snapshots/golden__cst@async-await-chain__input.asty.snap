@@ -1,0 +1,115 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/async-await-chain/input.asty
+---
+SourceFile@0..138
+  FnDef@0..30
+    AsyncKw@0..5 "async"
+    Whitespace@5..6 " "
+    FnKw@6..8 "fn"
+    Whitespace@8..9 " "
+    Ident@9..14 "step1"
+    ParamList@14..16
+      LParen@14..15 "("
+      RParen@15..16 ")"
+    ReturnType@16..23
+      Whitespace@16..17 " "
+      Arrow@17..19 "->"
+      TypeExpr@19..23
+        Whitespace@19..20 " "
+        Ident@20..23 "Int"
+    BlockExpr@23..30
+      Whitespace@23..24 " "
+      LBrace@24..25 "{"
+      LiteralExpr@25..28
+        Whitespace@25..26 " "
+        IntLit@26..28 "10"
+      Whitespace@28..29 " "
+      RBrace@29..30 "}"
+  FnDef@30..91
+    Newline@30..31 "\n"
+    Newline@31..32 "\n"
+    AsyncKw@32..37 "async"
+    Whitespace@37..38 " "
+    FnKw@38..40 "fn"
+    Whitespace@40..41 " "
+    Ident@41..46 "step2"
+    ParamList@46..48
+      LParen@46..47 "("
+      RParen@47..48 ")"
+    ReturnType@48..55
+      Whitespace@48..49 " "
+      Arrow@49..51 "->"
+      TypeExpr@51..55
+        Whitespace@51..52 " "
+        Ident@52..55 "Int"
+    BlockExpr@55..91
+      Whitespace@55..56 " "
+      LBrace@56..57 "{"
+      LetStmt@57..81
+        Newline@57..58 "\n"
+        Whitespace@58..60 "  "
+        LetKw@60..63 "let"
+        Whitespace@63..64 " "
+        Ident@64..65 "x"
+        Whitespace@65..66 " "
+        Eq@66..67 "="
+        AwaitExpr@67..81
+          Whitespace@67..68 " "
+          AwaitKw@68..73 "await"
+          CallExpr@73..81
+            IdentExpr@73..79
+              Whitespace@73..74 " "
+              Ident@74..79 "step1"
+            ArgList@79..81
+              LParen@79..80 "("
+              RParen@80..81 ")"
+      BinaryExpr@81..89
+        IdentExpr@81..85
+          Newline@81..82 "\n"
+          Whitespace@82..84 "  "
+          Ident@84..85 "x"
+        Whitespace@85..86 " "
+        Plus@86..87 "+"
+        LiteralExpr@87..89
+          Whitespace@87..88 " "
+          IntLit@88..89 "5"
+      Newline@89..90 "\n"
+      RBrace@90..91 "}"
+  FnDef@91..137
+    Visibility@91..96
+      Newline@91..92 "\n"
+      Newline@92..93 "\n"
+      PubKw@93..96 "pub"
+    Whitespace@96..97 " "
+    AsyncKw@97..102 "async"
+    Whitespace@102..103 " "
+    FnKw@103..105 "fn"
+    Whitespace@105..106 " "
+    Ident@106..110 "main"
+    ParamList@110..112
+      LParen@110..111 "("
+      RParen@111..112 ")"
+    ReturnType@112..119
+      Whitespace@112..113 " "
+      Arrow@113..115 "->"
+      TypeExpr@115..119
+        Whitespace@115..116 " "
+        Ident@116..119 "Int"
+    BlockExpr@119..137
+      Whitespace@119..120 " "
+      LBrace@120..121 "{"
+      AwaitExpr@121..135
+        Whitespace@121..122 " "
+        AwaitKw@122..127 "await"
+        CallExpr@127..135
+          IdentExpr@127..133
+            Whitespace@127..128 " "
+            Ident@128..133 "step2"
+          ArgList@133..135
+            LParen@133..134 "("
+            RParen@134..135 ")"
+      Whitespace@135..136 " "
+      RBrace@136..137 "}"
+  Newline@137..138 "\n"

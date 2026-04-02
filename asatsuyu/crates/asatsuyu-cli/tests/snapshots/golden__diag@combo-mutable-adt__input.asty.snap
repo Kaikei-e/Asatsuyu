@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/combo-mutable-adt/input.asty
+---
+[E0151] Error: duplicate definition `Counter`
+  span: 17..24
+  primary [17..24]: `Counter` is redefined here
+  secondary [5..12]: previously defined here
+  hint: rename one of the definitions

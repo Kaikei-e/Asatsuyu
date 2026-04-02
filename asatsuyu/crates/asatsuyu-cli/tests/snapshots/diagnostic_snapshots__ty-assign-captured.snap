@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0218] Error: cannot assign to `x` captured from outer scope
+  span: 49..54
+  primary [49..54]: assignment to captured variable
+  secondary [26..27]: defined in outer scope
+  hint: introduce a new `let mut` binding inside the lambda instead
+  note: closures cannot mutate variables captured from an enclosing scope

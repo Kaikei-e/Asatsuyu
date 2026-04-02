@@ -12,6 +12,8 @@ Each directory is a complete Asatsuyu project with `asatsuyu.toml` and `src/main
 | `stdlib_ffi` | Verified | stdlib FFI using `os` and `sys` |
 | `requests_client` | Checked | Third-party FFI using `requests` with `try` |
 | `build_install` | None | Full pipeline: build, package, install |
+| `mutable_counter` | None | let mut, reassignment, arithmetic update |
+| `async_fetch` | None | async fn, await, async composition |
 
 ## Usage
 

@@ -1,0 +1,16 @@
+// Fixture: async_fetch
+// Pure Asatsuyu project demonstrating async fn and await.
+// Covers: async fn, await, async main, async composition.
+
+async fn compute() -> Int {
+  42
+}
+
+async fn double_compute() -> Int {
+  let result = await compute()
+  result + result
+}
+
+pub async fn main() -> Int {
+  await double_compute()
+}

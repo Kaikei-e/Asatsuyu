@@ -1,0 +1,11 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-assign-immutable/input.asty
+---
+[E0215] Error: cannot assign to immutable binding `x`
+  span: 33..38
+  primary [33..38]: assignment to immutable binding
+  secondary [25..26]: defined as immutable here
+  hint: make this binding mutable: `let mut x`
+  note: only `let mut` bindings may be reassigned

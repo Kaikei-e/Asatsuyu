@@ -1525,6 +1525,116 @@ mod tests {
         assert_eq!(action.replace_start as usize, expected_insert);
     }
 
+    // ── Issue 105: LSP smoke tests for mutable/async ─────────
+
+    #[test]
+    fn lsp_smoke_mutable_hover() {
+        let source = "fn main() -> Int { let mut x = 0\n  x = 1\n  x }";
+        let thir = compile_to_thir(source).expect("mutable should compile for LSP");
+        let x_pos = source.find("x = 1").unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, x_pos as u32);
+        assert!(info.is_some(), "hover on mutable assign target should resolve");
+    }
+
+    #[test]
+    fn lsp_smoke_mutable_completion() {
+        let source = "fn main() -> Int {\n  let mut x = 0\n  \n}";
+        let thir = compile_to_thir(source).expect("mutable should compile");
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.rfind("  \n").unwrap() as u32 + 2;
+        let entries = collect_all_completions(Some(&thir), source, offset);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"x"), "mutable binding should appear in completions");
+    }
+
+    #[test]
+    fn lsp_smoke_async_hover() {
+        let source = "async fn fetch() -> Int { 1 }\npub async fn main() -> Int { await fetch() }";
+        let thir = compile_to_thir(source).expect("async should compile for LSP");
+        let fetch_pos = source.rfind("fetch()").unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, fetch_pos as u32);
+        assert!(info.is_some(), "hover on async function call should resolve");
+    }
+
+    #[test]
+    fn lsp_smoke_async_completion() {
+        let source = "async fn fetch() -> Int { 1 }\nasync fn main() -> Int {\n  \n}";
+        let thir = compile_to_thir(source).expect("async should compile");
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.rfind("  \n").unwrap() as u32 + 2;
+        let entries = collect_all_completions(Some(&thir), source, offset);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"fetch"), "async function should appear in completions");
+        assert!(names.contains(&"await"), "await keyword should appear in block completions");
+    }
+
+    // ── Issue 106: LSP regression tests ──────────────────────
+
+    #[test]
+    fn regression_rename_mutable_binding() {
+        let source = "fn main() -> Int { let mut x = 0\n  x = 1\n  x = x + 1\n  x }";
+        let thir = compile_to_thir(source).expect("should compile");
+        let x_pos = source.find("let mut x").unwrap() + 8;
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, x_pos as u32);
+        let def_id = match info {
+            Some(NodeInfo::Var { def_id, .. }) => def_id,
+            other => panic!("expected Var, got {other:?}"),
+        };
+        let refs = find_all_references(&thir, def_id);
+        // def + 2 assignments + read in `x + 1` + final read = at least 4
+        assert!(
+            refs.len() >= 4,
+            "expected at least 4 references for mutable binding rename, got {}",
+            refs.len(),
+        );
+    }
+
+    #[test]
+    fn regression_hover_await_expression() {
+        let source = "async fn fetch() -> Int { 1 }\nasync fn main() -> Int { await fetch() }";
+        let thir = compile_to_thir(source).expect("should compile");
+        let await_pos = source.rfind("await").unwrap();
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, await_pos as u32);
+        assert!(info.is_some(), "hover on await expression should resolve");
+    }
+
+    #[test]
+    fn regression_rename_async_fn() {
+        let source = "async fn fetch() -> Int { 1 }\nasync fn main() -> Int { await fetch() }";
+        let thir = compile_to_thir(source).expect("should compile");
+        let fn_pos = source.find("fn fetch").unwrap() + 3; // on 'fetch'
+        #[allow(clippy::cast_possible_truncation)]
+        let info = find_node_at_offset(&thir, fn_pos as u32);
+        assert!(
+            matches!(info, Some(NodeInfo::FnDef { .. })),
+            "cursor on async fn name should be FnDef, got {info:?}",
+        );
+    }
+
+    #[test]
+    fn latency_collect_all_completions() {
+        let source = "fn add(a: Int, b: Int) -> Int { a + b }\nfn main() -> Int {\n  \n}";
+        let thir = compile_to_thir(source).expect("should compile");
+
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.rfind("  \n").unwrap() as u32 + 2;
+        let start = std::time::Instant::now();
+        for _ in 0..100 {
+            let _ = collect_all_completions(Some(&thir), source, offset);
+        }
+        let elapsed = start.elapsed();
+        let per_call = elapsed / 100;
+        eprintln!("  completion per call: {per_call:?}");
+        assert!(
+            per_call < std::time::Duration::from_millis(10),
+            "completion should be sub-10ms, got {per_call:?}",
+        );
+    }
+
     #[test]
     fn code_action_add_await() {
         let actions = collect_code_actions(

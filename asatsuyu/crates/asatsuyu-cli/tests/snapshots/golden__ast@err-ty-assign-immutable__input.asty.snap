@@ -1,0 +1,151 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-assign-immutable/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "main",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 7,
+                    },
+                },
+                visibility: Private,
+                is_async: false,
+                params: [],
+                return_type: Some(
+                    Named {
+                        name: Ident {
+                            name: "Int",
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 13,
+                                end: 16,
+                            },
+                        },
+                        args: [],
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 13,
+                            end: 16,
+                        },
+                    },
+                ),
+                body: Block {
+                    exprs: [
+                        Let {
+                            name: Ident {
+                                name: "x",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 25,
+                                    end: 26,
+                                },
+                            },
+                            value: Literal(
+                                Literal {
+                                    kind: Int,
+                                    value: "0",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 29,
+                                        end: 30,
+                                    },
+                                },
+                            ),
+                            is_mutable: false,
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 21,
+                                end: 30,
+                            },
+                        },
+                        Assign {
+                            target: Ident {
+                                name: "x",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 33,
+                                    end: 34,
+                                },
+                            },
+                            value: Literal(
+                                Literal {
+                                    kind: Int,
+                                    value: "1",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 37,
+                                        end: 38,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 33,
+                                end: 38,
+                            },
+                        },
+                        Variable(
+                            Ident {
+                                name: "x",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 41,
+                                    end: 42,
+                                },
+                            },
+                        ),
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 16,
+                        end: 44,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 44,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 45,
+    },
+}

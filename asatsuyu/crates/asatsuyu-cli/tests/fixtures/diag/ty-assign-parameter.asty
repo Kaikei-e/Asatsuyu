@@ -1,0 +1,4 @@
+fn inc(x: Int) -> Int {
+  x = x + 1
+  x
+}

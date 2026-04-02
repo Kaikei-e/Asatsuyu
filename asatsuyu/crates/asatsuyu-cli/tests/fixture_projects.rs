@@ -27,6 +27,26 @@ fn fixture_src(project: &str) -> String {
 // ── check tests ─────────────────────────────────────────────────────
 
 #[test]
+fn check_mutable_counter() {
+    let output = asatsuyu().args(["check", &fixture_src("mutable_counter")]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "check mutable_counter failed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+#[test]
+fn check_async_fetch() {
+    let output = asatsuyu().args(["check", &fixture_src("async_fetch")]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "check async_fetch failed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+#[test]
 fn check_hello_cli() {
     let output = asatsuyu().args(["check", &fixture_src("hello_cli")]).output().unwrap();
     assert!(
@@ -77,6 +97,51 @@ fn check_build_install() {
 }
 
 // ── build tests ─────────────────────────────────────────────────────
+
+#[test]
+fn build_mutable_counter() {
+    let dir = workspace_root().join("target/test-fixture-build-mutable-counter");
+    let dir_str = dir.display().to_string();
+    let output = asatsuyu()
+        .args(["build", &fixture_src("mutable_counter"), "-o", &dir_str])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "build mutable_counter failed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let py_path = dir.join("python/mutable_counter/mutable_counter.py");
+    let content = std::fs::read_to_string(&py_path).expect("generated .py should exist");
+    assert!(content.contains("def counter()"), "counter function missing: {content}");
+    assert!(content.contains("x = 0"), "initial assignment missing: {content}");
+    assert!(content.contains("x = 1"), "reassignment missing: {content}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn build_async_fetch() {
+    let dir = workspace_root().join("target/test-fixture-build-async-fetch");
+    let dir_str = dir.display().to_string();
+    let output =
+        asatsuyu().args(["build", &fixture_src("async_fetch"), "-o", &dir_str]).output().unwrap();
+
+    assert!(
+        output.status.success(),
+        "build async_fetch failed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let py_path = dir.join("python/async_fetch/async_fetch.py");
+    let content = std::fs::read_to_string(&py_path).expect("generated .py should exist");
+    assert!(content.contains("async def"), "async def missing: {content}");
+    assert!(content.contains("await"), "await missing: {content}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
 
 #[test]
 fn build_hello_cli() {
@@ -232,6 +297,26 @@ fn run_build_install() {
     assert!(
         output.status.success(),
         "run build_install failed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+#[test]
+fn run_mutable_counter() {
+    let output = asatsuyu().args(["run", &fixture_src("mutable_counter")]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "run mutable_counter failed:\nstderr: {}",
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+#[test]
+fn run_async_fetch() {
+    let output = asatsuyu().args(["run", &fixture_src("async_fetch")]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "run async_fetch failed:\nstderr: {}",
         String::from_utf8_lossy(&output.stderr),
     );
 }

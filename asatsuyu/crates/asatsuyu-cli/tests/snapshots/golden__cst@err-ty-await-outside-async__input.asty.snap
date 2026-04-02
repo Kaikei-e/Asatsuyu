@@ -1,0 +1,60 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-ty-await-outside-async/input.asty
+---
+SourceFile@0..66
+  FnDef@0..29
+    AsyncKw@0..5 "async"
+    Whitespace@5..6 " "
+    FnKw@6..8 "fn"
+    Whitespace@8..9 " "
+    Ident@9..14 "fetch"
+    ParamList@14..16
+      LParen@14..15 "("
+      RParen@15..16 ")"
+    ReturnType@16..23
+      Whitespace@16..17 " "
+      Arrow@17..19 "->"
+      TypeExpr@19..23
+        Whitespace@19..20 " "
+        Ident@20..23 "Int"
+    BlockExpr@23..29
+      Whitespace@23..24 " "
+      LBrace@24..25 "{"
+      LiteralExpr@25..27
+        Whitespace@25..26 " "
+        IntLit@26..27 "1"
+      Whitespace@27..28 " "
+      RBrace@28..29 "}"
+  FnDef@29..65
+    Newline@29..30 "\n"
+    Newline@30..31 "\n"
+    FnKw@31..33 "fn"
+    Whitespace@33..34 " "
+    Ident@34..38 "main"
+    ParamList@38..40
+      LParen@38..39 "("
+      RParen@39..40 ")"
+    ReturnType@40..47
+      Whitespace@40..41 " "
+      Arrow@41..43 "->"
+      TypeExpr@43..47
+        Whitespace@43..44 " "
+        Ident@44..47 "Int"
+    BlockExpr@47..65
+      Whitespace@47..48 " "
+      LBrace@48..49 "{"
+      AwaitExpr@49..63
+        Whitespace@49..50 " "
+        AwaitKw@50..55 "await"
+        CallExpr@55..63
+          IdentExpr@55..61
+            Whitespace@55..56 " "
+            Ident@56..61 "fetch"
+          ArgList@61..63
+            LParen@61..62 "("
+            RParen@62..63 ")"
+      Whitespace@63..64 " "
+      RBrace@64..65 "}"
+  Newline@65..66 "\n"

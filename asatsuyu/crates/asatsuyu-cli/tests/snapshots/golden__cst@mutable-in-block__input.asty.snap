@@ -1,0 +1,90 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/mutable-in-block/input.asty
+---
+SourceFile@0..124
+  FnDef@0..123
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    FnKw@4..6 "fn"
+    Whitespace@6..7 " "
+    Ident@7..13 "toggle"
+    ParamList@13..25
+      LParen@13..14 "("
+      Param@14..24
+        Ident@14..18 "flag"
+        Colon@18..19 ":"
+        TypeExpr@19..24
+          Whitespace@19..20 " "
+          Ident@20..24 "Bool"
+      RParen@24..25 ")"
+    ReturnType@25..32
+      Whitespace@25..26 " "
+      Arrow@26..28 "->"
+      TypeExpr@28..32
+        Whitespace@28..29 " "
+        Ident@29..32 "Int"
+    BlockExpr@32..123
+      Whitespace@32..33 " "
+      LBrace@33..34 "{"
+      LetStmt@34..55
+        Newline@34..35 "\n"
+        Whitespace@35..37 "  "
+        LetKw@37..40 "let"
+        Whitespace@40..41 " "
+        MutKw@41..44 "mut"
+        Whitespace@44..45 " "
+        Ident@45..51 "result"
+        Whitespace@51..52 " "
+        Eq@52..53 "="
+        LiteralExpr@53..55
+          Whitespace@53..54 " "
+          IntLit@54..55 "0"
+      IfExpr@55..112
+        Newline@55..56 "\n"
+        Whitespace@56..58 "  "
+        IfKw@58..60 "if"
+        IdentExpr@60..65
+          Whitespace@60..61 " "
+          Ident@61..65 "flag"
+        BlockExpr@65..86
+          Whitespace@65..66 " "
+          LBrace@66..67 "{"
+          AssignStmt@67..82
+            Newline@67..68 "\n"
+            Whitespace@68..72 "    "
+            Ident@72..78 "result"
+            Whitespace@78..79 " "
+            Eq@79..80 "="
+            LiteralExpr@80..82
+              Whitespace@80..81 " "
+              IntLit@81..82 "1"
+          Newline@82..83 "\n"
+          Whitespace@83..85 "  "
+          RBrace@85..86 "}"
+        Whitespace@86..87 " "
+        ElseKw@87..91 "else"
+        BlockExpr@91..112
+          Whitespace@91..92 " "
+          LBrace@92..93 "{"
+          AssignStmt@93..108
+            Newline@93..94 "\n"
+            Whitespace@94..98 "    "
+            Ident@98..104 "result"
+            Whitespace@104..105 " "
+            Eq@105..106 "="
+            LiteralExpr@106..108
+              Whitespace@106..107 " "
+              IntLit@107..108 "2"
+          Newline@108..109 "\n"
+          Whitespace@109..111 "  "
+          RBrace@111..112 "}"
+      IdentExpr@112..121
+        Newline@112..113 "\n"
+        Whitespace@113..115 "  "
+        Ident@115..121 "result"
+      Newline@121..122 "\n"
+      RBrace@122..123 "}"
+  Newline@123..124 "\n"

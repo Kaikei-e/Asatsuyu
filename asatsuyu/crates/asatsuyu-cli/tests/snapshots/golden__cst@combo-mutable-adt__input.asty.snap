@@ -1,0 +1,121 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/combo-mutable-adt/input.asty
+---
+SourceFile@0..159
+  TypeDef@0..38
+    TypeKw@0..4 "type"
+    Whitespace@4..5 " "
+    Ident@5..12 "Counter"
+    Whitespace@12..13 " "
+    LBrace@13..14 "{"
+    Variant@14..36
+      Newline@14..15 "\n"
+      Whitespace@15..17 "  "
+      Ident@17..24 "Counter"
+      LParen@24..25 "("
+      Field@25..35
+        Ident@25..30 "value"
+        Colon@30..31 ":"
+        TypeExpr@31..35
+          Whitespace@31..32 " "
+          Ident@32..35 "Int"
+      RParen@35..36 ")"
+    Newline@36..37 "\n"
+    RBrace@37..38 "}"
+  FnDef@38..158
+    Visibility@38..43
+      Newline@38..39 "\n"
+      Newline@39..40 "\n"
+      PubKw@40..43 "pub"
+    Whitespace@43..44 " "
+    FnKw@44..46 "fn"
+    Whitespace@46..47 " "
+    Ident@47..51 "next"
+    ParamList@51..63
+      LParen@51..52 "("
+      Param@52..62
+        Ident@52..53 "c"
+        Colon@53..54 ":"
+        TypeExpr@54..62
+          Whitespace@54..55 " "
+          Ident@55..62 "Counter"
+      RParen@62..63 ")"
+    ReturnType@63..70
+      Whitespace@63..64 " "
+      Arrow@64..66 "->"
+      TypeExpr@66..70
+        Whitespace@66..67 " "
+        Ident@67..70 "Int"
+    BlockExpr@70..158
+      Whitespace@70..71 " "
+      LBrace@71..72 "{"
+      LetStmt@72..88
+        Newline@72..73 "\n"
+        Whitespace@73..75 "  "
+        LetKw@75..78 "let"
+        Whitespace@78..79 " "
+        MutKw@79..82 "mut"
+        Whitespace@82..83 " "
+        Ident@83..84 "n"
+        Whitespace@84..85 " "
+        Eq@85..86 "="
+        LiteralExpr@86..88
+          Whitespace@86..87 " "
+          IntLit@87..88 "0"
+      LetStmt@88..136
+        Newline@88..89 "\n"
+        Whitespace@89..91 "  "
+        LetKw@91..94 "let"
+        Whitespace@94..95 " "
+        Ident@95..100 "value"
+        Whitespace@100..101 " "
+        Eq@101..102 "="
+        MatchExpr@102..136
+          Whitespace@102..103 " "
+          MatchKw@103..108 "match"
+          IdentExpr@108..110
+            Whitespace@108..109 " "
+            Ident@109..110 "c"
+          Whitespace@110..111 " "
+          LBrace@111..112 "{"
+          MatchArm@112..132
+            ConstructorPat@112..127
+              Newline@112..113 "\n"
+              Whitespace@113..117 "    "
+              Ident@117..124 "Counter"
+              LParen@124..125 "("
+              IdentPat@125..126
+                Ident@125..126 "v"
+              RParen@126..127 ")"
+            Whitespace@127..128 " "
+            Arrow@128..130 "->"
+            IdentExpr@130..132
+              Whitespace@130..131 " "
+              Ident@131..132 "v"
+          Newline@132..133 "\n"
+          Whitespace@133..135 "  "
+          RBrace@135..136 "}"
+      AssignStmt@136..152
+        Newline@136..137 "\n"
+        Whitespace@137..139 "  "
+        Ident@139..140 "n"
+        Whitespace@140..141 " "
+        Eq@141..142 "="
+        BinaryExpr@142..152
+          IdentExpr@142..148
+            Whitespace@142..143 " "
+            Ident@143..148 "value"
+          Whitespace@148..149 " "
+          Plus@149..150 "+"
+          LiteralExpr@150..152
+            Whitespace@150..151 " "
+            IntLit@151..152 "1"
+      IdentExpr@152..156
+        Newline@152..153 "\n"
+        Whitespace@153..155 "  "
+        Ident@155..156 "n"
+      Newline@156..157 "\n"
+      RBrace@157..158 "}"
+  Newline@158..159 "\n"

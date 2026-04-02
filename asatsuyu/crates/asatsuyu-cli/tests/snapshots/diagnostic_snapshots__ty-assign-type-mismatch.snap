@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0217] Error: type mismatch: expected `Int`, found `String`
+  span: 37..48
+  primary [37..48]: expected `Int`, found `String`
+  secondary [29..30]: binding has type `Int`
+  hint: assign a value with the same type as the binding
+  note: reassignment must preserve the original binding type

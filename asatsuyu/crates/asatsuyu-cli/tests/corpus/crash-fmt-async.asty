@@ -1,0 +1,2 @@
+async fn fetch()->Int{1}
+pub async fn main()->Int{await fetch()}

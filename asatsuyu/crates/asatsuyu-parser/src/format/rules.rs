@@ -165,6 +165,7 @@ pub(crate) fn format_node(f: &mut Formatter, node: &SyntaxNode) {
         SyntaxKind::LambdaExpr => format_lambda_expr(f, node),
         SyntaxKind::ParenExpr => format_paren_expr(f, node),
         SyntaxKind::TryExpr => format_try_expr(f, node),
+        SyntaxKind::AwaitExpr => format_await_expr(f, node),
         SyntaxKind::ListExpr => format_list_expr(f, node),
         SyntaxKind::TupleExpr => format_tuple_expr(f, node),
         SyntaxKind::RecordExpr => format_record_expr(f, node),
@@ -201,6 +202,10 @@ fn format_fn_def(f: &mut Formatter, node: &SyntaxNode) {
         match elem {
             NodeOrToken::Node(n) if n.kind() == SyntaxKind::Visibility => {
                 f.write_str("pub");
+                f.write_space();
+            }
+            NodeOrToken::Token(t) if t.kind() == SyntaxKind::AsyncKw => {
+                f.write_str("async");
                 f.write_space();
             }
             NodeOrToken::Token(t) if t.kind() == SyntaxKind::FnKw => {
@@ -976,6 +981,14 @@ fn format_paren_expr(f: &mut Formatter, node: &SyntaxNode) {
 
 fn format_try_expr(f: &mut Formatter, node: &SyntaxNode) {
     f.write_str("try");
+    f.write_space();
+    for child in node.children() {
+        format_node(f, &child);
+    }
+}
+
+fn format_await_expr(f: &mut Formatter, node: &SyntaxNode) {
+    f.write_str("await");
     f.write_space();
     for child in node.children() {
         format_node(f, &child);

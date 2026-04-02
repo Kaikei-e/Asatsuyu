@@ -1,0 +1,12 @@
+type Counter {
+  Counter(value: Int)
+}
+
+pub fn next(c: Counter) -> Int {
+  let mut n = 0
+  let value = match c {
+    Counter(v) -> v
+  }
+  n = value + 1
+  n
+}

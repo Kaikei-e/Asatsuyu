@@ -1,0 +1,8 @@
+async fn fetch() -> Int { 1 }
+
+pub async fn main() -> Int {
+  let mut total = 0
+  let result = await fetch()
+  total = total + result
+  total
+}

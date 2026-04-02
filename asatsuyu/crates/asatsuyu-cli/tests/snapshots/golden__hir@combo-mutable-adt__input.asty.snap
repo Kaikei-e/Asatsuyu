@@ -1,0 +1,412 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: hir
+input_file: crates/asatsuyu-cli/tests/cases/combo-mutable-adt/input.asty
+---
+HirModule {
+    imports: [],
+    functions: [
+        HirFnDef {
+            def_id: Idx::<DefData>(5),
+            visibility: Public,
+            is_async: false,
+            params: [
+                HirParam {
+                    def_id: Idx::<DefData>(6),
+                    type_ann: Some(
+                        HirTypeExpr {
+                            name: "Counter",
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 55,
+                                end: 62,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 52,
+                        end: 62,
+                    },
+                },
+            ],
+            return_type: Some(
+                HirTypeExpr {
+                    name: "Int",
+                    args: [],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 67,
+                        end: 70,
+                    },
+                },
+            ),
+            body: Block {
+                exprs: [
+                    Let {
+                        binding: Idx::<DefData>(7),
+                        value: Literal(
+                            HirLiteral {
+                                kind: Int,
+                                value: "0",
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 87,
+                                    end: 88,
+                                },
+                            },
+                        ),
+                        is_mutable: true,
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 75,
+                            end: 88,
+                        },
+                    },
+                    Let {
+                        binding: Idx::<DefData>(8),
+                        value: Match {
+                            subject: Var(
+                                Idx::<DefData>(6),
+                                Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 109,
+                                    end: 110,
+                                },
+                            ),
+                            arms: [
+                                HirMatchArm {
+                                    pattern: Constructor {
+                                        def_id: Idx::<DefData>(4),
+                                        fields: [
+                                            Variable(
+                                                Idx::<DefData>(9),
+                                                Span {
+                                                    file_id: FileId(
+                                                        0,
+                                                    ),
+                                                    start: 125,
+                                                    end: 126,
+                                                },
+                                            ),
+                                        ],
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 112,
+                                            end: 127,
+                                        },
+                                    },
+                                    guard: None,
+                                    body: Var(
+                                        Idx::<DefData>(9),
+                                        Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 131,
+                                            end: 132,
+                                        },
+                                    ),
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 112,
+                                        end: 132,
+                                    },
+                                },
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 102,
+                                end: 136,
+                            },
+                        },
+                        is_mutable: false,
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 91,
+                            end: 136,
+                        },
+                    },
+                    Assign {
+                        target: Idx::<DefData>(7),
+                        value: BinaryOp {
+                            op: Add,
+                            lhs: Var(
+                                Idx::<DefData>(8),
+                                Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 143,
+                                    end: 148,
+                                },
+                            ),
+                            rhs: Literal(
+                                HirLiteral {
+                                    kind: Int,
+                                    value: "1",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 151,
+                                        end: 152,
+                                    },
+                                },
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 142,
+                                end: 152,
+                            },
+                        },
+                        target_span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 139,
+                            end: 140,
+                        },
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 139,
+                            end: 152,
+                        },
+                    },
+                    Var(
+                        Idx::<DefData>(7),
+                        Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 155,
+                            end: 156,
+                        },
+                    ),
+                ],
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 70,
+                    end: 158,
+                },
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 38,
+                end: 158,
+            },
+        },
+    ],
+    custom_types: [
+        HirCustomType {
+            def_id: Idx::<DefData>(3),
+            visibility: Private,
+            type_params: [],
+            variants: [
+                HirVariant {
+                    def_id: Idx::<DefData>(4),
+                    fields: [
+                        HirFieldType {
+                            label: None,
+                            type_expr: HirTypeExpr {
+                                name: "Int",
+                                args: [],
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 32,
+                                    end: 35,
+                                },
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 25,
+                                end: 35,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 14,
+                        end: 36,
+                    },
+                },
+            ],
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 38,
+            },
+        },
+    ],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 10,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "Counter",
+                    kind: Type,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 5,
+                        end: 12,
+                    },
+                },
+                DefData {
+                    name: "Counter",
+                    kind: Constructor,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 17,
+                        end: 24,
+                    },
+                },
+                DefData {
+                    name: "next",
+                    kind: Function,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 47,
+                        end: 51,
+                    },
+                },
+                DefData {
+                    name: "c",
+                    kind: Parameter,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 52,
+                        end: 53,
+                    },
+                },
+                DefData {
+                    name: "n",
+                    kind: LocalBinding,
+                    is_mutable: true,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 83,
+                        end: 84,
+                    },
+                },
+                DefData {
+                    name: "value",
+                    kind: LocalBinding,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 95,
+                        end: 100,
+                    },
+                },
+                DefData {
+                    name: "v",
+                    kind: LocalBinding,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 125,
+                        end: 126,
+                    },
+                },
+            ],
+        },
+    },
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 159,
+    },
+}

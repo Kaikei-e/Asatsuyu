@@ -255,6 +255,40 @@ fn ty_field_count_pat() {
     snapshot_fixture("ty-field-count-pat");
 }
 
+// ── Mutation (Phase 3-1) ──────────────────────────────────────────
+
+#[test]
+fn ty_assign_immutable() {
+    snapshot_fixture("ty-assign-immutable");
+}
+
+#[test]
+fn ty_assign_parameter() {
+    snapshot_fixture("ty-assign-parameter");
+}
+
+#[test]
+fn ty_assign_type_mismatch() {
+    snapshot_fixture("ty-assign-type-mismatch");
+}
+
+#[test]
+fn ty_assign_captured() {
+    snapshot_fixture("ty-assign-captured");
+}
+
+// ── Async (Phase 3-2) ───────────────────────────────────────────
+
+#[test]
+fn ty_await_non_task() {
+    snapshot_fixture("ty-await-non-task");
+}
+
+#[test]
+fn ty_await_outside_async() {
+    snapshot_fixture("ty-await-outside-async");
+}
+
 // ── Cross-layer ───────────────────────────────────────────────────
 
 #[test]

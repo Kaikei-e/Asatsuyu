@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
+expression: text
+---
+[E0215] Error: cannot assign to immutable binding `x`
+  span: 33..38
+  primary [33..38]: assignment to immutable binding
+  secondary [25..26]: defined as immutable here
+  hint: make this binding mutable: `let mut x`
+  note: only `let mut` bindings may be reassigned

@@ -1,0 +1,8 @@
+async fn step1() -> Int { 10 }
+
+async fn step2() -> Int {
+  let x = await step1()
+  x + 5
+}
+
+pub async fn main() -> Int { await step2() }
