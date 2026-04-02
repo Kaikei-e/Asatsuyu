@@ -1486,6 +1486,58 @@ pub fn f() -> Result(Bool, PyExc) {
         );
     }
 
+    // ── Issue 98: async color rules ────────────────────────────────
+
+    #[test]
+    fn await_in_sync_fn_is_error() {
+        let result = thir_from_source("async fn g() -> Int { 1 }\nfn f() -> Int { await g() }");
+        assert!(result.has_errors(), "await in sync fn should be an error");
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0220)),
+            "expected E0220, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn await_in_lambda_inside_async_fn_is_error() {
+        let result = thir_from_source(
+            "async fn g() -> Int { 1 }\nasync fn f() -> Int { let h = fn() { await g() }; 1 }",
+        );
+        assert!(result.has_errors(), "await in lambda should be an error");
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0220)),
+            "expected E0220, got: {:?}",
+            result.diagnostics,
+        );
+    }
+
+    #[test]
+    fn sync_fn_calling_async_fn_returns_task() {
+        let result = thir_from_source("async fn g() -> Int { 1 }\nfn f() -> Task(Int) { g() }");
+        assert!(
+            !result.has_errors(),
+            "sync fn can call async fn and get Task(T): {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn await_literal_in_sync_fn_gets_e0220() {
+        let result = thir_from_source("fn f() -> Int { await 42 }");
+        assert!(result.has_errors());
+        // Context error (E0220) should fire, not type error (E0219).
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0220)),
+            "expected E0220, got: {:?}",
+            result.diagnostics,
+        );
+        assert!(
+            !result.diagnostics.iter().any(|d| d.code == Some(DiagnosticCode::E0219)),
+            "E0219 should not fire when E0220 takes priority",
+        );
+    }
+
     // ── FFI: Issue 44 — ffi_modules in THIR ───────────────────────
 
     #[test]

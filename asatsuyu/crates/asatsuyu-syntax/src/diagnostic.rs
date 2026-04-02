@@ -118,6 +118,8 @@ pub enum DiagnosticCode {
     E0218 = 218,
     /// `await` expression on a non-`Task` type.
     E0219 = 219,
+    /// `await` used outside an `async fn` body.
+    E0220 = 220,
 
     // ── Match / pattern ───────────────────────────────────────────────
     /// Non-exhaustive match.

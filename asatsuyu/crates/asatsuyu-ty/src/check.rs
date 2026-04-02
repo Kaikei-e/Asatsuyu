@@ -96,6 +96,9 @@ pub(crate) struct TyCheckCtx {
     /// `DefId`s introduced in the current function/lambda scope.
     /// Used to detect assignment to captured variables inside lambdas.
     local_defs: HashSet<DefId>,
+    /// Whether the current function being checked is `async`.
+    /// Used to enforce that `await` only appears in async context (Issue 98).
+    in_async_fn: bool,
     /// Synthetic symbol table used to allocate builtin collection type ids.
     builtin_types: SymbolTable,
     diagnostics: Vec<Diagnostic>,
@@ -115,6 +118,7 @@ impl TyCheckCtx {
             current_fn_return_ty: None,
             module_symbols: SymbolTable::new(),
             local_defs: HashSet::new(),
+            in_async_fn: false,
             builtin_types: SymbolTable::new(),
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
@@ -528,6 +532,10 @@ impl TyCheckCtx {
         // Set current function return type context for `try` expression validation.
         self.current_fn_return_ty = Some(body_check_ty.clone());
 
+        // Set async context for `await` legality checking (Issue 98).
+        let saved_in_async = self.in_async_fn;
+        self.in_async_fn = fn_def.is_async;
+
         // Initialize local_defs with parameter DefIds for lambda capture tracking.
         let saved_local_defs = std::mem::take(&mut self.local_defs);
         for p in &fn_def.params {
@@ -538,8 +546,9 @@ impl TyCheckCtx {
         let body = self.check_expr(&fn_def.body);
         let body_ty = self.infer.resolve(body.ty());
 
-        // Restore local_defs and clear return type context.
+        // Restore local_defs, async context, and return type context.
         self.local_defs = saved_local_defs;
+        self.in_async_fn = saved_in_async;
         self.current_fn_return_ty = None;
 
         // `try` lowering is currently only implemented for statement position,
@@ -690,6 +699,18 @@ impl TyCheckCtx {
     }
 
     fn check_await(&mut self, expr: &HirExpr, span: Span) -> ThirExpr {
+        // E0220: await outside async context (Issue 98).
+        if !self.in_async_fn {
+            self.push_diagnostic(
+                Diagnostic::error("`await` is only allowed inside `async fn`", span)
+                    .with_code(DiagnosticCode::E0220)
+                    .with_label(span, "`await` used outside async context")
+                    .with_hint("move this into an `async fn`, or call the async function without `await` to get a `Task(T)` value"),
+            );
+            let checked_inner = self.check_expr(expr);
+            return ThirExpr::Await { expr: Box::new(checked_inner), ty: Ty::Error, span };
+        }
+
         let checked_inner = self.check_expr(expr);
         let inner_ty = self.infer.resolve(checked_inner.ty());
 
@@ -1199,11 +1220,16 @@ impl TyCheckCtx {
             self.local_defs.insert(p.def_id);
         }
 
+        // Lambdas are never async — reset async context so `await` inside is an error.
+        let saved_in_async = self.in_async_fn;
+        self.in_async_fn = false;
+
         let checked_body = self.check_expr(body);
         let body_ty = self.infer.resolve(checked_body.ty());
 
-        // Restore outer scope's local_defs.
+        // Restore outer scope's local_defs and async context.
         self.local_defs = saved_local_defs;
+        self.in_async_fn = saved_in_async;
 
         // Remove lambda params from type_env to prevent them from polluting
         // the environment during generalization of let-bound values.
