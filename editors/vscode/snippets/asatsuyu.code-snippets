@@ -1,0 +1,120 @@
+{
+  "Function": {
+    "prefix": "fn",
+    "body": [
+      "fn ${1:name}($2) {",
+      "  $0",
+      "}"
+    ],
+    "description": "Define a function"
+  },
+  "Public Function": {
+    "prefix": "pfn",
+    "body": [
+      "pub fn ${1:name}($2) -> ${3:ReturnType} {",
+      "  $0",
+      "}"
+    ],
+    "description": "Define a public function with return type"
+  },
+  "Async Function": {
+    "prefix": "afn",
+    "body": [
+      "async fn ${1:name}($2) -> ${3:ReturnType} {",
+      "  $0",
+      "}"
+    ],
+    "description": "Define an async function"
+  },
+  "Public Async Function": {
+    "prefix": "pafn",
+    "body": [
+      "pub async fn ${1:name}($2) -> ${3:ReturnType} {",
+      "  $0",
+      "}"
+    ],
+    "description": "Define a public async function"
+  },
+  "Main Function": {
+    "prefix": "main",
+    "body": [
+      "pub fn main() {",
+      "  $0",
+      "}"
+    ],
+    "description": "Define the main entry point"
+  },
+  "Async Main": {
+    "prefix": "amain",
+    "body": [
+      "pub async fn main() {",
+      "  $0",
+      "}"
+    ],
+    "description": "Define an async main entry point"
+  },
+  "If Expression": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condition} {",
+      "  $2",
+      "} else {",
+      "  $0",
+      "}"
+    ],
+    "description": "If/else expression"
+  },
+  "Match Expression": {
+    "prefix": "match",
+    "body": [
+      "match ${1:value} {",
+      "  ${2:pattern} -> ${3:expr}",
+      "  ${4:_} -> $0",
+      "}"
+    ],
+    "description": "Match expression with arms"
+  },
+  "Let Binding": {
+    "prefix": "let",
+    "body": "let ${1:name} = $0",
+    "description": "Immutable let binding"
+  },
+  "Let Mut Binding": {
+    "prefix": "letm",
+    "body": "let mut ${1:name} = $0",
+    "description": "Mutable let binding"
+  },
+  "Type Definition": {
+    "prefix": "type",
+    "body": [
+      "type ${1:Name} {",
+      "  ${2:Variant}($3)",
+      "}"
+    ],
+    "description": "Define an algebraic data type"
+  },
+  "Public Type Definition": {
+    "prefix": "ptype",
+    "body": [
+      "pub type ${1:Name} {",
+      "  ${2:Variant}($3)",
+      "}"
+    ],
+    "description": "Define a public algebraic data type"
+  },
+  "FFI Import": {
+    "prefix": "fpi",
+    "body": "from python import ${1:module}",
+    "description": "Import a Python module via FFI"
+  },
+  "FFI Import As": {
+    "prefix": "fpia",
+    "body": "from python import ${1:module} as ${2:alias}",
+    "description": "Import a Python module with an alias"
+  },
+  "Try Expression": {
+    "prefix": "try",
+    "body": "let ${1:result} = try ${2:expr}",
+    "description": "Try expression — convert Python exception to Result at the FFI boundary"
+  }
+}

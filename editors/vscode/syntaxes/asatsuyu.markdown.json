@@ -1,0 +1,20 @@
+{
+  "scopeName": "markdown.asatsuyu.codeblock",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    {
+      "begin": "(^|\\G)(\\s*)(```|~~~)\\s*(?i:asty|asatsuyu)\\s*$",
+      "beginCaptures": {
+        "3": { "name": "punctuation.definition.markdown" }
+      },
+      "end": "(^|\\G)(\\2|\\s{0,3})(\\3)\\s*$",
+      "endCaptures": {
+        "3": { "name": "punctuation.definition.markdown" }
+      },
+      "contentName": "meta.embedded.block.asatsuyu",
+      "patterns": [
+        { "include": "source.asatsuyu" }
+      ]
+    }
+  ]
+}

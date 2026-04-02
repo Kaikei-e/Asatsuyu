@@ -13,14 +13,31 @@
     { "open": "(", "close": ")" },
     { "open": "\"", "close": "\"", "notIn": ["string"] }
   ],
+  "autoCloseBefore": "}]),.:; \t\n",
   "surroundingPairs": [
     ["{", "}"],
     ["[", "]"],
     ["(", ")"],
     ["\"", "\""]
   ],
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([A-Za-z_][A-Za-z0-9_]*)",
   "indentationRules": {
-    "increaseIndentPattern": "\\{\\s*$",
+    "increaseIndentPattern": "^.*\\{[^}]*$",
     "decreaseIndentPattern": "^\\s*\\}"
-  }
+  },
+  "onEnterRules": [
+    {
+      "beforeText": "^\\s*//",
+      "action": { "indent": "none", "appendText": "// " }
+    },
+    {
+      "beforeText": ".*\\{\\s*$",
+      "afterText": "^\\s*\\}",
+      "action": { "indent": "indentOutdent" }
+    },
+    {
+      "beforeText": ".*\\{\\s*$",
+      "action": { "indent": "indent" }
+    }
+  ]
 }

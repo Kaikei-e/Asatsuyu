@@ -21,7 +21,10 @@ export function activate(context: ExtensionContext) {
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: "file", language: "asatsuyu" }],
+    documentSelector: [
+      { scheme: "file", language: "asatsuyu" },
+      { scheme: "untitled", language: "asatsuyu" },
+    ],
   };
 
   client = new LanguageClient(

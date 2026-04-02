@@ -5,11 +5,19 @@
   "version": "0.1.0",
   "publisher": "asatsuyu",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaikei/asatsuyu"
+  },
+  "bugs": {
+    "url": "https://github.com/kaikei/asatsuyu/issues"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets"
   ],
   "activationEvents": [
     "onLanguage:asatsuyu"
@@ -26,8 +34,7 @@
         "extensions": [
           ".asty"
         ],
-        "configuration": "./language-configuration.json",
-        "scopeName": "source.asatsuyu"
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
@@ -35,6 +42,22 @@
         "language": "asatsuyu",
         "scopeName": "source.asatsuyu",
         "path": "./syntaxes/asatsuyu.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.asatsuyu.codeblock",
+        "path": "./syntaxes/asatsuyu.markdown.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.asatsuyu": "asatsuyu"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "asatsuyu",
+        "path": "./snippets/asatsuyu.code-snippets"
       }
     ],
     "configuration": {
