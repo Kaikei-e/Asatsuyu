@@ -18,9 +18,11 @@ use tower_lsp::lsp_types::{
     DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentFormattingParams, DocumentSymbol,
     DocumentSymbolParams, DocumentSymbolResponse, GotoDefinitionParams, GotoDefinitionResponse,
     Hover, HoverContents, HoverParams, HoverProviderCapability, InitializeParams, InitializeResult,
-    InitializedParams, Location, MarkupContent, MarkupKind, MessageType, OneOf,
+    InitializedParams, InsertTextFormat, Location, MarkupContent, MarkupKind, MessageType, OneOf,
     ParameterInformation, ParameterLabel, Position, PrepareRenameResponse, ReferenceParams,
-    RenameOptions, RenameParams, ServerCapabilities, ServerInfo, SignatureHelp,
+    RenameOptions, RenameParams, SemanticTokens, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, SemanticTokensParams, SemanticTokensResult,
+    SemanticTokensServerCapabilities, ServerCapabilities, ServerInfo, SignatureHelp,
     SignatureHelpOptions, SignatureHelpParams, SignatureInformation, SymbolKind,
     TextDocumentPositionParams, TextDocumentSyncCapability, TextDocumentSyncKind,
     TextDocumentSyncOptions, TextEdit, Url, WorkspaceEdit,
@@ -184,6 +186,19 @@ impl LanguageServer for Backend {
                 ),
                 references_provider: Some(OneOf::Left(true)),
                 document_symbol_provider: Some(OneOf::Left(true)),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            legend: SemanticTokensLegend {
+                                token_types: super::semantic_tokens::token_types(),
+                                token_modifiers: super::semantic_tokens::token_modifiers(),
+                            },
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                            range: None,
+                            ..Default::default()
+                        },
+                    ),
+                ),
                 ..Default::default()
             },
             server_info: Some(ServerInfo {
@@ -310,7 +325,12 @@ impl LanguageServer for Backend {
 
         let signature = SignatureInformation {
             label: info.label,
-            documentation: None,
+            documentation: info.documentation.map(|doc| {
+                tower_lsp::lsp_types::Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: doc,
+                })
+            }),
             parameters: Some(parameters),
             active_parameter: Some(info.active_parameter),
         };
@@ -395,12 +415,17 @@ impl LanguageServer for Backend {
                     }
                     analysis::CompletionEntryKind::Keyword => (CompletionItemKind::KEYWORD, "1"),
                 };
+                let insert_text_format = match entry.insert_text_format {
+                    analysis::InsertTextFormatTag::Snippet => Some(InsertTextFormat::SNIPPET),
+                    analysis::InsertTextFormatTag::PlainText => None,
+                };
                 CompletionItem {
                     label: entry.name.to_string(),
                     kind: Some(kind),
                     detail: entry.ty.map(|t| format!("{t}")),
                     sort_text: Some(format!("{sort_prefix}{}", entry.name)),
                     insert_text: entry.insert_text.map(|text| text.to_string()),
+                    insert_text_format,
                     ..Default::default()
                 }
             })
@@ -628,6 +653,27 @@ impl LanguageServer for Backend {
             .collect();
 
         Ok(Some(DocumentSymbolResponse::Nested(symbols)))
+    }
+
+    // ── Semantic tokens ────────────────────────────────────────
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = &params.text_document.uri;
+
+        let state = self.state.read().await;
+        let Some(file_state) = state.get(uri) else {
+            return Ok(None);
+        };
+        let Some(ref thir) = file_state.thir else {
+            return Ok(None);
+        };
+
+        let tokens = super::semantic_tokens::collect_and_encode(thir, &file_state.line_index);
+
+        Ok(Some(SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data: tokens })))
     }
 }
 

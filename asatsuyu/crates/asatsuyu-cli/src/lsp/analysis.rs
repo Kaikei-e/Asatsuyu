@@ -141,6 +141,8 @@ pub(super) struct SignatureHelpInfo {
     pub label: String,
     pub parameters: Vec<ParamInfo>,
     pub active_parameter: u32,
+    /// Optional documentation shown alongside the signature.
+    pub documentation: Option<String>,
 }
 
 /// Compute signature help at the given byte offset.
@@ -245,9 +247,9 @@ fn build_sig_help(
     let active = count_active_parameter(source, paren_pos + 1, offset as usize);
 
     // Resolve the callee to get parameter names and types.
-    let (label, params) = resolve_callee_signature(func, args, module)?;
+    let (label, params, documentation) = resolve_callee_signature(func, args, module)?;
 
-    Some(SignatureHelpInfo { label, parameters: params, active_parameter: active })
+    Some(SignatureHelpInfo { label, parameters: params, active_parameter: active, documentation })
 }
 
 /// Count commas at the top level (respecting nesting) between `start` and `cursor`.
@@ -266,19 +268,25 @@ fn count_active_parameter(source: &str, start: usize, cursor: usize) -> u32 {
     count
 }
 
-/// Resolve a callee expression to its signature label and parameter list.
+/// Resolve a callee expression to its signature label, parameter list, and documentation.
 fn resolve_callee_signature(
     func: &ThirExpr,
     _args: &[ThirExpr],
     module: &ThirModule,
-) -> Option<(String, Vec<ParamInfo>)> {
+) -> Option<(String, Vec<ParamInfo>, Option<String>)> {
     match func {
         // Asatsuyu function or constructor call: `f(...)` or `Some(...)`
         ThirExpr::Var { def_id, .. } => {
             let def = module.symbol_table.get(*def_id);
             match def.kind {
-                DefKind::Function => resolve_asatsuyu_fn(*def_id, module),
-                DefKind::Constructor => resolve_constructor(*def_id, module),
+                DefKind::Function => {
+                    let (label, params) = resolve_asatsuyu_fn(*def_id, module)?;
+                    Some((label, params, None))
+                }
+                DefKind::Constructor => {
+                    let (label, params) = resolve_constructor(*def_id, module)?;
+                    Some((label, params, None))
+                }
                 _ => None,
             }
         }
@@ -351,16 +359,20 @@ fn resolve_ffi_module_fn(
     module_name: &SmolStr,
     field: &SmolStr,
     ffi_modules: &std::collections::HashMap<SmolStr, asatsuyu_hir::ffi::FfiModule>,
-) -> Option<(String, Vec<ParamInfo>)> {
+) -> Option<(String, Vec<ParamInfo>, Option<String>)> {
     let ffi_mod = ffi_modules.get(module_name)?;
     let symbol = ffi_mod.symbols.iter().find(|s| s.name == *field)?;
+    let trust_doc = ffi_trust_doc(ffi_mod.trust_level);
     match &symbol.kind {
         asatsuyu_hir::ffi::FfiSymbolKind::Function(sig) => {
-            Some(build_ffi_sig_label(&format!("{module_name}.{field}"), sig))
+            let (label, params) = build_ffi_sig_label(&format!("{module_name}.{field}"), sig);
+            let doc = build_ffi_doc(trust_doc, sig.is_async);
+            Some((label, params, Some(doc)))
         }
         asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) => {
             let sig = cls.constructor.as_ref()?;
-            Some(build_ffi_sig_label(&format!("{module_name}.{}", cls.name), sig))
+            let (label, params) = build_ffi_sig_label(&format!("{module_name}.{}", cls.name), sig);
+            Some((label, params, Some(trust_doc.to_owned())))
         }
         asatsuyu_hir::ffi::FfiSymbolKind::Constant(_) => None,
     }
@@ -371,14 +383,17 @@ fn resolve_ffi_instance_method(
     class_name: &SmolStr,
     method: &SmolStr,
     ffi_modules: &std::collections::HashMap<SmolStr, asatsuyu_hir::ffi::FfiModule>,
-) -> Option<(String, Vec<ParamInfo>)> {
+) -> Option<(String, Vec<ParamInfo>, Option<String>)> {
     let ffi_mod = ffi_modules.get(module_name)?;
     let class_symbol = ffi_mod.symbols.iter().find(|s| s.name == *class_name)?;
     let asatsuyu_hir::ffi::FfiSymbolKind::Class(cls) = &class_symbol.kind else {
         return None;
     };
     let (_, sig) = cls.methods.iter().find(|(name, _)| name == method)?;
-    Some(build_ffi_sig_label(&format!("{class_name}.{method}"), sig))
+    let trust_doc = ffi_trust_doc(ffi_mod.trust_level);
+    let (label, params) = build_ffi_sig_label(&format!("{class_name}.{method}"), sig);
+    let doc = build_ffi_doc(trust_doc, sig.is_async);
+    Some((label, params, Some(doc)))
 }
 
 fn build_ffi_sig_label(
@@ -393,9 +408,28 @@ fn build_ffi_sig_label(
 
     let param_labels: Vec<&str> = params.iter().map(|p| p.label.as_str()).collect();
     let ret = format_ffi_type(&sig.return_ty);
-    let label = format!("{}({}) -> {}", name, param_labels.join(", "), ret);
+    let async_prefix = if sig.is_async { "async " } else { "" };
+    let label = format!("{async_prefix}{}({}) -> {}", name, param_labels.join(", "), ret);
 
     (label, params)
+}
+
+/// Human-readable trust level label for FFI documentation.
+fn ffi_trust_doc(level: asatsuyu_hir::ffi::FfiTrustLevel) -> &'static str {
+    match level {
+        asatsuyu_hir::ffi::FfiTrustLevel::Verified => "[Verified FFI]",
+        asatsuyu_hir::ffi::FfiTrustLevel::Checked => "[Checked FFI]",
+        asatsuyu_hir::ffi::FfiTrustLevel::Unsafe => "[Unsafe FFI]",
+    }
+}
+
+/// Build documentation string for an FFI call, including trust level and async hint.
+fn build_ffi_doc(trust_doc: &str, is_async: bool) -> String {
+    if is_async {
+        format!("{trust_doc} Returns `Task(T)` \u{2014} consider using `await`")
+    } else {
+        trust_doc.to_owned()
+    }
 }
 
 fn format_ffi_type(ty: &asatsuyu_hir::ffi::FfiType) -> String {
@@ -469,6 +503,17 @@ pub(super) fn collect_code_actions(
                     actions.push(action);
                 }
             }
+            "E0152" => {
+                actions.extend(action_add_imports(source, message));
+            }
+            "E0208" => {
+                actions.extend(action_generate_python_imports(source, message));
+            }
+            "E0220" => {
+                if let Some(action) = action_make_fn_async(source, cursor_offset) {
+                    actions.push(action);
+                }
+            }
             _ => {
                 // E0200 with "consider adding `await`" hint.
                 if code == "E0200" && message.contains("consider adding `await`") {
@@ -479,10 +524,14 @@ pub(super) fn collect_code_actions(
     }
 
     // Refactor: add type annotation for let binding at cursor.
-    if let Some(module) = thir
-        && let Some(action) = action_add_type_annotation(module, source, cursor_offset)
-    {
-        actions.push(action);
+    if let Some(module) = thir {
+        if let Some(action) = action_add_type_annotation(module, source, cursor_offset) {
+            actions.push(action);
+        }
+        // Refactor: convert let to let mut at cursor.
+        if let Some(action) = action_let_to_let_mut(module, source, cursor_offset) {
+            actions.push(action);
+        }
     }
 
     actions
@@ -592,6 +641,213 @@ fn action_add_await(_source: &str, _message: &str, diag_offset: u32) -> CodeActi
         replace_start: diag_offset,
         replace_end: diag_offset,
         new_text: "await ".to_owned(),
+    }
+}
+
+/// E0152: Add missing import for an unresolved name.
+///
+/// Extracts the unresolved name from the diagnostic message and suggests
+/// a `from python import <name>` statement at the import section.
+fn action_add_imports(source: &str, message: &str) -> Vec<CodeActionInfo> {
+    // Extract name from "unresolved name `foo`".
+    let prefix = "unresolved name `";
+    let Some(name_start) = message.find(prefix).map(|idx| idx + prefix.len()) else {
+        return Vec::new();
+    };
+    let Some(name_end) = message[name_start..].find('`').map(|idx| idx + name_start) else {
+        return Vec::new();
+    };
+    let name = &message[name_start..name_end];
+
+    let insert_pos = find_import_insert_position(source);
+    let alias = import_alias(name);
+    let mut actions = Vec::with_capacity(2);
+
+    #[allow(clippy::cast_possible_truncation)]
+    actions.push(CodeActionInfo {
+        title: format!("Add import: from python import {name}"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: format!("from python import {name}\n"),
+    });
+    #[allow(clippy::cast_possible_truncation)]
+    actions.push(CodeActionInfo {
+        title: format!("Add alias import: from python import {name} as {alias}"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: format!("from python import {name} as {alias}\n"),
+    });
+    actions
+}
+
+/// E0208: Generate `from python import` for an unknown module.
+///
+/// Extracts the module name from the diagnostic message.
+fn action_generate_python_imports(source: &str, message: &str) -> Vec<CodeActionInfo> {
+    // Extract module name from "unknown Python module `foo`".
+    let prefix = "unknown Python module `";
+    let Some(name_start) = message.find(prefix).map(|idx| idx + prefix.len()) else {
+        return Vec::new();
+    };
+    let Some(name_end) = message[name_start..].find('`').map(|idx| idx + name_start) else {
+        return Vec::new();
+    };
+    let module_name = &message[name_start..name_end];
+
+    let insert_pos = find_import_insert_position(source);
+    let alias = import_alias(module_name);
+    let mut actions = Vec::with_capacity(2);
+
+    #[allow(clippy::cast_possible_truncation)]
+    actions.push(CodeActionInfo {
+        title: format!("Add: from python import {module_name}"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: format!("from python import {module_name}\n"),
+    });
+    #[allow(clippy::cast_possible_truncation)]
+    actions.push(CodeActionInfo {
+        title: format!("Add alias import: from python import {module_name} as {alias}"),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: insert_pos,
+        replace_end: insert_pos,
+        new_text: format!("from python import {module_name} as {alias}\n"),
+    });
+    actions
+}
+
+fn import_alias(name: &str) -> String {
+    let mut alias = String::from("py_");
+    let mut prev_was_sep = false;
+    for ch in name.chars() {
+        let mapped = if ch.is_ascii_alphanumeric() || ch == '_' { ch } else { '_' };
+        let mapped = mapped.to_ascii_lowercase();
+        if mapped == '_' {
+            if !prev_was_sep {
+                alias.push('_');
+            }
+            prev_was_sep = true;
+        } else {
+            alias.push(mapped);
+            prev_was_sep = false;
+        }
+    }
+    while alias.ends_with('_') {
+        alias.pop();
+    }
+    if alias == "py" { "py_alias".to_owned() } else { alias }
+}
+
+/// E0220: Make the enclosing function async.
+///
+/// Finds the `fn` keyword before the cursor and inserts `async ` before it.
+fn action_make_fn_async(source: &str, cursor_offset: u32) -> Option<CodeActionInfo> {
+    // Search backwards from cursor for `fn ` to find the enclosing function.
+    let before = source.get(..cursor_offset as usize)?;
+    let fn_pos = before.rfind("fn ")?;
+
+    // Check this isn't already `async fn`.
+    if fn_pos >= 6 && source.get(fn_pos - 6..fn_pos)?.trim_start().ends_with("async") {
+        return None;
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    Some(CodeActionInfo {
+        title: "Make function async".to_owned(),
+        kind: CodeActionKindTag::QuickFix,
+        replace_start: fn_pos as u32,
+        replace_end: fn_pos as u32,
+        new_text: "async ".to_owned(),
+    })
+}
+
+/// Find the insertion position for a new import statement.
+///
+/// Returns the byte offset immediately after the last import/from line,
+/// or 0 if there are no import statements.
+fn find_import_insert_position(source: &str) -> u32 {
+    let mut last_import_end = 0u32;
+    let mut offset = 0u32;
+    for line in source.lines() {
+        let trimmed = line.trim();
+        #[allow(clippy::cast_possible_truncation)]
+        let line_end = offset + line.len() as u32 + 1; // +1 for newline
+        if trimmed.starts_with("import ") || trimmed.starts_with("from ") {
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                last_import_end = line_end.min(source.len() as u32);
+            }
+        }
+        offset = line_end;
+    }
+    last_import_end
+}
+
+/// Refactor: Convert `let` to `let mut` at cursor (no diagnostic needed).
+fn action_let_to_let_mut(module: &ThirModule, source: &str, offset: u32) -> Option<CodeActionInfo> {
+    for func in &module.functions {
+        if !func.span.contains(offset) {
+            continue;
+        }
+        if let Some(action) =
+            find_let_for_mut_refactor(&func.body, source, offset, &module.symbol_table)
+        {
+            return Some(action);
+        }
+    }
+    None
+}
+
+/// Walk the THIR looking for a `let` (immutable) binding at `offset` to convert to `let mut`.
+fn find_let_for_mut_refactor(
+    expr: &ThirExpr,
+    source: &str,
+    offset: u32,
+    st: &asatsuyu_hir::SymbolTable,
+) -> Option<CodeActionInfo> {
+    if !expr.span().contains(offset) {
+        return None;
+    }
+    match expr {
+        ThirExpr::Let { binding, is_mutable, span, .. } if span.contains(offset) => {
+            if *is_mutable {
+                return None; // Already mutable.
+            }
+            let def = st.get(*binding);
+            // Find `let name` in source and insert `mut `.
+            let let_prefix = "let ";
+            let search_start = span.start as usize;
+            let fragment = source.get(search_start..span.end as usize)?;
+            let let_offset = fragment.find(let_prefix)?;
+            #[allow(clippy::cast_possible_truncation)]
+            let insert_pos = (search_start + let_offset + let_prefix.len()) as u32;
+            Some(CodeActionInfo {
+                title: format!("Make `{}` mutable", def.name),
+                kind: CodeActionKindTag::Refactor,
+                replace_start: insert_pos,
+                replace_end: insert_pos,
+                new_text: "mut ".to_owned(),
+            })
+        }
+        ThirExpr::Block { exprs, .. } => {
+            exprs.iter().find_map(|e| find_let_for_mut_refactor(e, source, offset, st))
+        }
+        ThirExpr::If { condition, then_body, else_body, .. } => {
+            find_let_for_mut_refactor(condition, source, offset, st)
+                .or_else(|| find_let_for_mut_refactor(then_body, source, offset, st))
+                .or_else(|| {
+                    else_body
+                        .as_ref()
+                        .and_then(|e| find_let_for_mut_refactor(e, source, offset, st))
+                })
+        }
+        ThirExpr::Match { arms, .. } => {
+            arms.iter().find_map(|arm| find_let_for_mut_refactor(&arm.body, source, offset, st))
+        }
+        _ => None,
     }
 }
 
@@ -806,12 +1062,21 @@ pub(super) enum CompletionEntryKind {
     Keyword,
 }
 
+/// Whether the insert text should be treated as a snippet with placeholders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(super) enum InsertTextFormatTag {
+    #[default]
+    PlainText,
+    Snippet,
+}
+
 /// A completion candidate with metadata.
 pub(super) struct CompletionEntry {
     pub name: SmolStr,
     pub kind: CompletionEntryKind,
     pub ty: Option<Ty>,
     pub insert_text: Option<SmolStr>,
+    pub insert_text_format: InsertTextFormatTag,
 }
 
 /// The syntactic context at the completion cursor position.
@@ -826,6 +1091,8 @@ pub(super) enum CompletionContext {
     Block,
     /// In an expression position within a block.
     Expr,
+    /// After `from`, where the FFI source keyword should be suggested.
+    ImportFrom,
     /// Inside an import statement line. Suppress keyword completions.
     Import,
 }
@@ -850,6 +1117,7 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
                         kind: CompletionEntryKind::Symbol(def.kind),
                         ty,
                         insert_text: None,
+                        insert_text_format: InsertTextFormatTag::default(),
                     });
                 }
             }
@@ -873,6 +1141,7 @@ pub(super) fn collect_completions(module: &ThirModule, offset: u32) -> Vec<Compl
                     kind: CompletionEntryKind::Symbol(DefKind::Parameter),
                     ty: Some(param.ty.clone()),
                     insert_text: None,
+                    insert_text_format: InsertTextFormatTag::default(),
                 });
             }
         }
@@ -906,6 +1175,9 @@ pub(super) fn classify_context(source: &str, offset: u32) -> CompletionContext {
     // Check if current line starts with import/from keywords.
     let line_start = before_cursor.rfind('\n').map_or(0, |i| i + 1);
     let line_prefix = before_cursor[line_start..].trim_start();
+    if line_prefix.starts_with("from ") && !line_prefix.contains(" import") {
+        return CompletionContext::ImportFrom;
+    }
     if line_prefix.starts_with("import ") || line_prefix.starts_with("from ") {
         return CompletionContext::Import;
     }
@@ -946,14 +1218,19 @@ fn classify_in_block(line_prefix: &str) -> CompletionContext {
 }
 
 /// Collect keyword completion entries appropriate for the given context.
+///
+/// Keywords that represent block-level constructs are offered as snippet
+/// completions with tab-stop placeholders so the user can fill in the
+/// skeleton immediately.
 fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
     let mut entries = Vec::new();
 
+    // Plain keyword completions (no snippet expansion).
     let allowed: &[&str] = match ctx {
-        CompletionContext::TopLevel => &["fn", "type", "import", "from", "pub"],
-        CompletionContext::Block => &["let", "if", "match", "try", "fn", "True", "False"],
-        CompletionContext::Expr => &["if", "match", "try", "fn", "True", "False", "await"],
-        CompletionContext::Import => &[],
+        CompletionContext::TopLevel => &["pub"],
+        CompletionContext::Block => &["True", "False"],
+        CompletionContext::Expr => &["True", "False", "await"],
+        CompletionContext::ImportFrom | CompletionContext::Import => &[],
     };
 
     for spec in completion_keyword_specs().filter(|spec| allowed.contains(&spec.text)) {
@@ -962,20 +1239,47 @@ fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
             kind: CompletionEntryKind::Keyword,
             ty: None,
             insert_text: None,
+            insert_text_format: InsertTextFormatTag::default(),
         });
     }
 
+    // Snippet-backed completions with placeholders.
     match ctx {
         CompletionContext::TopLevel => {
-            entries.push(keyword_snippet("async fn", "async fn "));
+            entries.push(keyword_snippet_expand("fn", "fn ${1:name}(${2}) {\n\t$0\n}"));
+            entries.push(keyword_snippet_expand("pub fn", "pub fn ${1:name}(${2}) {\n\t$0\n}"));
+            entries.push(keyword_snippet_expand("async fn", "async fn ${1:name}(${2}) {\n\t$0\n}"));
+            entries.push(keyword_snippet_expand("type", "type ${1:Name} {\n\t${2:Variant}($0)\n}"));
+            entries.push(keyword_snippet_expand(
+                "from python import",
+                "from python import ${1:module}",
+            ));
+            entries.push(keyword_snippet("import", "import "));
         }
         CompletionContext::Block => {
-            entries.push(keyword_snippet("let mut", "let mut "));
+            entries.push(keyword_snippet_expand("let", "let ${1:name} = ${0}"));
+            entries.push(keyword_snippet_expand("let mut", "let mut ${1:name} = ${0}"));
+            entries.push(keyword_snippet_expand("if", "if ${1:condition} {\n\t$0\n}"));
+            entries.push(keyword_snippet_expand(
+                "match",
+                "match ${1:value} {\n\t${2:pattern} -> $0\n}",
+            ));
+            entries.push(keyword_snippet("try", "try "));
+            entries.push(keyword_snippet_expand("fn", "fn ${1:name}(${2}) {\n\t$0\n}"));
             entries.push(keyword_snippet("await", "await "));
         }
         CompletionContext::Expr => {
-            entries.push(keyword_snippet("await", "await "));
+            entries.push(keyword_snippet_expand("if", "if ${1:condition} {\n\t$0\n}"));
+            entries.push(keyword_snippet_expand(
+                "match",
+                "match ${1:value} {\n\t${2:pattern} -> $0\n}",
+            ));
+            entries.push(keyword_snippet("try", "try "));
+            entries.push(keyword_snippet_expand("fn", "fn(${1}) {\n\t$0\n}"));
             entries.push(keyword_snippet("mut", "mut "));
+        }
+        CompletionContext::ImportFrom => {
+            entries.push(keyword_snippet("python", "python "));
         }
         CompletionContext::Import => {}
     }
@@ -983,12 +1287,25 @@ fn collect_keyword_completions(ctx: CompletionContext) -> Vec<CompletionEntry> {
     entries
 }
 
+/// A keyword completion with plain text insertion (no placeholders).
 fn keyword_snippet(label: &'static str, insert_text: &'static str) -> CompletionEntry {
     CompletionEntry {
         name: SmolStr::new(label),
         kind: CompletionEntryKind::Keyword,
         ty: None,
         insert_text: Some(SmolStr::new(insert_text)),
+        insert_text_format: InsertTextFormatTag::PlainText,
+    }
+}
+
+/// A keyword completion with snippet expansion (tab-stop placeholders).
+fn keyword_snippet_expand(label: &'static str, snippet: &'static str) -> CompletionEntry {
+    CompletionEntry {
+        name: SmolStr::new(label),
+        kind: CompletionEntryKind::Keyword,
+        ty: None,
+        insert_text: Some(SmolStr::new(snippet)),
+        insert_text_format: InsertTextFormatTag::Snippet,
     }
 }
 
@@ -1037,6 +1354,7 @@ fn collect_locals_in_expr(
                     kind: CompletionEntryKind::Symbol(DefKind::LocalBinding),
                     ty: Some(ty.clone()),
                     insert_text: None,
+                    insert_text_format: InsertTextFormatTag::default(),
                 });
             }
             collect_locals_in_expr(value, offset, st, entries, seen);
@@ -1058,6 +1376,7 @@ fn collect_locals_in_expr(
                         kind: CompletionEntryKind::Symbol(DefKind::Parameter),
                         ty: Some(p.ty.clone()),
                         insert_text: None,
+                        insert_text_format: InsertTextFormatTag::default(),
                     });
                 }
             }
@@ -1093,6 +1412,7 @@ fn collect_pattern_bindings(
                     kind: CompletionEntryKind::Symbol(DefKind::LocalBinding),
                     ty: Some(ty.clone()),
                     insert_text: None,
+                    insert_text_format: InsertTextFormatTag::default(),
                 });
             }
         }
@@ -1220,6 +1540,12 @@ mod tests {
     }
 
     #[test]
+    fn classify_context_after_from_keyword() {
+        assert_eq!(classify_context("from ", 5), CompletionContext::ImportFrom);
+        assert_eq!(classify_context("from path", 9), CompletionContext::ImportFrom);
+    }
+
+    #[test]
     #[allow(clippy::cast_possible_truncation)]
     fn classify_context_after_closed_braces() {
         let source = "fn a() {}\nfn b() {}\n";
@@ -1235,7 +1561,7 @@ mod tests {
         assert!(names.contains(&"fn"));
         assert!(names.contains(&"type"));
         assert!(names.contains(&"import"));
-        assert!(names.contains(&"from"));
+        assert!(names.contains(&"from python import"));
         assert!(names.contains(&"pub"));
         assert!(!names.contains(&"let"));
         assert!(!names.contains(&"match"));
@@ -1280,6 +1606,14 @@ mod tests {
     }
 
     #[test]
+    fn keyword_completions_import_from_suggests_python() {
+        let entries = collect_keyword_completions(CompletionContext::ImportFrom);
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["python"]);
+        assert_eq!(entries[0].insert_text.as_deref(), Some("python "));
+    }
+
+    #[test]
     fn keyword_entries_are_marked_as_keyword_kind() {
         let entries = collect_keyword_completions(CompletionContext::TopLevel);
         for entry in &entries {
@@ -1292,11 +1626,13 @@ mod tests {
     fn keyword_snippets_have_insert_text() {
         let entries = collect_keyword_completions(CompletionContext::TopLevel);
         let async_fn = entries.iter().find(|e| e.name == "async fn").expect("missing async fn");
-        assert_eq!(async_fn.insert_text.as_deref(), Some("async fn "));
+        assert!(async_fn.insert_text.is_some());
+        assert_eq!(async_fn.insert_text_format, InsertTextFormatTag::Snippet);
 
         let block_entries = collect_keyword_completions(CompletionContext::Block);
         let let_mut = block_entries.iter().find(|e| e.name == "let mut").expect("missing let mut");
-        assert_eq!(let_mut.insert_text.as_deref(), Some("let mut "));
+        assert!(let_mut.insert_text.is_some());
+        assert_eq!(let_mut.insert_text_format, InsertTextFormatTag::Snippet);
     }
 
     // ── Unified completions ─────────────────────────────────────
@@ -1651,5 +1987,21 @@ mod tests {
         assert_eq!(actions[0].kind, CodeActionKindTag::QuickFix);
         assert_eq!(actions[0].title, "Add `await` to unwrap Task");
         assert_eq!(actions[0].new_text, "await ");
+    }
+
+    #[test]
+    fn code_action_add_imports_offer_alias_variant() {
+        let actions = action_add_imports("fn main() { foo }\n", "unresolved name `foo`");
+        assert_eq!(actions.len(), 2);
+        assert!(actions.iter().any(|a| a.new_text == "from python import foo\n"));
+        assert!(actions.iter().any(|a| a.new_text == "from python import foo as py_foo\n"));
+    }
+
+    #[test]
+    fn code_action_generate_python_imports_offer_alias_variant() {
+        let actions = action_generate_python_imports("", "unknown Python module `pathlib`");
+        assert_eq!(actions.len(), 2);
+        assert!(actions.iter().any(|a| a.new_text == "from python import pathlib\n"));
+        assert!(actions.iter().any(|a| a.new_text == "from python import pathlib as py_pathlib\n"));
     }
 }

@@ -967,12 +967,13 @@ Implemented features:
 - hover (type information display)
 - go to definition (DefId -> jump to definition site)
 - document formatting (CST-based formatter integration)
-- completion (keyword-aware + symbol completion with lightweight context classification)
-- signature help (parameter hints for function and FFI calls, triggered on `(` and `,`)
-- code actions (add missing match arms, make binding mutable, add type annotation, suggest await)
+- completion (keyword-aware + symbol completion with snippet expansion and context classification)
+- signature help (parameter hints for function, constructor, and FFI calls with trust level documentation)
+- code actions (add missing match arms, make binding mutable, add type annotation, suggest await, add import, make function async, let-to-let-mut refactor)
 - rename (bulk rename of all references via DefId, including assignment targets and let binding names)
 - find references (find all references via DefId, with correct identifier spans for assignments)
 - document symbols (list of functions and types)
+- semantic tokens (full document, THIR-derived: function/variable/parameter/type/constructor/namespace/property with declaration/readonly/async/modification/defaultLibrary/ffi/checked/verified modifiers)
 
 The design supports HIR/type information caching from Phases 2-3 for incremental
 analysis. Adoption of Salsa (rust-analyzer's incremental computation framework) is

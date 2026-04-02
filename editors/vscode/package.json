@@ -60,6 +60,20 @@
         "path": "./snippets/asatsuyu.code-snippets"
       }
     ],
+    "semanticTokenModifiers": [
+      {
+        "id": "ffi",
+        "description": "Symbol imported from Python via FFI"
+      },
+      {
+        "id": "checked",
+        "description": "Checked FFI — runtime validation applied"
+      },
+      {
+        "id": "verified",
+        "description": "Verified FFI — fully typed, sound boundary"
+      }
+    ],
     "configuration": {
       "title": "Asatsuyu",
       "properties": {

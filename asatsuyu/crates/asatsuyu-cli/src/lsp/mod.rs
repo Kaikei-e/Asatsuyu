@@ -8,6 +8,7 @@
 
 mod analysis;
 mod convert;
+mod semantic_tokens;
 mod server;
 
 /// Start the LSP server on stdio.
