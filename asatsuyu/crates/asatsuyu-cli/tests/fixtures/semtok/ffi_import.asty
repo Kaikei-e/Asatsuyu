@@ -1,0 +1,8 @@
+from python import pathlib
+from python import json
+
+pub fn main() {
+  let p = pathlib.Path(".")
+  let data = json.dumps("hello")
+  println(data)
+}

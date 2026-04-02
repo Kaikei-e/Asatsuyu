@@ -1,0 +1,18 @@
+---
+source: crates/asatsuyu-cli/src/lsp/semantic_tokens.rs
+expression: decoded
+---
+L1:4   len=6   "double"                 function.declaration
+L1:11  len=1   "x"                     parameter.declaration
+L2:3   len=1   "x"                     parameter
+L5:8   len=4   "main"                   function.declaration
+L7:6   len=4   "list"                   function.defaultLibrary
+L7:11  len=3   "map"                    property
+L7:18  len=1   "x"                     parameter.declaration
+L7:23  len=1   "x"                     parameter
+L8:6   len=4   "list"                   function.defaultLibrary
+L8:11  len=3   "map"                    property
+L8:18  len=1   "n"                     parameter.declaration
+L8:23  len=6   "double"                 function
+L8:30  len=1   "n"                     parameter
+L9:6   len=7   "println"                function.defaultLibrary

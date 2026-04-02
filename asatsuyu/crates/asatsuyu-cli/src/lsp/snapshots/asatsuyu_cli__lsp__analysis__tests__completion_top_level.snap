@@ -1,0 +1,14 @@
+---
+source: crates/asatsuyu-cli/src/lsp/analysis.rs
+expression: snapshot
+---
+async fn                  keyword [snippet]
+fn                        keyword [snippet]
+from python import        keyword [snippet]
+import                    keyword
+list                      symbol(Builtin)
+println                   symbol(Builtin)
+pub                       keyword
+pub fn                    keyword [snippet]
+string_concat             symbol(Builtin)
+type                      keyword [snippet]

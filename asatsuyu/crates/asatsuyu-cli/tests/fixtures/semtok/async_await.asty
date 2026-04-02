@@ -1,0 +1,8 @@
+async fn fetch(url: String) -> String {
+  url
+}
+
+pub async fn main() {
+  let data = await fetch("https://example.com")
+  println(data)
+}

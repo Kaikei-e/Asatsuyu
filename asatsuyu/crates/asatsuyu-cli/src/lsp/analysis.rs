@@ -2004,4 +2004,51 @@ mod tests {
         assert!(actions.iter().any(|a| a.new_text == "from python import pathlib\n"));
         assert!(actions.iter().any(|a| a.new_text == "from python import pathlib as py_pathlib\n"));
     }
+
+    // ── Completion snapshot tests ──────────────────────────────
+
+    fn completion_snapshot(source: &str, offset: u32) -> String {
+        let thir = compile_to_thir(source);
+        let entries = collect_all_completions(thir.as_ref(), source, offset);
+        let mut lines: Vec<String> = entries
+            .iter()
+            .map(|e| {
+                let kind = match &e.kind {
+                    CompletionEntryKind::Keyword => "keyword".to_owned(),
+                    CompletionEntryKind::Symbol(dk) => format!("symbol({dk:?})"),
+                };
+                let fmt = match e.insert_text_format {
+                    InsertTextFormatTag::PlainText => "",
+                    InsertTextFormatTag::Snippet => " [snippet]",
+                };
+                format!("{:<25} {kind}{fmt}", e.name)
+            })
+            .collect();
+        lines.sort();
+        lines.join("\n")
+    }
+
+    #[test]
+    fn completion_snapshot_top_level() {
+        let snapshot = completion_snapshot("", 0);
+        insta::assert_snapshot!("completion_top_level", snapshot);
+    }
+
+    #[test]
+    fn completion_snapshot_block() {
+        let source = "fn add(a: Int, b: Int) -> Int { a + b }\nfn main() {\n  \n}";
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.rfind("  \n").unwrap() as u32 + 2;
+        let snapshot = completion_snapshot(source, offset);
+        insta::assert_snapshot!("completion_block", snapshot);
+    }
+
+    #[test]
+    fn completion_snapshot_async_block() {
+        let source = "async fn fetch() -> Int { 1 }\nasync fn main() {\n  \n}";
+        #[allow(clippy::cast_possible_truncation)]
+        let offset = source.rfind("  \n").unwrap() as u32 + 2;
+        let snapshot = completion_snapshot(source, offset);
+        insta::assert_snapshot!("completion_async_block", snapshot);
+    }
 }

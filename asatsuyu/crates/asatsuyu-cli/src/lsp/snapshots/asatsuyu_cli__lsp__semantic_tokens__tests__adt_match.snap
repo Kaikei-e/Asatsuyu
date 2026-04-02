@@ -1,0 +1,20 @@
+---
+source: crates/asatsuyu-cli/src/lsp/semantic_tokens.rs
+expression: decoded
+---
+L1:6   len=5   "Color"                      type.declaration
+L2:3   len=3   "Red"                  enumMember.declaration
+L2:3   len=3   "Red"                  enumMember
+L3:3   len=5   "Green"                enumMember.declaration
+L3:3   len=5   "Green"                enumMember
+L4:3   len=4   "Blue"                 enumMember.declaration
+L4:3   len=4   "Blue"                 enumMember
+L7:4   len=8   "describe"               function.declaration
+L7:13  len=1   "c"                     parameter.declaration
+L8:9   len=1   "c"                     parameter
+L15:8   len=4   "main"                   function.declaration
+L16:7   len=1   "c"                      variable.declaration.readonly
+L16:11  len=3   "Red"                  enumMember
+L17:3   len=7   "println"                function.defaultLibrary
+L17:11  len=8   "describe"               function
+L17:20  len=1   "c"                      variable.readonly

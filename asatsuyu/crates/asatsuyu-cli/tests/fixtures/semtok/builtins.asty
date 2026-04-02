@@ -1,0 +1,7 @@
+pub fn main() {
+  println("hello")
+  println(42)
+  let xs = [1, 2, 3]
+  let n = list.length(xs)
+  println(n)
+}

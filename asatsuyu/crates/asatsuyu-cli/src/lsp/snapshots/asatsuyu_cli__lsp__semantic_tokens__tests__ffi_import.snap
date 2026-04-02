@@ -1,0 +1,15 @@
+---
+source: crates/asatsuyu-cli/src/lsp/semantic_tokens.rs
+expression: decoded
+---
+L1:20  len=7   "pathlib"               namespace.declaration.ffi.verified
+L2:20  len=4   "json"                  namespace.declaration.ffi.checked
+L4:8   len=4   "main"                   function.declaration
+L5:7   len=1   "p"                      variable.declaration.readonly
+L5:11  len=7   "pathlib"               namespace.ffi.verified
+L5:19  len=4   "Path"                   property
+L6:7   len=4   "data"                   variable.declaration.readonly
+L6:14  len=4   "json"                  namespace.ffi.checked
+L6:19  len=5   "dumps"                  property
+L7:3   len=7   "println"                function.defaultLibrary
+L7:11  len=4   "data"                   variable.readonly

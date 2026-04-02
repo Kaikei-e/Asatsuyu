@@ -358,6 +358,153 @@ mod tests {
         LineIndex::new(src)
     }
 
+    // ── Snapshot helpers ──────────────────────────────────────────
+
+    /// Names for token types, indexed by their constant values.
+    const TYPE_NAMES: [&str; 8] = [
+        "namespace",
+        "type",
+        "enumMember",
+        "typeParameter",
+        "parameter",
+        "variable",
+        "property",
+        "function",
+    ];
+
+    /// Names for token modifiers, indexed by bit position.
+    const MODIFIER_NAMES: [&str; 8] = [
+        "declaration",
+        "readonly",
+        "async",
+        "modification",
+        "defaultLibrary",
+        "ffi",
+        "checked",
+        "verified",
+    ];
+
+    /// Decode LSP semantic tokens into a human-readable string for snapshot testing.
+    fn decode_for_snapshot(tokens: &[SemanticToken], source: &str) -> String {
+        let mut lines = Vec::new();
+        let mut abs_line: u32 = 0;
+        let mut abs_col: u32 = 0;
+
+        let source_lines: Vec<&str> = source.lines().collect();
+
+        for tok in tokens {
+            if tok.delta_line > 0 {
+                abs_line += tok.delta_line;
+                abs_col = tok.delta_start;
+            } else {
+                abs_col += tok.delta_start;
+            }
+
+            let type_name = TYPE_NAMES
+                .get(tok.token_type as usize)
+                .copied()
+                .unwrap_or("unknown");
+
+            let mut mods = Vec::new();
+            for (i, name) in MODIFIER_NAMES.iter().enumerate() {
+                if tok.token_modifiers_bitset & (1 << i) != 0 {
+                    mods.push(*name);
+                }
+            }
+
+            // Extract the actual text from source for readability.
+            let text = source_lines
+                .get(abs_line as usize)
+                .and_then(|line| {
+                    let start = abs_col as usize;
+                    let end = start + tok.length as usize;
+                    line.get(start..end)
+                })
+                .unwrap_or("?");
+
+            let mod_str = if mods.is_empty() {
+                String::new()
+            } else {
+                format!(".{}", mods.join("."))
+            };
+
+            lines.push(format!(
+                "L{}:{:<3} len={:<3} {:<20} {:>12}{mod_str}",
+                abs_line + 1,
+                abs_col + 1,
+                tok.length,
+                format!("\"{text}\""),
+                type_name,
+            ));
+        }
+        lines.join("\n")
+    }
+
+    /// Compile source to THIR and generate semantic tokens.
+    fn semantic_tokens_for(source: &str) -> Vec<SemanticToken> {
+        use asatsuyu_hir::ffi::FfiResolverConfig;
+
+        let parse_result = asatsuyu_parser::parse(asatsuyu_syntax::FileId(0), source);
+        let ast_result = asatsuyu_ast::lower(&parse_result, asatsuyu_syntax::FileId(0));
+        let hir_result = asatsuyu_hir::lower_to_hir(&ast_result.module);
+        let ffi_config = FfiResolverConfig::default();
+        let ty_result =
+            asatsuyu_ty::check_types_with_ffi_config(&hir_result.module, &ffi_config);
+        let line_index = LineIndex::new(source);
+        collect_and_encode(&ty_result.module, &line_index)
+    }
+
+    fn snapshot_fixture(name: &str) {
+        let path = format!(
+            "{}/tests/fixtures/semtok/{name}.asty",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let source = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
+        let tokens = semantic_tokens_for(&source);
+        let decoded = decode_for_snapshot(&tokens, &source);
+        insta::assert_snapshot!(name, decoded);
+    }
+
+    // ── Snapshot tests ───────────────────────────────────────────
+
+    #[test]
+    fn semtok_fn_basic() {
+        snapshot_fixture("fn_basic");
+    }
+
+    #[test]
+    fn semtok_let_binding() {
+        snapshot_fixture("let_binding");
+    }
+
+    #[test]
+    fn semtok_adt_match() {
+        snapshot_fixture("adt_match");
+    }
+
+    #[test]
+    fn semtok_ffi_import() {
+        snapshot_fixture("ffi_import");
+    }
+
+    #[test]
+    fn semtok_async_await() {
+        snapshot_fixture("async_await");
+    }
+
+    #[test]
+    fn semtok_pipeline() {
+        snapshot_fixture("pipeline");
+    }
+
+    #[test]
+    fn semtok_builtins() {
+        snapshot_fixture("builtins");
+    }
+
+    // ── Existing unit tests ──────────────────────────────────────
+
     #[test]
     fn encode_single_token() {
         let source = "fn main() {}";

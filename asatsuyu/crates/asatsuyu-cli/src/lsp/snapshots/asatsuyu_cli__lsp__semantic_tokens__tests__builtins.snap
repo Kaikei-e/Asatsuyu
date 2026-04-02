@@ -1,0 +1,14 @@
+---
+source: crates/asatsuyu-cli/src/lsp/semantic_tokens.rs
+expression: decoded
+---
+L1:8   len=4   "main"                   function.declaration
+L2:3   len=7   "println"                function.defaultLibrary
+L3:3   len=7   "println"                function.defaultLibrary
+L4:7   len=2   "xs"                     variable.declaration.readonly
+L5:7   len=1   "n"                      variable.declaration.readonly
+L5:11  len=4   "list"                   function.defaultLibrary
+L5:16  len=6   "length"                 property
+L5:23  len=2   "xs"                     variable.readonly
+L6:3   len=7   "println"                function.defaultLibrary
+L6:11  len=1   "n"                      variable.readonly

@@ -1,0 +1,18 @@
+---
+source: crates/asatsuyu-cli/src/lsp/analysis.rs
+expression: snapshot
+---
+False                     keyword
+True                      keyword
+await                     keyword
+fetch                     symbol(Function)
+fn                        keyword [snippet]
+if                        keyword [snippet]
+let                       keyword [snippet]
+let mut                   keyword [snippet]
+list                      symbol(Builtin)
+main                      symbol(Function)
+match                     keyword [snippet]
+println                   symbol(Builtin)
+string_concat             symbol(Builtin)
+try                       keyword
