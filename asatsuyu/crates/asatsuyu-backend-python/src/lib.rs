@@ -317,7 +317,10 @@ fn inner() -> Int { 1 }
 pub async fn fetch() -> Int { await inner() }";
         let py = python_from_source(source);
         assert!(py.contains("async def fetch() -> int:"), "should emit async def: {py}");
-        assert!(py.contains("return await inner()"), "should emit await expression in Python: {py}");
+        assert!(
+            py.contains("return await inner()"),
+            "should emit await expression in Python: {py}"
+        );
     }
 
     // ── 4. String literal ───────────────────────────────────────────

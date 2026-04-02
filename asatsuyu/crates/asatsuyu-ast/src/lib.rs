@@ -144,7 +144,10 @@ mod tests {
         match &f.body {
             Expr::Block { exprs, .. } => match &exprs[0] {
                 Expr::Await { expr, .. } => {
-                    assert!(matches!(expr.as_ref(), Expr::Call { .. }), "await should wrap the call");
+                    assert!(
+                        matches!(expr.as_ref(), Expr::Call { .. }),
+                        "await should wrap the call"
+                    );
                 }
                 other => panic!("expected Await, got {other:?}"),
             },

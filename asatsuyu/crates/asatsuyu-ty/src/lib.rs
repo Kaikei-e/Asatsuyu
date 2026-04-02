@@ -1353,7 +1353,9 @@ pub fn f() -> Result(Bool, PyExc) {
 
     #[test]
     fn async_fn_and_await_propagate_to_thir() {
-        let result = thir_from_source("fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }");
+        let result = thir_from_source(
+            "fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }",
+        );
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
 
         let f = &result.module.functions[1];
@@ -1361,8 +1363,15 @@ pub fn f() -> Result(Bool, PyExc) {
         match &f.body {
             ThirExpr::Block { exprs, .. } => match &exprs[0] {
                 ThirExpr::Await { expr, ty, .. } => {
-                    assert!(matches!(expr.as_ref(), ThirExpr::Call { .. }), "await should wrap call in THIR");
-                    assert_eq!(*ty, expr.ty().clone(), "await stub typing should preserve inner type");
+                    assert!(
+                        matches!(expr.as_ref(), ThirExpr::Call { .. }),
+                        "await should wrap call in THIR"
+                    );
+                    assert_eq!(
+                        *ty,
+                        expr.ty().clone(),
+                        "await stub typing should preserve inner type"
+                    );
                 }
                 other => panic!("expected Await, got {other:?}"),
             },

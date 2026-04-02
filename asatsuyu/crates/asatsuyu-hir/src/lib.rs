@@ -340,7 +340,9 @@ mod tests {
 
     #[test]
     fn hir_propagates_async_fn_and_await() {
-        let result = hir_from_source("fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }");
+        let result = hir_from_source(
+            "fn inner() -> Int { 1 }\npub async fn fetch() -> Int { await inner() }",
+        );
         assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics);
 
         let func = &result.module.functions[1];
@@ -349,7 +351,10 @@ mod tests {
         match &func.body {
             HirExpr::Block { exprs, .. } => match &exprs[0] {
                 HirExpr::Await { expr, .. } => {
-                    assert!(matches!(expr.as_ref(), HirExpr::Call { .. }), "await should wrap call in HIR");
+                    assert!(
+                        matches!(expr.as_ref(), HirExpr::Call { .. }),
+                        "await should wrap call in HIR"
+                    );
                 }
                 other => panic!("expected Await, got {other:?}"),
             },
