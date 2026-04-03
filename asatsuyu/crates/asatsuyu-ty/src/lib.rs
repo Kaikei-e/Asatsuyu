@@ -1768,6 +1768,85 @@ pub fn f() -> Result(Bool, PyExc) {
         );
     }
 
+    // ── list combinators (Issue 130) ────────────────────────────────
+
+    #[test]
+    fn list_filter_map_type_checks() {
+        let src = "pub fn f() -> List(Int) {\
+                     list.filter_map([\"1\", \"2\"], fn(x) { Some(1) }) }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "list.filter_map should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn list_flat_map_type_checks() {
+        let src = "pub fn f() -> List(Int) {\
+                     list.flat_map([[1, 2], [3]], fn(x) { x }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.flat_map should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_reduce_type_checks() {
+        let src = "pub fn add(a: Int, b: Int) -> Int { a + b }\n\
+                   pub fn f() -> Option(Int) {\
+                     list.reduce([1, 2, 3], add) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.reduce should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_any_type_checks() {
+        let src = "pub fn f() -> Bool {\
+                     list.any([1, 2, 3], fn(x) { x > 0 }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.any should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_all_type_checks() {
+        let src = "pub fn f() -> Bool {\
+                     list.all([1, 2, 3], fn(x) { x > 0 }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.all should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_find_type_checks() {
+        let src = "pub fn f() -> Option(Int) {\
+                     list.find([1, 2, 3], fn(x) { x > 2 }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.find should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_partition_type_checks() {
+        let src = "pub fn f(items: List(Int)) -> Tuple(List(Int), List(Int)) {\
+                     list.partition(items, fn(x) { x > 0 }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.partition should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_take_type_checks() {
+        let src = "pub fn f() -> List(Int) {\
+                     list.take([1, 2, 3, 4], 2) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.take should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn list_drop_type_checks() {
+        let src = "pub fn f() -> List(Int) {\
+                     list.drop([1, 2, 3, 4], 2) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "list.drop should type-check: {:?}", result.diagnostics);
+    }
+
     // ── Mutation rules (Issue 94) ────────────────────────────────────
 
     #[test]

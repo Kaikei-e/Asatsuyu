@@ -998,10 +998,13 @@ impl TyCheckCtx {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn resolve_builtin_list_field(&mut self, field: &SmolStr, span: Span) -> Ty {
         let list_def_id = self.type_name_to_def_id.get("List").copied().expect("builtin List type");
         let option_def_id =
             self.type_name_to_def_id.get("Option").copied().expect("builtin Option type");
+        let tuple_def_id =
+            self.type_name_to_def_id.get("Tuple").copied().expect("builtin Tuple type");
         let elem_ty = self.infer.fresh_var();
         let ret_ty = self.infer.fresh_var();
         let list_of_elem = Ty::Named {
@@ -1029,6 +1032,9 @@ impl TyCheckCtx {
             name: SmolStr::from("Option"),
             args: vec![list_of_elem.clone()],
         };
+        let bool_ty = Ty::Primitive(PrimTy::Bool);
+        let predicate =
+            Ty::Function { params: vec![elem_ty.clone()], ret: Box::new(bool_ty.clone()) };
 
         match field.as_str() {
             "map" => Ty::Function {
@@ -1088,6 +1094,78 @@ impl TyCheckCtx {
             "rest" => {
                 Ty::Function { params: vec![list_of_elem_for_rest], ret: Box::new(option_of_list) }
             }
+            // filter_map : (List(a), fn(a) -> Option(b)) -> List(b)
+            "filter_map" => Ty::Function {
+                params: vec![
+                    list_of_elem,
+                    Ty::Function {
+                        params: vec![elem_ty],
+                        ret: Box::new(Ty::Named {
+                            def_id: option_def_id,
+                            name: SmolStr::from("Option"),
+                            args: vec![ret_ty.clone()],
+                        }),
+                    },
+                ],
+                ret: Box::new(Ty::Named {
+                    def_id: list_def_id,
+                    name: SmolStr::from("List"),
+                    args: vec![ret_ty],
+                }),
+            },
+            // flat_map : (List(a), fn(a) -> List(b)) -> List(b)
+            "flat_map" => {
+                let list_of_ret = Ty::Named {
+                    def_id: list_def_id,
+                    name: SmolStr::from("List"),
+                    args: vec![ret_ty.clone()],
+                };
+                Ty::Function {
+                    params: vec![
+                        list_of_elem,
+                        Ty::Function { params: vec![elem_ty], ret: Box::new(list_of_ret.clone()) },
+                    ],
+                    ret: Box::new(list_of_ret),
+                }
+            }
+            // reduce : (List(a), fn(a, a) -> a) -> Option(a)
+            "reduce" => Ty::Function {
+                params: vec![
+                    list_of_elem,
+                    Ty::Function {
+                        params: vec![elem_ty.clone(), elem_ty],
+                        ret: Box::new(ret_ty.clone()),
+                    },
+                ],
+                ret: Box::new(Ty::Named {
+                    def_id: option_def_id,
+                    name: SmolStr::from("Option"),
+                    args: vec![ret_ty],
+                }),
+            },
+            // any / all : (List(a), fn(a) -> Bool) -> Bool
+            "any" | "all" => {
+                Ty::Function { params: vec![list_of_elem, predicate], ret: Box::new(bool_ty) }
+            }
+            // find : (List(a), fn(a) -> Bool) -> Option(a)
+            "find" => Ty::Function {
+                params: vec![list_of_elem, predicate],
+                ret: Box::new(option_of_elem),
+            },
+            // partition : (List(a), fn(a) -> Bool) -> Tuple(List(a), List(a))
+            "partition" => Ty::Function {
+                params: vec![list_of_elem.clone(), predicate],
+                ret: Box::new(Ty::Named {
+                    def_id: tuple_def_id,
+                    name: SmolStr::from("Tuple"),
+                    args: vec![list_of_elem.clone(), list_of_elem],
+                }),
+            },
+            // take / drop : (List(a), Int) -> List(a)
+            "take" | "drop" => Ty::Function {
+                params: vec![list_of_elem.clone(), Ty::Primitive(PrimTy::Int)],
+                ret: Box::new(list_of_elem),
+            },
             _ => {
                 self.push_diagnostic(
                     Diagnostic::error(format!("module `list` has no symbol `{field}`"), span)

@@ -1735,12 +1735,110 @@ pub fn accumulate() -> Int {
              pub fn resty(items: List(Int)) -> Option(List(Int)) { list.rest(items) }",
         );
         assert!(
-            py.contains("[0] if items else None"),
+            py.contains("_list_0[0] if (_list_0 := items) else None"),
             "list.head should emit conditional indexing: {py}"
         );
         assert!(
-            py.contains("[1:] if items else None"),
+            py.contains("_list_1[1:] if (_list_1 := items) else None"),
             "list.rest should emit conditional slicing: {py}"
         );
+    }
+
+    // ── list combinators (Issue 130) ─────────────────────────────
+
+    #[test]
+    fn emit_list_filter_map() {
+        let py = python_from_source(
+            "pub fn f() -> List(Int) {\
+               list.filter_map([\"a\", \"b\"], fn(x) { Some(1) }) }",
+        );
+        assert!(
+            py.contains("for x in") && py.contains("is not None]"),
+            "list.filter_map should emit walrus comprehension: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_flat_map() {
+        let py = python_from_source(
+            "pub fn f() -> List(Int) {\
+               list.flat_map([[1, 2], [3]], fn(x) { x }) }",
+        );
+        assert!(
+            py.contains("for _y in") && py.contains("for x in"),
+            "list.flat_map should emit nested comprehension: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_reduce_return() {
+        let py = python_from_source(
+            "pub fn add(a: Int, b: Int) -> Int { a + b }\n\
+             pub fn f() -> Option(Int) { list.reduce([1, 2, 3], add) }",
+        );
+        assert!(
+            py.contains("_reduce_items_0 = [1, 2, 3]")
+                && py.contains("if not _reduce_items_0")
+                && py.contains("return None"),
+            "list.reduce should guard against empty list: {py}",
+        );
+        assert!(
+            py.contains("_reduce_acc_0 = _reduce_items_0[0]")
+                && py.contains("for _reduce_item_0 in _reduce_items_0[1:]"),
+            "list.reduce should emit accumulator loop: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_any() {
+        let py = python_from_source("pub fn f() -> Bool { list.any([1, 2, 3], fn(x) { x > 0 }) }");
+        assert!(
+            py.contains("any(") && py.contains("for x in"),
+            "list.any should emit any() with generator: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_all() {
+        let py = python_from_source("pub fn f() -> Bool { list.all([1, 2, 3], fn(x) { x > 0 }) }");
+        assert!(
+            py.contains("all(") && py.contains("for x in"),
+            "list.all should emit all() with generator: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_find() {
+        let py = python_from_source(
+            "pub fn f() -> Option(Int) { list.find([1, 2, 3], fn(x) { x > 2 }) }",
+        );
+        assert!(
+            py.contains("next(") && py.contains("None)"),
+            "list.find should emit next() with default None: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_partition() {
+        let py = python_from_source(
+            "pub fn f(items: List(Int)) -> Tuple(List(Int), List(Int)) {\
+               list.partition(items, fn(x) { x > 0 }) }",
+        );
+        assert!(
+            py.contains("if (x > 0)]") && py.contains("if not (x > 0)]"),
+            "list.partition should emit tuple of two comprehensions: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_list_take() {
+        let py = python_from_source("pub fn f() -> List(Int) { list.take([1, 2, 3, 4], 2) }");
+        assert!(py.contains("[:2]"), "list.take should emit slice: {py}");
+    }
+
+    #[test]
+    fn emit_list_drop() {
+        let py = python_from_source("pub fn f() -> List(Int) { list.drop([1, 2, 3, 4], 2) }");
+        assert!(py.contains("[2:]"), "list.drop should emit slice: {py}");
     }
 }
