@@ -6,12 +6,12 @@ input_file: crates/asatsuyu-cli/tests/cases/binop-comparison/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(4),
+                    def_id: Idx::<DefData>(5),
                     ty: Primitive(
                         Int,
                     ),
@@ -32,7 +32,7 @@ ThirModule {
                     BinaryOp {
                         op: Eq,
                         lhs: Var {
-                            def_id: Idx::<DefData>(4),
+                            def_id: Idx::<DefData>(5),
                             ty: Primitive(
                                 Int,
                             ),
@@ -106,7 +106,7 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 5,
+            len: 6,
             data: [
                 DefData {
                     name: "string_concat",
@@ -134,6 +134,18 @@ ThirModule {
                 },
                 DefData {
                     name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "option",
                     kind: Builtin,
                     is_mutable: false,
                     span: Span {

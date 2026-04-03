@@ -1841,4 +1841,73 @@ pub fn accumulate() -> Int {
         let py = python_from_source("pub fn f() -> List(Int) { list.drop([1, 2, 3, 4], 2) }");
         assert!(py.contains("[2:]"), "list.drop should emit slice: {py}");
     }
+
+    // ── option combinators (Issue 131) ───────────────────────────
+
+    #[test]
+    fn emit_option_map() {
+        let py = python_from_source(
+            "pub fn f(x: Option(Int)) -> Option(Int) { option.map(x, fn(v) { v * 2 }) }",
+        );
+        assert!(py.contains("is not None else None"), "option.map should emit None check: {py}",);
+    }
+
+    #[test]
+    fn emit_option_flat_map() {
+        let py = python_from_source(
+            "pub fn f(x: Option(Int)) -> Option(Int) { option.flat_map(x, fn(v) { Some(v) }) }",
+        );
+        assert!(
+            py.contains("is not None else None"),
+            "option.flat_map should emit None check: {py}",
+        );
+    }
+
+    #[test]
+    fn emit_option_flatten() {
+        let py = python_from_source(
+            "pub fn f(x: Option(Option(Int))) -> Option(Int) { option.flatten(x) }",
+        );
+        // flatten is identity at runtime — should just emit the value
+        assert!(py.contains("return x"), "option.flatten should be identity: {py}");
+    }
+
+    #[test]
+    fn emit_option_unwrap_or() {
+        let py = python_from_source("pub fn f(x: Option(Int)) -> Int { option.unwrap_or(x, 0) }");
+        assert!(py.contains("is not None else 0"), "option.unwrap_or should emit default: {py}",);
+    }
+
+    #[test]
+    fn emit_option_or_else() {
+        let py = python_from_source(
+            "pub fn f(x: Option(Int)) -> Option(Int) { option.or_else(x, fn() { Some(42) }) }",
+        );
+        assert!(py.contains("is not None else"), "option.or_else should emit lazy fallback: {py}",);
+    }
+
+    #[test]
+    fn emit_option_is_some() {
+        let py = python_from_source("pub fn f(x: Option(Int)) -> Bool { option.is_some(x) }");
+        assert!(py.contains("is not None)"), "option.is_some should emit is not None: {py}",);
+    }
+
+    #[test]
+    fn emit_option_is_none() {
+        let py = python_from_source("pub fn f(x: Option(Int)) -> Bool { option.is_none(x) }");
+        assert!(py.contains("is None)"), "option.is_none should emit is None: {py}");
+    }
+
+    #[test]
+    fn emit_option_to_result() {
+        let py = python_from_source(
+            "type Result(a, e) { Ok(a) Error(e) }\n\
+             pub fn f(x: Option(Int)) -> Result(Int, String) {\
+               option.to_result(x, \"not found\") }",
+        );
+        assert!(
+            py.contains("Ok(") && py.contains("Error("),
+            "option.to_result should emit Ok/Error: {py}",
+        );
+    }
 }

@@ -128,6 +128,10 @@ impl<'a> Emitter<'a> {
         if self.has_checked_ffi {
             self.has_try = true; // Checked FFI wrappers use PyException
         }
+        // option.to_result uses Ok/Error from the prelude.
+        if self.module.functions.iter().any(|f| self.expr_contains_option_to_result(&f.body)) {
+            self.has_try = true;
+        }
         self.emit_module();
     }
 
@@ -652,6 +656,10 @@ impl<'a> Emitter<'a> {
         // Check for list.* module calls (field access on "list" identifier).
         if let Some(method) = self.list_module_method(func) {
             return self.emit_list_call(&method, args);
+        }
+        // Check for option.* module calls (field access on "option" identifier).
+        if let Some(method) = self.option_module_method(func) {
+            return self.emit_option_call(&method, args);
         }
 
         let ThirExpr::Var { def_id, .. } = func else {
@@ -1194,6 +1202,146 @@ impl<'a> Emitter<'a> {
         Some((param_name, body.as_ref()))
     }
 
+    // ── Option module emitters (Issue 131) ────────────────────────
+
+    /// If `func` is `option.<method>`, return the method name.
+    fn option_module_method(&self, func: &ThirExpr) -> Option<SmolStr> {
+        let ThirExpr::FieldAccess { receiver, field, .. } = func else {
+            return None;
+        };
+        let ThirExpr::Var { def_id, .. } = receiver.as_ref() else {
+            return None;
+        };
+        let name = self.module.symbol_table.get(*def_id).name.as_str();
+        if name == "option" { Some(field.clone()) } else { None }
+    }
+
+    /// Emit an `option.*` call as idiomatic Python.
+    fn emit_option_call(&mut self, method: &str, args: &[ThirExpr]) -> bool {
+        match method {
+            // option.map / option.flat_map — same runtime behavior (both: walrus + None check)
+            "map" | "flat_map" if args.len() == 2 => self.emit_option_map_call(args),
+            // option.flatten(opt) → opt (identity at runtime)
+            "flatten" if args.len() == 1 => {
+                self.emit_expr(&args[0]);
+                true
+            }
+            // option.unwrap_or(opt, default) → (opt if opt is not None else default)
+            "unwrap_or" if args.len() == 2 => self.emit_option_unwrap_or(args),
+            // option.or_else(opt, fn() { expr }) → (opt if opt is not None else expr)
+            "or_else" if args.len() == 2 => self.emit_option_or_else(args),
+            // option.is_some(opt) → (opt is not None)
+            "is_some" if args.len() == 1 => {
+                self.output.push('(');
+                self.emit_expr(&args[0]);
+                self.output.push_str(" is not None)");
+                true
+            }
+            // option.is_none(opt) → (opt is None)
+            "is_none" if args.len() == 1 => {
+                self.output.push('(');
+                self.emit_expr(&args[0]);
+                self.output.push_str(" is None)");
+                true
+            }
+            // option.to_result(opt, err) → (Ok(opt) if opt is not None else Error(err))
+            "to_result" if args.len() == 2 => self.emit_option_to_result(args),
+            _ => false,
+        }
+    }
+
+    /// `option.map` / `option.flat_map` — both have the same runtime behavior.
+    /// Lambda: `((body) if (x := opt) is not None else None)`
+    /// Non-lambda: `(f(_v) if (_v := opt) is not None else None)`
+    fn emit_option_map_call(&mut self, args: &[ThirExpr]) -> bool {
+        let tmp = format!("_opt_{}", self.try_counter);
+        self.try_counter += 1;
+        if let Some((param, body)) = self.extract_lambda(&args[1]) {
+            self.output.push('(');
+            self.emit_expr(body);
+            self.output.push_str(" if (");
+            self.output.push_str(&param);
+            self.output.push_str(" := ");
+            self.emit_expr(&args[0]);
+            self.output.push_str(") is not None else None)");
+        } else {
+            self.output.push('(');
+            self.emit_expr(&args[1]);
+            self.output.push('(');
+            self.output.push_str(&tmp);
+            self.output.push_str(") if (");
+            self.output.push_str(&tmp);
+            self.output.push_str(" := ");
+            self.emit_expr(&args[0]);
+            self.output.push_str(") is not None else None)");
+        }
+        true
+    }
+
+    /// `option.unwrap_or(opt, default)` → `(_v if (_v := opt) is not None else default)`
+    fn emit_option_unwrap_or(&mut self, args: &[ThirExpr]) -> bool {
+        let tmp = format!("_opt_{}", self.try_counter);
+        self.try_counter += 1;
+        self.output.push('(');
+        self.output.push_str(&tmp);
+        self.output.push_str(" if (");
+        self.output.push_str(&tmp);
+        self.output.push_str(" := ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(") is not None else ");
+        self.emit_expr(&args[1]);
+        self.output.push(')');
+        true
+    }
+
+    /// `option.or_else(opt, fn() { expr })` → `(_v if (_v := opt) is not None else expr)`
+    fn emit_option_or_else(&mut self, args: &[ThirExpr]) -> bool {
+        let tmp = format!("_opt_{}", self.try_counter);
+        self.try_counter += 1;
+        // Check for zero-param lambda directly (extract_lambda requires 1 param).
+        if let ThirExpr::Lambda { params, body, .. } = &args[1]
+            && params.is_empty()
+        {
+            self.output.push('(');
+            self.output.push_str(&tmp);
+            self.output.push_str(" if (");
+            self.output.push_str(&tmp);
+            self.output.push_str(" := ");
+            self.emit_expr(&args[0]);
+            self.output.push_str(") is not None else ");
+            self.emit_expr(body);
+            self.output.push(')');
+            return true;
+        }
+        // Non-lambda fallback: call the thunk.
+        self.output.push('(');
+        self.output.push_str(&tmp);
+        self.output.push_str(" if (");
+        self.output.push_str(&tmp);
+        self.output.push_str(" := ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(") is not None else ");
+        self.emit_expr(&args[1]);
+        self.output.push_str("())");
+        true
+    }
+
+    /// `option.to_result(opt, err)` → `(Ok(_v) if (_v := opt) is not None else Error(err))`
+    fn emit_option_to_result(&mut self, args: &[ThirExpr]) -> bool {
+        let tmp = format!("_opt_{}", self.try_counter);
+        self.try_counter += 1;
+        self.output.push_str("(Ok(");
+        self.output.push_str(&tmp);
+        self.output.push_str(") if (");
+        self.output.push_str(&tmp);
+        self.output.push_str(" := ");
+        self.emit_expr(&args[0]);
+        self.output.push_str(") is not None else Error(");
+        self.emit_expr(&args[1]);
+        self.output.push_str("))");
+        true
+    }
+
     // ── Match statement emission ──────────────────────────────────
 
     // ── Try/except generation ───────────────────────────────────────
@@ -1408,6 +1556,43 @@ impl<'a> Emitter<'a> {
             ThirExpr::FieldAccess { receiver, .. } => self.expr_needs_functools(receiver),
             ThirExpr::List { elements, .. } => {
                 elements.iter().any(|e| self.expr_needs_functools(e))
+            }
+            ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
+        }
+    }
+
+    fn expr_contains_option_to_result(&self, expr: &ThirExpr) -> bool {
+        match expr {
+            ThirExpr::Call { func, args, .. } => {
+                self.option_module_method(func).is_some_and(|m| m == "to_result")
+                    || self.expr_contains_option_to_result(func)
+                    || args.iter().any(|a| self.expr_contains_option_to_result(a))
+            }
+            ThirExpr::Block { exprs, .. } => {
+                exprs.iter().any(|e| self.expr_contains_option_to_result(e))
+            }
+            ThirExpr::Let { value, .. } | ThirExpr::Assign { value, .. } => {
+                self.expr_contains_option_to_result(value)
+            }
+            ThirExpr::If { condition, then_body, else_body, .. } => {
+                self.expr_contains_option_to_result(condition)
+                    || self.expr_contains_option_to_result(then_body)
+                    || else_body.as_ref().is_some_and(|e| self.expr_contains_option_to_result(e))
+            }
+            ThirExpr::Match { subject, arms, .. } => {
+                self.expr_contains_option_to_result(subject)
+                    || arms.iter().any(|a| self.expr_contains_option_to_result(&a.body))
+            }
+            ThirExpr::BinaryOp { lhs, rhs, .. } => {
+                self.expr_contains_option_to_result(lhs) || self.expr_contains_option_to_result(rhs)
+            }
+            ThirExpr::UnaryOp { expr, .. }
+            | ThirExpr::Lambda { body: expr, .. }
+            | ThirExpr::Try { expr, .. }
+            | ThirExpr::Await { expr, .. } => self.expr_contains_option_to_result(expr),
+            ThirExpr::FieldAccess { receiver, .. } => self.expr_contains_option_to_result(receiver),
+            ThirExpr::List { elements, .. } => {
+                elements.iter().any(|e| self.expr_contains_option_to_result(e))
             }
             ThirExpr::Literal(_) | ThirExpr::Var { .. } => false,
         }

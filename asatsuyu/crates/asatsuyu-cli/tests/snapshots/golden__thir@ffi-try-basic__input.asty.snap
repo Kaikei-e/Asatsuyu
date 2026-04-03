@@ -6,12 +6,12 @@ input_file: crates/asatsuyu-cli/tests/cases/ffi-try-basic/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(9),
+            def_id: Idx::<DefData>(10),
             visibility: Public,
             is_async: false,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(10),
+                    def_id: Idx::<DefData>(11),
                     ty: Primitive(
                         String,
                     ),
@@ -25,14 +25,14 @@ ThirModule {
                 },
             ],
             return_ty: Named {
-                def_id: Idx::<DefData>(4),
+                def_id: Idx::<DefData>(5),
                 name: "Result",
                 args: [
                     Primitive(
                         Bool,
                     ),
                     Named {
-                        def_id: Idx::<DefData>(7),
+                        def_id: Idx::<DefData>(8),
                         name: "PyException",
                         args: [],
                     },
@@ -41,11 +41,11 @@ ThirModule {
             body: Block {
                 exprs: [
                     Let {
-                        binding: Idx::<DefData>(11),
+                        binding: Idx::<DefData>(12),
                         value: Call {
                             func: FieldAccess {
                                 receiver: Var {
-                                    def_id: Idx::<DefData>(3),
+                                    def_id: Idx::<DefData>(4),
                                     ty: FfiModule {
                                         module_name: "pathlib",
                                     },
@@ -69,7 +69,7 @@ ThirModule {
                             },
                             args: [
                                 Var {
-                                    def_id: Idx::<DefData>(10),
+                                    def_id: Idx::<DefData>(11),
                                     ty: Primitive(
                                         String,
                                     ),
@@ -104,12 +104,12 @@ ThirModule {
                         },
                     },
                     Let {
-                        binding: Idx::<DefData>(12),
+                        binding: Idx::<DefData>(13),
                         value: Try {
                             expr: Call {
                                 func: FieldAccess {
                                     receiver: Var {
-                                        def_id: Idx::<DefData>(11),
+                                        def_id: Idx::<DefData>(12),
                                         ty: Error,
                                         span: Span {
                                             file_id: FileId(
@@ -162,7 +162,7 @@ ThirModule {
                     },
                     Call {
                         func: Var {
-                            def_id: Idx::<DefData>(5),
+                            def_id: Idx::<DefData>(6),
                             ty: Function {
                                 params: [
                                     Var(
@@ -172,7 +172,7 @@ ThirModule {
                                     ),
                                 ],
                                 ret: Named {
-                                    def_id: Idx::<DefData>(4),
+                                    def_id: Idx::<DefData>(5),
                                     name: "Result",
                                     args: [
                                         Var(
@@ -198,7 +198,7 @@ ThirModule {
                         },
                         args: [
                             Var {
-                                def_id: Idx::<DefData>(12),
+                                def_id: Idx::<DefData>(13),
                                 ty: Error,
                                 span: Span {
                                     file_id: FileId(
@@ -210,7 +210,7 @@ ThirModule {
                             },
                         ],
                         ty: Named {
-                            def_id: Idx::<DefData>(4),
+                            def_id: Idx::<DefData>(5),
                             name: "Result",
                             args: [
                                 Var(
@@ -235,7 +235,7 @@ ThirModule {
                     },
                 ],
                 ty: Named {
-                    def_id: Idx::<DefData>(4),
+                    def_id: Idx::<DefData>(5),
                     name: "Result",
                     args: [
                         Var(
@@ -265,14 +265,14 @@ ThirModule {
                     ),
                 ],
                 ret: Named {
-                    def_id: Idx::<DefData>(4),
+                    def_id: Idx::<DefData>(5),
                     name: "Result",
                     args: [
                         Primitive(
                             Bool,
                         ),
                         Named {
-                            def_id: Idx::<DefData>(7),
+                            def_id: Idx::<DefData>(8),
                             name: "PyException",
                             args: [],
                         },
@@ -290,7 +290,7 @@ ThirModule {
     ],
     custom_types: [
         HirCustomType {
-            def_id: Idx::<DefData>(4),
+            def_id: Idx::<DefData>(5),
             visibility: Private,
             type_params: [
                 "a",
@@ -298,7 +298,7 @@ ThirModule {
             ],
             variants: [
                 HirVariant {
-                    def_id: Idx::<DefData>(5),
+                    def_id: Idx::<DefData>(6),
                     fields: [
                         HirFieldType {
                             label: None,
@@ -331,7 +331,7 @@ ThirModule {
                     },
                 },
                 HirVariant {
-                    def_id: Idx::<DefData>(6),
+                    def_id: Idx::<DefData>(7),
                     fields: [
                         HirFieldType {
                             label: None,
@@ -373,12 +373,12 @@ ThirModule {
             },
         },
         HirCustomType {
-            def_id: Idx::<DefData>(7),
+            def_id: Idx::<DefData>(8),
             visibility: Private,
             type_params: [],
             variants: [
                 HirVariant {
-                    def_id: Idx::<DefData>(8),
+                    def_id: Idx::<DefData>(9),
                     fields: [
                         HirFieldType {
                             label: None,
@@ -506,7 +506,7 @@ ThirModule {
     ],
     imports: [
         HirImport {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             kind: Python {
                 module_name: "pathlib",
             },
@@ -521,7 +521,7 @@ ThirModule {
     ],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 13,
+            len: 14,
             data: [
                 DefData {
                     name: "string_concat",
@@ -549,6 +549,18 @@ ThirModule {
                 },
                 DefData {
                     name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "option",
                     kind: Builtin,
                     is_mutable: false,
                     span: Span {

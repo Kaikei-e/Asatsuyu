@@ -7,12 +7,12 @@ HirModule {
     imports: [],
     functions: [
         HirFnDef {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
             params: [
                 HirParam {
-                    def_id: Idx::<DefData>(4),
+                    def_id: Idx::<DefData>(5),
                     type_ann: Some(
                         HirTypeExpr {
                             name: "Bool",
@@ -51,7 +51,7 @@ HirModule {
             body: Block {
                 exprs: [
                     Let {
-                        binding: Idx::<DefData>(5),
+                        binding: Idx::<DefData>(6),
                         value: Literal(
                             HirLiteral {
                                 kind: Int,
@@ -76,7 +76,7 @@ HirModule {
                     },
                     If {
                         condition: Var(
-                            Idx::<DefData>(4),
+                            Idx::<DefData>(5),
                             Span {
                                 file_id: FileId(
                                     0,
@@ -88,7 +88,7 @@ HirModule {
                         then_body: Block {
                             exprs: [
                                 Assign {
-                                    target: Idx::<DefData>(5),
+                                    target: Idx::<DefData>(6),
                                     value: Literal(
                                         HirLiteral {
                                             kind: Int,
@@ -130,7 +130,7 @@ HirModule {
                             Block {
                                 exprs: [
                                     Assign {
-                                        target: Idx::<DefData>(5),
+                                        target: Idx::<DefData>(6),
                                         value: Literal(
                                             HirLiteral {
                                                 kind: Int,
@@ -178,7 +178,7 @@ HirModule {
                         },
                     },
                     Var(
-                        Idx::<DefData>(5),
+                        Idx::<DefData>(6),
                         Span {
                             file_id: FileId(
                                 0,
@@ -208,7 +208,7 @@ HirModule {
     custom_types: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 6,
+            len: 7,
             data: [
                 DefData {
                     name: "string_concat",
@@ -236,6 +236,18 @@ HirModule {
                 },
                 DefData {
                     name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "option",
                     kind: Builtin,
                     is_mutable: false,
                     span: Span {

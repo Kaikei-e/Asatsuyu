@@ -92,10 +92,17 @@ impl HirLowerCtx {
             is_mutable: false,
             span: Span::dummy(),
         });
+        let option_id = symbol_table.alloc(DefData {
+            name: SmolStr::from("option"),
+            kind: DefKind::Builtin,
+            is_mutable: false,
+            span: Span::dummy(),
+        });
         let mut scopes = ScopeStack::new();
         scopes.define(SmolStr::from("string_concat"), string_concat_id);
         scopes.define(SmolStr::from("println"), println_id);
         scopes.define(SmolStr::from("list"), list_id);
+        scopes.define(SmolStr::from("option"), option_id);
         Self { symbol_table, diagnostics: Vec::new(), scopes, string_concat_id }
     }
 

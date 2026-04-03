@@ -46,6 +46,18 @@ fn diff_report(left: Result(PageSnapshot, PyException), right: Result(PageSnapsh
 pub async fn main() {
   json.loads("{}")
 
+  // List demo: normalize status codes and split them by category.
+  let status_codes = [200, 204, 301, 404, 500]
+  let success_codes = status_codes |> list.filter(fn(code) { code < 400 })
+  let client_errors = status_codes |> list.filter(fn(code) { code >= 400 && code < 500 })
+  let first_two = status_codes |> list.take(2)
+  let bumped_codes = list.map(status_codes, fn(code) { code + 1 })
+  println(status_codes)
+  println(success_codes)
+  println(client_errors)
+  println(first_two)
+  println(bumped_codes)
+
   // Fan out first, then await the collected tasks and report the diff.
   let left_task = fetch_page_task("https://example.com")
   let right_task = fetch_page_task("https://example.com")

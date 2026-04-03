@@ -6,7 +6,7 @@ input_file: crates/asatsuyu-cli/tests/cases/async-await-chain/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             visibility: Private,
             is_async: true,
             params: [],
@@ -64,7 +64,7 @@ ThirModule {
             },
         },
         ThirFnDef {
-            def_id: Idx::<DefData>(4),
+            def_id: Idx::<DefData>(5),
             visibility: Private,
             is_async: true,
             params: [],
@@ -74,11 +74,11 @@ ThirModule {
             body: Block {
                 exprs: [
                     Let {
-                        binding: Idx::<DefData>(6),
+                        binding: Idx::<DefData>(7),
                         value: Await {
                             expr: Call {
                                 func: Var {
-                                    def_id: Idx::<DefData>(3),
+                                    def_id: Idx::<DefData>(4),
                                     ty: Function {
                                         params: [],
                                         ret: Named {
@@ -143,7 +143,7 @@ ThirModule {
                     BinaryOp {
                         op: Add,
                         lhs: Var {
-                            def_id: Idx::<DefData>(6),
+                            def_id: Idx::<DefData>(7),
                             ty: Primitive(
                                 Int,
                             ),
@@ -215,7 +215,7 @@ ThirModule {
             },
         },
         ThirFnDef {
-            def_id: Idx::<DefData>(5),
+            def_id: Idx::<DefData>(6),
             visibility: Public,
             is_async: true,
             params: [],
@@ -227,7 +227,7 @@ ThirModule {
                     Await {
                         expr: Call {
                             func: Var {
-                                def_id: Idx::<DefData>(4),
+                                def_id: Idx::<DefData>(5),
                                 ty: Function {
                                     params: [],
                                     ret: Named {
@@ -314,7 +314,7 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 7,
+            len: 8,
             data: [
                 DefData {
                     name: "string_concat",
@@ -342,6 +342,18 @@ ThirModule {
                 },
                 DefData {
                     name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "option",
                     kind: Builtin,
                     is_mutable: false,
                     span: Span {

@@ -13,6 +13,7 @@ let mut                   keyword [snippet]
 list                      symbol(Builtin)
 main                      symbol(Function)
 match                     keyword [snippet]
+option                    symbol(Builtin)
 println                   symbol(Builtin)
 string_concat             symbol(Builtin)
 try                       keyword

@@ -206,6 +206,10 @@ impl TyCheckCtx {
                 // `list` is a builtin module namespace — field access resolves
                 // individual list operations (map, filter, etc.) in the backend.
                 "list" => TypeScheme::mono(Ty::FfiModule { module_name: SmolStr::from("list") }),
+                // `option` is a builtin module namespace for Option combinators.
+                "option" => {
+                    TypeScheme::mono(Ty::FfiModule { module_name: SmolStr::from("option") })
+                }
                 _ => continue,
             };
             self.type_env.insert(def_id, scheme);
@@ -972,6 +976,9 @@ impl TyCheckCtx {
         if module_name == "list" {
             return self.resolve_builtin_list_field(field, span);
         }
+        if module_name == "option" {
+            return self.resolve_builtin_option_field(field, span);
+        }
 
         let Some(ffi_module) = self.ffi_modules.get(module_name).cloned() else {
             return Ty::Error;
@@ -1169,6 +1176,113 @@ impl TyCheckCtx {
             _ => {
                 self.push_diagnostic(
                     Diagnostic::error(format!("module `list` has no symbol `{field}`"), span)
+                        .with_code(DiagnosticCode::E0211)
+                        .with_label(span, "not found in this module"),
+                );
+                Ty::Error
+            }
+        }
+    }
+
+    fn resolve_builtin_option_field(&mut self, field: &SmolStr, span: Span) -> Ty {
+        let option_def_id =
+            self.type_name_to_def_id.get("Option").copied().expect("builtin Option type");
+        let elem_ty = self.infer.fresh_var();
+        let ret_ty = self.infer.fresh_var();
+        let err_ty = self.infer.fresh_var();
+        let option_of_elem = Ty::Named {
+            def_id: option_def_id,
+            name: SmolStr::from("Option"),
+            args: vec![elem_ty.clone()],
+        };
+        let bool_ty = Ty::Primitive(PrimTy::Bool);
+
+        match field.as_str() {
+            // map : (Option(a), fn(a) -> b) -> Option(b)
+            "map" => Ty::Function {
+                params: vec![
+                    option_of_elem,
+                    Ty::Function { params: vec![elem_ty], ret: Box::new(ret_ty.clone()) },
+                ],
+                ret: Box::new(Ty::Named {
+                    def_id: option_def_id,
+                    name: SmolStr::from("Option"),
+                    args: vec![ret_ty],
+                }),
+            },
+            // flat_map : (Option(a), fn(a) -> Option(b)) -> Option(b)
+            "flat_map" => {
+                let option_of_ret = Ty::Named {
+                    def_id: option_def_id,
+                    name: SmolStr::from("Option"),
+                    args: vec![ret_ty.clone()],
+                };
+                Ty::Function {
+                    params: vec![
+                        option_of_elem,
+                        Ty::Function {
+                            params: vec![elem_ty],
+                            ret: Box::new(option_of_ret.clone()),
+                        },
+                    ],
+                    ret: Box::new(option_of_ret),
+                }
+            }
+            // flatten : (Option(Option(a))) -> Option(a)
+            "flatten" => {
+                let nested_option = Ty::Named {
+                    def_id: option_def_id,
+                    name: SmolStr::from("Option"),
+                    args: vec![option_of_elem.clone()],
+                };
+                Ty::Function { params: vec![nested_option], ret: Box::new(option_of_elem) }
+            }
+            // unwrap_or : (Option(a), a) -> a
+            "unwrap_or" => Ty::Function {
+                params: vec![option_of_elem, elem_ty.clone()],
+                ret: Box::new(elem_ty),
+            },
+            // or_else : (Option(a), fn() -> Option(a)) -> Option(a)
+            "or_else" => Ty::Function {
+                params: vec![
+                    option_of_elem.clone(),
+                    Ty::Function { params: vec![], ret: Box::new(option_of_elem.clone()) },
+                ],
+                ret: Box::new(option_of_elem),
+            },
+            // is_some / is_none : (Option(a)) -> Bool
+            "is_some" | "is_none" => {
+                Ty::Function { params: vec![option_of_elem], ret: Box::new(bool_ty) }
+            }
+            // to_result : (Option(a), e) -> Result(a, e)
+            "to_result" => {
+                // Result may be user-defined or not yet defined — use a fresh Named type.
+                // The type checker will unify with the actual Result definition if present.
+                let result_def_id = self.type_name_to_def_id.get("Result").copied();
+                if let Some(result_id) = result_def_id {
+                    Ty::Function {
+                        params: vec![option_of_elem, err_ty.clone()],
+                        ret: Box::new(Ty::Named {
+                            def_id: result_id,
+                            name: SmolStr::from("Result"),
+                            args: vec![elem_ty, err_ty],
+                        }),
+                    }
+                } else {
+                    self.push_diagnostic(
+                        Diagnostic::error(
+                            "`option.to_result` requires `Result` type to be defined",
+                            span,
+                        )
+                        .with_code(DiagnosticCode::E0211)
+                        .with_label(span, "Result type not found"),
+                    );
+                    Ty::Error
+                }
+            }
+            _ => {
+                self.push_diagnostic(
+                    Diagnostic::error(format!("module `option` has no symbol `{field}`"), span)
                         .with_code(DiagnosticCode::E0211)
                         .with_label(span, "not found in this module"),
                 );

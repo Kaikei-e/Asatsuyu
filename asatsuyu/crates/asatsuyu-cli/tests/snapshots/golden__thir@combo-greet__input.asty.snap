@@ -6,12 +6,12 @@ input_file: crates/asatsuyu-cli/tests/cases/combo-greet/input.asty
 ThirModule {
     functions: [
         ThirFnDef {
-            def_id: Idx::<DefData>(3),
+            def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(6),
+                    def_id: Idx::<DefData>(7),
                     ty: Primitive(
                         String,
                     ),
@@ -96,7 +96,7 @@ ThirModule {
                                         },
                                     ),
                                     Var {
-                                        def_id: Idx::<DefData>(6),
+                                        def_id: Idx::<DefData>(7),
                                         ty: Primitive(
                                             String,
                                         ),
@@ -179,12 +179,12 @@ ThirModule {
             },
         },
         ThirFnDef {
-            def_id: Idx::<DefData>(4),
+            def_id: Idx::<DefData>(5),
             visibility: Public,
             is_async: false,
             params: [
                 ThirParam {
-                    def_id: Idx::<DefData>(7),
+                    def_id: Idx::<DefData>(8),
                     ty: Primitive(
                         Int,
                     ),
@@ -197,7 +197,7 @@ ThirModule {
                     },
                 },
                 ThirParam {
-                    def_id: Idx::<DefData>(8),
+                    def_id: Idx::<DefData>(9),
                     ty: Primitive(
                         Int,
                     ),
@@ -218,7 +218,7 @@ ThirModule {
                     BinaryOp {
                         op: Add,
                         lhs: Var {
-                            def_id: Idx::<DefData>(7),
+                            def_id: Idx::<DefData>(8),
                             ty: Primitive(
                                 Int,
                             ),
@@ -231,7 +231,7 @@ ThirModule {
                             },
                         },
                         rhs: Var {
-                            def_id: Idx::<DefData>(8),
+                            def_id: Idx::<DefData>(9),
                             ty: Primitive(
                                 Int,
                             ),
@@ -288,7 +288,7 @@ ThirModule {
             },
         },
         ThirFnDef {
-            def_id: Idx::<DefData>(5),
+            def_id: Idx::<DefData>(6),
             visibility: Public,
             is_async: false,
             params: [],
@@ -299,7 +299,7 @@ ThirModule {
                 exprs: [
                     Call {
                         func: Var {
-                            def_id: Idx::<DefData>(4),
+                            def_id: Idx::<DefData>(5),
                             ty: Function {
                                 params: [
                                     Primitive(
@@ -397,7 +397,7 @@ ThirModule {
     imports: [],
     symbol_table: SymbolTable {
         defs: Arena {
-            len: 9,
+            len: 10,
             data: [
                 DefData {
                     name: "string_concat",
@@ -425,6 +425,18 @@ ThirModule {
                 },
                 DefData {
                     name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "option",
                     kind: Builtin,
                     is_mutable: false,
                     span: Span {

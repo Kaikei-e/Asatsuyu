@@ -1847,6 +1847,97 @@ pub fn f() -> Result(Bool, PyExc) {
         assert!(!result.has_errors(), "list.drop should type-check: {:?}", result.diagnostics);
     }
 
+    // ── option combinators (Issue 131) ─────────────────────────────
+
+    #[test]
+    fn option_map_type_checks() {
+        let src = "pub fn f(x: Option(Int)) -> Option(String) {\
+                     option.map(x, fn(v) { \"hello\" }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "option.map should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn option_flat_map_type_checks() {
+        let src = "pub fn f(x: Option(Int)) -> Option(String) {\
+                     option.flat_map(x, fn(v) { Some(\"hello\") }) }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "option.flat_map should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn option_flatten_type_checks() {
+        let src = "pub fn f(x: Option(Option(Int))) -> Option(Int) {\
+                     option.flatten(x) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "option.flatten should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn option_unwrap_or_type_checks() {
+        let src = "pub fn f(x: Option(Int)) -> Int {\
+                     option.unwrap_or(x, 0) }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "option.unwrap_or should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn option_or_else_type_checks() {
+        let src = "pub fn f(x: Option(Int)) -> Option(Int) {\
+                     option.or_else(x, fn() { Some(42) }) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "option.or_else should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn option_is_some_type_checks() {
+        let src = "pub fn f(x: Option(Int)) -> Bool {\
+                     option.is_some(x) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "option.is_some should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn option_is_none_type_checks() {
+        let src = "pub fn f(x: Option(Int)) -> Bool {\
+                     option.is_none(x) }";
+        let result = thir_from_source(src);
+        assert!(!result.has_errors(), "option.is_none should type-check: {:?}", result.diagnostics);
+    }
+
+    #[test]
+    fn option_to_result_type_checks() {
+        let src = "type Result(a, e) { Ok(a) Error(e) }\n\
+                   pub fn f(x: Option(Int)) -> Result(Int, String) {\
+                     option.to_result(x, \"not found\") }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "option.to_result should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn option_pipeline_with_list_head() {
+        let src = "pub fn f(items: List(Int)) -> Option(Int) {\
+                     list.head(items) |> option.map(fn(x) { x * 2 }) }";
+        let result = thir_from_source(src);
+        assert!(
+            !result.has_errors(),
+            "list.head |> option.map pipeline should type-check: {:?}",
+            result.diagnostics
+        );
+    }
+
     // ── Mutation rules (Issue 94) ────────────────────────────────────
 
     #[test]
