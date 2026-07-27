@@ -231,9 +231,9 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/vscode": "^1.109.0",
-    "typescript": "^6.0.0",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.125.0",
+    "typescript": "^6.0.3",
     "vscode-tmgrammar-test": "^0.1.3"
   }
 }
