@@ -8,6 +8,8 @@ Every decision regarding syntax, the type system, FFI, code generation, tooling,
 This is not a specification enumerating implementation details.
 Its purpose is to fix what Asatsuyu is, what it protects, and what it discards. Asatsuyu's immediate focus is delivering a single, end-to-end statically typed Python frontend.
 
+This charter is the single top-level authority. There is no second concept document; individual decisions that interpret or revise it are recorded as ADRs under [`docs/adr/`](../adr/), and the charter text is amended in the same change.
+
 > **Note:** This document is a design charter — it describes the principles and goals that guide Asatsuyu's development. The MVP criteria in section 10 are targets, not claims about the current implementation state.
 
 ---
@@ -265,12 +267,28 @@ Asatsuyu does not target the following as first-year central goals:
 * `.pyc` direct generation as the primary pipeline
 * JIT / native optimization
 * Classes / inheritance / trait-like abstractions
-* Full native async/await design
-* Effect system / macro system
+* Macro systems
 * Package registry
 * Multi-backend support
 * Dependent types / refinement types
-* Mutable variables beyond scoped locals (Phase 3-1 introduces `let mut` for local bindings)
+* Mutable variables beyond scoped locals (`let mut` is limited to local bindings)
+
+Two entries need a precise statement, because a loose reading of either would decide
+questions this charter has not decided.
+
+**Effect systems.** What is excluded is a *type-and-effect system*: carrying effect
+variables in function types and unifying them. This is a permanent exclusion, not a
+deferral — effect variables leaking into type errors would contradict the first evaluation
+axis in section 2, and effect polymorphism sits outside the Hindley-Milner scope that
+section 7 fixes. Distinguishing pure functions from effectful ones is *not* excluded; the
+mechanism for that distinction is undecided. See [ADR 0001](../adr/0001-effect-system-permanent-non-goal.md).
+
+**Concurrency.** `async` / `await` and the built-in `Task(T)` type are implemented, and the
+emitter produces `async def` and `asyncio.run`. What remains undecided is whether
+`async` / `await` stays as the surface syntax or is replaced by structured-concurrency
+primitives. Neither answer is a non-goal. What this charter does exclude here is the pursuit
+of parallel throughput: concurrency exists to express ordering, not to gain speed
+(see section 2 — speed is not an evaluation axis).
 
 Furthermore, items explored as research tracks must not encroach on the main line.
 Python bytecode direct generation, automatic stub generation, and Rust native extensions are deferred until after the MVP.

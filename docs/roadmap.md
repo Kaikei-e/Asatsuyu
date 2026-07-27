@@ -372,11 +372,15 @@ They may be revisited after the MVP is validated and the core is stable.
 
 **Language features**:
 
-- `async`/`await`
-- Effect system / macro system
+- Type-and-effect system (permanent non-goal — see [ADR 0001](adr/0001-effect-system-permanent-non-goal.md))
+- Macro system
 - Class / inheritance / trait abstractions
-- Mutable variables
 - Dependent types / refinement types
+- Distinguishing pure from effectful functions (not a non-goal; mechanism undecided)
+- Structured-concurrency primitives layered on the existing `async`/`await` and `Task(T)`
+
+`async`/`await`, the built-in `Task(T)` type, and `let mut` local bindings are implemented,
+not deferred. They were listed here in error.
 
 **Compiler infrastructure**:
 

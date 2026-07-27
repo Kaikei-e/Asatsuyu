@@ -111,7 +111,11 @@ Asatsuyu 言語の設計方針。コンパイラ実装時にこれらを前提�
 
 詳細は以下を参照:
 
-- @docs/concepts/principles.md — 言語憲章（5つの中核原則、11の設計判断）
+- @docs/concepts/principles.md — 言語憲章（5つの中核原則、11の設計判断）。**唯一の上位権威**
 - @docs/best_practices/rust.md — Rust 実装規約（クレート境界、エラー処理、テスト方針）
-- @core_concept.md — アーキテクチャ詳細、FFI モデル（Verified / Checked / Opaque）
-- `IMPL_PHASES.md` — 実装フェーズとマイルストーン（完了済み・進行中・未着手）。大きいファイルなので必要時のみ参照すること
+- `docs/adr/` — 設計判断の記録（`NNNN-<kebab-case>.md`）。憲章の解釈・改訂はここに残す
+- `docs/architecture.md` — クレート構成とデータフロー、生成 Python の形。大きいファイルなので必要時のみ参照すること
+- `docs/roadmap.md` — 実装済み範囲とマイルストーン
+- `docs/concepts/ffi_conformance.md` / `docs/guides/ffi.md` — FFI 信頼段階。正式な段階名は `FfiTrustLevel::{Unsafe, Checked, Verified}`（`Opaque` は段階名ではなく `Unsafe` の値表現 `PyOpaque[module.Symbol]`）
+
+`docs/research/` は .gitignore された探索メモであり、契約ではない。そこの語彙を現行仕様として引かないこと。
