@@ -21,6 +21,7 @@
 
 pub mod ffi;
 mod lower;
+pub mod purity;
 mod types;
 
 pub use types::{

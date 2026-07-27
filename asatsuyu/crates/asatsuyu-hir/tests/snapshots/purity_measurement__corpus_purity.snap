@@ -1,0 +1,54 @@
+---
+source: crates/asatsuyu-hir/tests/purity_measurement.rs
+expression: out
+---
+== hello ==
+  main                     Pure
+  -- pure 1 / effectful 0 / higher-order call sites 0
+== greet ==
+  greet                    Pure
+  main                     Effectful (Boundary)
+  -- pure 1 / effectful 1 / higher-order call sites 0
+== match_basic ==
+  describe                 Pure
+  unwrap_or                Pure
+  first                    Pure
+  -- pure 3 / effectful 0 / higher-order call sites 0
+== ffi_pathlib ==
+  main                     Effectful (Boundary)  unresolved: [ReceiverUntyped]
+  -- pure 0 / effectful 1 / higher-order call sites 0
+== ffi_json ==
+  main                     Effectful (Boundary)
+  -- pure 0 / effectful 1 / higher-order call sites 0
+== ffi_try ==
+  safe_exists              Effectful (Boundary)  unresolved: [ReceiverUntyped]
+  main                     Effectful (Propagated)
+  -- pure 0 / effectful 2 / higher-order call sites 0
+== http ==
+  fetch_page               Effectful (Boundary)
+  fetch_page_task          Effectful (Async)
+  diff_report              Pure
+  main                     Effectful (Async)
+  -- pure 1 / effectful 3 / higher-order call sites 0
+== tutorial_file_inventory ==
+  categorize               Pure
+  category_label           Pure
+  category_tag             Pure
+  is_source                Pure
+  is_known                 Pure
+  classify_size            Pure
+  unwrap_or                Pure
+  unwrap_string_result     Pure
+  unwrap_bool_result       Pure
+  is_ok                    Pure
+  check_directory          Effectful (Boundary)  unresolved: [ReceiverUntyped]
+  safe_getcwd              Effectful (Boundary)
+  get_platform             Effectful (Boundary)
+  categorize_all           Pure
+  source_files_only        Pure
+  known_files_only         Pure
+  extract_tags             Pure
+  extract_labels           Pure
+  result_message           Pure
+  main                     Effectful (Boundary)
+  -- pure 16 / effectful 4 / higher-order call sites 0
