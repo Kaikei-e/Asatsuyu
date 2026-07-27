@@ -2,7 +2,7 @@
 dist/
 asatsuyu/target/
 .claude/
-
+docs/research/
 
 .serena/
 __pycache__/
