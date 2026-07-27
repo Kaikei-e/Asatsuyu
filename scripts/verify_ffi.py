@@ -42,6 +42,12 @@ STUBTEST_ALLOWLIST: dict[str, set[str]] = {
         # Python 3.14 stdlib additions can temporarily diverge across
         # runtime/typeshed/mypy release cadences.
         "os.reload_environ",
+        # Newer CPython patch releases give posix_spawn/posix_spawnp's
+        # setpgroup/scheduler parameters explicit None defaults that typeshed
+        # does not model yet. Both prefixes are spelled out because
+        # "os.posix_spawn" alone would also swallow "os.posix_spawnp".
+        "os.posix_spawn is inconsistent",
+        "os.posix_spawnp is inconsistent",
     },
     "sys": {
         "sys.gettotalrefcount",
@@ -54,6 +60,9 @@ STUBTEST_ALLOWLIST: dict[str, set[str]] = {
         "sys.tracebacklimit",
         "sys._monitoring",
         "sys._jit.",
+        # CPython 3.14 renamed the JIT introspection namespace to sys.__jit,
+        # which stubtest reports as a failed submodule import.
+        "sys.__jit",
         "sys.implementation",
         "sys.flags.context_aware_warnings",
         "sys.flags.thread_inherit_context",
