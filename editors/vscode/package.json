@@ -228,12 +228,12 @@
     "test": "pnpm run test:grammar && pnpm run test:snippets"
   },
   "dependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^10.1.0"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^26.1.1",
     "@types/vscode": "^1.125.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vscode-tmgrammar-test": "^0.1.3"
   }
 }
