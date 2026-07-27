@@ -73,7 +73,7 @@ fn build_hello_asty() {
     assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("test-dist-hello"), "stdout should contain output dir: {stdout}",);
+    assert!(stdout.contains("test-dist-hello"), "stdout should contain output dir: {stdout}");
 
     // Verify the package tree was created (python/ layout).
     let py_path = dir.join("python/hello/hello.py");
@@ -361,7 +361,7 @@ fn new_then_run() {
     let main_path = dir.join("myapp/src/main.asty");
     let main_str = main_path.display().to_string();
     let output = asatsuyu().args(["run", &main_str]).output().unwrap();
-    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr),);
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -417,7 +417,7 @@ fn verify_ffi_trust_summary_gate() {
 
     // Gate: summary line must contain counts (exact counts change when
     // modules transition from Builtin to Typeshed-parsed stubs).
-    assert!(stdout.contains("Summary:"), "should have summary line:\n{stdout}",);
+    assert!(stdout.contains("Summary:"), "should have summary line:\n{stdout}");
 
     // Gate: key modules must be present in the output.
     for module in &["pathlib", "os", "sys", "json", "requests", "asyncio"] {
@@ -796,7 +796,7 @@ fn check_no_args_outside_project() {
     assert!(!output.status.success(), "should fail without project");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("asatsuyu.toml"), "error should mention asatsuyu.toml: {stderr}",);
+    assert!(stderr.contains("asatsuyu.toml"), "error should mention asatsuyu.toml: {stderr}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1015,7 +1015,7 @@ fn check_invalid_pep440_specifier_exits_2() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("invalid PEP 440 specifier"), "error should mention PEP 440: {stderr}",);
+    assert!(stderr.contains("invalid PEP 440 specifier"), "error should mention PEP 440: {stderr}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1134,7 +1134,7 @@ fn check_invalid_python_version_exits_2() {
     );
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("python.version"), "error should mention python.version: {stderr}",);
+    assert!(stderr.contains("python.version"), "error should mention python.version: {stderr}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1169,8 +1169,8 @@ fn build_uses_project_name_and_version() {
 
     let pyproject = std::fs::read_to_string(out_dir.join("pyproject.toml"))
         .expect("pyproject.toml should exist");
-    assert!(pyproject.contains("name = \"my-tool\""), "should use project name: {pyproject}",);
-    assert!(pyproject.contains("version = \"1.2.3\""), "should use project version: {pyproject}",);
+    assert!(pyproject.contains("name = \"my-tool\""), "should use project name: {pyproject}");
+    assert!(pyproject.contains("version = \"1.2.3\""), "should use project version: {pyproject}");
     assert!(
         pyproject.contains("requires-python = \">=3.13\""),
         "should use python version: {pyproject}",
@@ -1417,8 +1417,8 @@ fn build_includes_dependencies_in_pyproject() {
 
     let pyproject = std::fs::read_to_string(out_dir.join("pyproject.toml"))
         .expect("pyproject.toml should exist");
-    assert!(pyproject.contains("\"requests>=2.31\""), "should include requests dep: {pyproject}",);
-    assert!(pyproject.contains("\"flask>=3.0\""), "should include flask dep: {pyproject}",);
+    assert!(pyproject.contains("\"requests>=2.31\""), "should include requests dep: {pyproject}");
+    assert!(pyproject.contains("\"flask>=3.0\""), "should include flask dep: {pyproject}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1492,7 +1492,7 @@ fn add_dependency_to_project() {
     );
 
     let toml = std::fs::read_to_string(dir.join("asatsuyu.toml")).unwrap();
-    assert!(toml.contains("requests = \">=2.31\""), "should contain requests dep:\n{toml}",);
+    assert!(toml.contains("requests = \">=2.31\""), "should contain requests dep:\n{toml}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

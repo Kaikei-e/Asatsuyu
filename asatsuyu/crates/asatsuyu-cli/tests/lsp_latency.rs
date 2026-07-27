@@ -21,7 +21,7 @@ const SMALL_FILE_BUDGET: Duration = Duration::from_millis(500);
 
 /// Maximum allowed latency for full pipeline on a medium file (~100 functions).
 /// Expected: ~20ms. Budget: 2000ms (100x).
-const MEDIUM_FILE_BUDGET: Duration = Duration::from_millis(2000);
+const MEDIUM_FILE_BUDGET: Duration = Duration::from_secs(2);
 
 fn ffi_config() -> FfiResolverConfig {
     FfiResolverConfig::default()
@@ -157,7 +157,7 @@ fn latency_completion_context() {
     let (elapsed, ok) = measure_pipeline(source);
     eprintln!("  completion-context pipeline: {elapsed:?}");
     assert!(ok, "completion context should compile");
-    assert!(elapsed < Duration::from_millis(100), "completion context took {elapsed:?}",);
+    assert!(elapsed < Duration::from_millis(100), "completion context took {elapsed:?}");
 }
 
 // ── check --watch vs LSP debounce gap ───────────────────────────────

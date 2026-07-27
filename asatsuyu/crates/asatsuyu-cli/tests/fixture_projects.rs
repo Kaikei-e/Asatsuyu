@@ -253,8 +253,8 @@ fn build_build_install() {
     // Verify package metadata.
     let pyproject =
         std::fs::read_to_string(dir.join("pyproject.toml")).expect("pyproject.toml should exist");
-    assert!(pyproject.contains("name = \"build_install\""), "project name missing: {pyproject}",);
-    assert!(pyproject.contains("version = \"1.0.0\""), "project version missing: {pyproject}",);
+    assert!(pyproject.contains("name = \"build_install\""), "project name missing: {pyproject}");
+    assert!(pyproject.contains("version = \"1.0.0\""), "project version missing: {pyproject}");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -303,7 +303,7 @@ impl TyCheckCtx {
                         DiagnosticContext::Argument { param_index, fn_span } => {
                             diag = diag.with_secondary_label(
                                 fn_span,
-                                format!("parameter {} expects `{exp}`", param_index + 1,),
+                                format!("parameter {} expects `{exp}`", param_index + 1),
                             );
                         }
                         DiagnosticContext::IfElseBranch { then_span } => {

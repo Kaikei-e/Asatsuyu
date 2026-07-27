@@ -400,7 +400,7 @@ fn generate_pyproject_toml(
 
     // [tool.asatsuyu] — compiler metadata
     let _ =
-        write!(out, "\n[tool.asatsuyu]\ncompiler-version = \"{}\"\n", env!("CARGO_PKG_VERSION"),);
+        write!(out, "\n[tool.asatsuyu]\ncompiler-version = \"{}\"\n", env!("CARGO_PKG_VERSION"));
 
     out
 }
@@ -1557,7 +1557,7 @@ pub fn accumulate() -> Int {
         let pkg = package_with_config("pub fn main() { 42 }", &config);
         let pyproject = get_pyproject(&pkg);
         assert!(pyproject.contains("dependencies = ["), "deps section: {pyproject}");
-        assert!(pyproject.contains("\"requests>=2.31\""), "requests dep: {pyproject}",);
+        assert!(pyproject.contains("\"requests>=2.31\""), "requests dep: {pyproject}");
         assert!(pyproject.contains("\"flask>=3.0\""), "flask dep: {pyproject}");
     }
 
@@ -1565,7 +1565,7 @@ pub fn accumulate() -> Int {
     fn pyproject_no_dependencies_when_empty() {
         let pkg = package_from_source("pub fn main() { 42 }", "myapp");
         let pyproject = get_pyproject(&pkg);
-        assert!(!pyproject.contains("dependencies"), "no dependencies when empty: {pyproject}",);
+        assert!(!pyproject.contains("dependencies"), "no dependencies when empty: {pyproject}");
     }
 
     #[test]
@@ -1600,23 +1600,23 @@ pub fn accumulate() -> Int {
     fn pyproject_scripts_with_main() {
         let pkg = package_from_source("pub fn main() { 42 }", "myapp");
         let pyproject = get_pyproject(&pkg);
-        assert!(pyproject.contains("[project.scripts]"), "scripts section: {pyproject}",);
-        assert!(pyproject.contains("myapp = \"myapp.myapp:main\""), "entry point: {pyproject}",);
+        assert!(pyproject.contains("[project.scripts]"), "scripts section: {pyproject}");
+        assert!(pyproject.contains("myapp = \"myapp.myapp:main\""), "entry point: {pyproject}");
     }
 
     #[test]
     fn pyproject_no_scripts_without_main() {
         let pkg = package_from_source("fn add(x: Int, y: Int) -> Int { x }", "lib");
         let pyproject = get_pyproject(&pkg);
-        assert!(!pyproject.contains("[project.scripts]"), "no scripts without main: {pyproject}",);
+        assert!(!pyproject.contains("[project.scripts]"), "no scripts without main: {pyproject}");
     }
 
     #[test]
     fn pyproject_tool_asatsuyu_metadata() {
         let pkg = package_from_source("pub fn main() { 42 }", "myapp");
         let pyproject = get_pyproject(&pkg);
-        assert!(pyproject.contains("[tool.asatsuyu]"), "tool.asatsuyu section: {pyproject}",);
-        assert!(pyproject.contains("compiler-version = \""), "compiler version: {pyproject}",);
+        assert!(pyproject.contains("[tool.asatsuyu]"), "tool.asatsuyu section: {pyproject}");
+        assert!(pyproject.contains("compiler-version = \""), "compiler version: {pyproject}");
     }
 
     #[test]
@@ -1642,7 +1642,7 @@ pub fn accumulate() -> Int {
         );
         // pyproject.toml should use original name.
         let pyproject = get_pyproject(&pkg);
-        assert!(pyproject.contains("name = \"my-app\""), "original name in pyproject: {pyproject}",);
+        assert!(pyproject.contains("name = \"my-app\""), "original name in pyproject: {pyproject}");
     }
 
     #[test]
@@ -1849,7 +1849,7 @@ pub fn accumulate() -> Int {
         let py = python_from_source(
             "pub fn f(x: Option(Int)) -> Option(Int) { option.map(x, fn(v) { v * 2 }) }",
         );
-        assert!(py.contains("is not None else None"), "option.map should emit None check: {py}",);
+        assert!(py.contains("is not None else None"), "option.map should emit None check: {py}");
     }
 
     #[test]
@@ -1875,7 +1875,7 @@ pub fn accumulate() -> Int {
     #[test]
     fn emit_option_unwrap_or() {
         let py = python_from_source("pub fn f(x: Option(Int)) -> Int { option.unwrap_or(x, 0) }");
-        assert!(py.contains("is not None else 0"), "option.unwrap_or should emit default: {py}",);
+        assert!(py.contains("is not None else 0"), "option.unwrap_or should emit default: {py}");
     }
 
     #[test]
@@ -1883,13 +1883,13 @@ pub fn accumulate() -> Int {
         let py = python_from_source(
             "pub fn f(x: Option(Int)) -> Option(Int) { option.or_else(x, fn() { Some(42) }) }",
         );
-        assert!(py.contains("is not None else"), "option.or_else should emit lazy fallback: {py}",);
+        assert!(py.contains("is not None else"), "option.or_else should emit lazy fallback: {py}");
     }
 
     #[test]
     fn emit_option_is_some() {
         let py = python_from_source("pub fn f(x: Option(Int)) -> Bool { option.is_some(x) }");
-        assert!(py.contains("is not None)"), "option.is_some should emit is not None: {py}",);
+        assert!(py.contains("is not None)"), "option.is_some should emit is not None: {py}");
     }
 
     #[test]

@@ -1111,7 +1111,7 @@ mod tests {
         let src = "from python import os\npub fn f() { os.sep }";
         let result = thir_from_source(src);
         // os.sep should resolve without panicking
-        assert!(result.module.functions.len() == 1);
+        assert_eq!(result.module.functions.len(), 1);
     }
 
     #[test]
