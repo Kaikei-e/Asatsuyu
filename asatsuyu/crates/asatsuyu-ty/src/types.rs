@@ -8,6 +8,7 @@ use std::fmt;
 
 use asatsuyu_ast::{BinOp, LiteralKind, UnOp, Visibility};
 use asatsuyu_hir::ffi::{FfiModule, PythonApiIndex};
+use asatsuyu_hir::purity::Purity;
 use asatsuyu_hir::{DefId, HirCustomType, HirImport, SymbolTable};
 use asatsuyu_syntax::Span;
 use smol_str::SmolStr;
@@ -161,6 +162,13 @@ pub struct ThirFnDef {
     pub visibility: Visibility,
     /// Whether this function was declared with `async`.
     pub is_async: bool,
+    /// Whether an effect is reachable from this function's body.
+    ///
+    /// Carried beside the type rather than inside it: `Ty::Function` has no
+    /// effect slot, so purity never enters unification.
+    pub purity: Purity,
+    /// Whether the author asserted purity with the `pure` modifier.
+    pub declared_pure: bool,
     pub params: Vec<ThirParam>,
     /// The resolved return type of this function.
     pub return_ty: Ty,

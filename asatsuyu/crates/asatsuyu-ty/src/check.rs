@@ -12,6 +12,7 @@ use asatsuyu_hir::ffi::{
     ChainResolver, FfiClass, FfiModule, FfiResolverConfig, FfiSignature, FfiSymbolKind,
     FfiTrustLevel, FfiType, PythonApiIndex,
 };
+use asatsuyu_hir::purity::{self, Purity, PurityReport};
 use asatsuyu_hir::{
     DefData, DefId, DefKind, HirExpr, HirFnDef, HirImportKind, HirModule, SymbolTable,
 };
@@ -103,6 +104,8 @@ pub(crate) struct TyCheckCtx {
     in_async_fn: bool,
     /// Synthetic symbol table used to allocate builtin collection type ids.
     builtin_types: SymbolTable,
+    /// Purity classification for the module being checked.
+    purity: PurityReport,
     diagnostics: Vec<Diagnostic>,
     /// Hindley-Milner inference state.
     infer: InferCtx,
@@ -123,6 +126,7 @@ impl TyCheckCtx {
             local_defs: HashSet::new(),
             in_async_fn: false,
             builtin_types: SymbolTable::new(),
+            purity: PurityReport { functions: Vec::new() },
             diagnostics: Vec::new(),
             infer: InferCtx::new(),
         };
@@ -508,6 +512,7 @@ impl TyCheckCtx {
     pub(crate) fn check_module(&mut self, module: &HirModule) -> ThirModule {
         // Store module symbol table for mutation rule lookups.
         self.module_symbols = clone_symbol_table(&module.symbol_table);
+        self.purity = purity::analyze(module);
         let functions = module.functions.iter().map(|f| self.check_fn_def(f)).collect();
         let custom_types = module.custom_types.clone();
         let imports = module.imports.clone();
@@ -615,6 +620,8 @@ impl TyCheckCtx {
             def_id: fn_def.def_id,
             visibility: fn_def.visibility,
             is_async: fn_def.is_async,
+            purity: self.purity.purity_of(fn_def.def_id).unwrap_or(Purity::Effectful),
+            declared_pure: fn_def.pure_span.is_some(),
             params,
             return_ty: inner_return_ty,
             body,
