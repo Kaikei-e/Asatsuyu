@@ -32,6 +32,8 @@ pub enum SyntaxKind {
     AsyncKw,
     /// Keyword: `await` (await expression prefix).
     AwaitKw,
+    /// Keyword: `pure` (function modifier asserting the body has no effects).
+    PureKw,
 
     // === Tokens: Literals ===
     IntLit,

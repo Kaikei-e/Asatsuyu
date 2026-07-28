@@ -76,6 +76,10 @@ pub enum DiagnosticCode {
     E0152 = 152,
     /// Unresolved constructor.
     E0153 = 153,
+    /// A function declared `pure` reaches an observable effect.
+    E0154 = 154,
+    /// A function is declared both `pure` and `async`.
+    E0155 = 155,
 
     // ── Type checking ─────────────────────────────────────────────────
     /// Type mismatch: expected vs found.

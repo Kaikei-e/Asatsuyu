@@ -49,7 +49,7 @@ pub struct KeywordSpec {
 ///
 /// Ordered by [`KeywordClass`]: Hard, Literal, Contextual, Reserved.
 pub const KEYWORDS: &[KeywordSpec] = &[
-    // Hard keywords (11)
+    // Hard keywords (14)
     KeywordSpec { text: "fn", kind: SyntaxKind::FnKw, class: KeywordClass::Hard },
     KeywordSpec { text: "pub", kind: SyntaxKind::PubKw, class: KeywordClass::Hard },
     KeywordSpec { text: "let", kind: SyntaxKind::LetKw, class: KeywordClass::Hard },
@@ -61,15 +61,15 @@ pub const KEYWORDS: &[KeywordSpec] = &[
     KeywordSpec { text: "import", kind: SyntaxKind::ImportKw, class: KeywordClass::Hard },
     KeywordSpec { text: "from", kind: SyntaxKind::FromKw, class: KeywordClass::Hard },
     KeywordSpec { text: "try", kind: SyntaxKind::TryKw, class: KeywordClass::Hard },
+    KeywordSpec { text: "async", kind: SyntaxKind::AsyncKw, class: KeywordClass::Hard },
+    KeywordSpec { text: "await", kind: SyntaxKind::AwaitKw, class: KeywordClass::Hard },
+    KeywordSpec { text: "pure", kind: SyntaxKind::PureKw, class: KeywordClass::Hard },
     // Literal keywords (2)
     KeywordSpec { text: "True", kind: SyntaxKind::TrueKw, class: KeywordClass::Literal },
     KeywordSpec { text: "False", kind: SyntaxKind::FalseKw, class: KeywordClass::Literal },
     // Contextual keywords (2)
     KeywordSpec { text: "python", kind: SyntaxKind::PythonKw, class: KeywordClass::Contextual },
     KeywordSpec { text: "as", kind: SyntaxKind::AsKw, class: KeywordClass::Contextual },
-    // Async keywords (2) — promoted from Reserved in Phase 3-2
-    KeywordSpec { text: "async", kind: SyntaxKind::AsyncKw, class: KeywordClass::Hard },
-    KeywordSpec { text: "await", kind: SyntaxKind::AwaitKw, class: KeywordClass::Hard },
 ];
 
 /// Look up the [`SyntaxKind`] for a keyword source text, or `None` if the text
@@ -112,8 +112,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keywords_table_has_17_entries() {
-        assert_eq!(KEYWORDS.len(), 17);
+    fn keywords_table_has_18_entries() {
+        assert_eq!(KEYWORDS.len(), 18);
     }
 
     #[test]
