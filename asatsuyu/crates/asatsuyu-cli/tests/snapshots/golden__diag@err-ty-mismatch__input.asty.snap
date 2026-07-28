@@ -4,6 +4,6 @@ expression: out.diag
 input_file: crates/asatsuyu-cli/tests/cases/err-ty-mismatch/input.asty
 ---
 [E0200] Error: type mismatch: expected `String`, found `Int`
-  span: 23..32
-  primary [23..32]: expected `String`, found `Int`
+  span: 24..32
+  primary [24..32]: expected `String`, found `Int`
   secondary [0..32]: expected `String` because of return type annotation

@@ -6,6 +6,12 @@ license.workspace = true
 repository.workspace = true
 description = "Command-line interface for the Asatsuyu compiler"
 
+# The crate is `asatsuyu-cli`, but the command users type is `asatsuyu` — which
+# is what the docs and the editor extension's default `serverPath` expect.
+[[bin]]
+name = "asatsuyu"
+path = "src/main.rs"
+
 [lints]
 workspace = true
 

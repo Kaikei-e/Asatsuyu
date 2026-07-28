@@ -4,6 +4,6 @@ expression: out.diag
 input_file: crates/asatsuyu-cli/tests/cases/err-ty-unreachable-arm/input.asty
 ---
 [E0301] Warning: unreachable match arm
-  span: 62..78
-  primary [62..78]: this arm can never be reached
+  span: 67..78
+  primary [67..78]: this arm can never be reached
   note: a previous arm already covers all remaining patterns

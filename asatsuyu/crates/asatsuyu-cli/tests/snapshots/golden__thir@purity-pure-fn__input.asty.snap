@@ -1,0 +1,358 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: thir
+input_file: crates/asatsuyu-cli/tests/cases/purity-pure-fn/input.asty
+---
+ThirModule {
+    functions: [
+        ThirFnDef {
+            def_id: Idx::<DefData>(4),
+            visibility: Public,
+            is_async: false,
+            purity: Pure,
+            declared_pure: true,
+            params: [
+                ThirParam {
+                    def_id: Idx::<DefData>(6),
+                    ty: Primitive(
+                        Int,
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 19,
+                        end: 25,
+                    },
+                },
+            ],
+            return_ty: Primitive(
+                Int,
+            ),
+            body: Block {
+                exprs: [
+                    BinaryOp {
+                        op: Mul,
+                        lhs: Var {
+                            def_id: Idx::<DefData>(6),
+                            ty: Primitive(
+                                Int,
+                            ),
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 38,
+                                end: 39,
+                            },
+                        },
+                        rhs: Literal(
+                            ThirLiteral {
+                                kind: Int,
+                                value: "2",
+                                ty: Primitive(
+                                    Int,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 42,
+                                    end: 43,
+                                },
+                            },
+                        ),
+                        ty: Primitive(
+                            Int,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 38,
+                            end: 43,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    Int,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 34,
+                    end: 45,
+                },
+            },
+            ty: Function {
+                params: [
+                    Primitive(
+                        Int,
+                    ),
+                ],
+                ret: Primitive(
+                    Int,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 0,
+                end: 45,
+            },
+        },
+        ThirFnDef {
+            def_id: Idx::<DefData>(5),
+            visibility: Public,
+            is_async: false,
+            purity: Pure,
+            declared_pure: true,
+            params: [
+                ThirParam {
+                    def_id: Idx::<DefData>(7),
+                    ty: Primitive(
+                        Int,
+                    ),
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 69,
+                        end: 75,
+                    },
+                },
+            ],
+            return_ty: Primitive(
+                Int,
+            ),
+            body: Block {
+                exprs: [
+                    Call {
+                        func: Var {
+                            def_id: Idx::<DefData>(4),
+                            ty: Function {
+                                params: [
+                                    Primitive(
+                                        Int,
+                                    ),
+                                ],
+                                ret: Primitive(
+                                    Int,
+                                ),
+                            },
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 88,
+                                end: 94,
+                            },
+                        },
+                        args: [
+                            Call {
+                                func: Var {
+                                    def_id: Idx::<DefData>(4),
+                                    ty: Function {
+                                        params: [
+                                            Primitive(
+                                                Int,
+                                            ),
+                                        ],
+                                        ret: Primitive(
+                                            Int,
+                                        ),
+                                    },
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 95,
+                                        end: 101,
+                                    },
+                                },
+                                args: [
+                                    Var {
+                                        def_id: Idx::<DefData>(7),
+                                        ty: Primitive(
+                                            Int,
+                                        ),
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 102,
+                                            end: 103,
+                                        },
+                                    },
+                                ],
+                                ty: Primitive(
+                                    Int,
+                                ),
+                                span: Span {
+                                    file_id: FileId(
+                                        0,
+                                    ),
+                                    start: 95,
+                                    end: 104,
+                                },
+                            },
+                        ],
+                        ty: Primitive(
+                            Int,
+                        ),
+                        span: Span {
+                            file_id: FileId(
+                                0,
+                            ),
+                            start: 88,
+                            end: 105,
+                        },
+                    },
+                ],
+                ty: Primitive(
+                    Int,
+                ),
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 84,
+                    end: 107,
+                },
+            },
+            ty: Function {
+                params: [
+                    Primitive(
+                        Int,
+                    ),
+                ],
+                ret: Primitive(
+                    Int,
+                ),
+            },
+            span: Span {
+                file_id: FileId(
+                    0,
+                ),
+                start: 47,
+                end: 107,
+            },
+        },
+    ],
+    custom_types: [],
+    imports: [],
+    symbol_table: SymbolTable {
+        defs: Arena {
+            len: 8,
+            data: [
+                DefData {
+                    name: "string_concat",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "println",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "list",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "option",
+                    kind: Builtin,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 0,
+                        end: 0,
+                    },
+                },
+                DefData {
+                    name: "double",
+                    kind: Function,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 12,
+                        end: 18,
+                    },
+                },
+                DefData {
+                    name: "quadruple",
+                    kind: Function,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 59,
+                        end: 68,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 19,
+                        end: 20,
+                    },
+                },
+                DefData {
+                    name: "x",
+                    kind: Parameter,
+                    is_mutable: false,
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 69,
+                        end: 70,
+                    },
+                },
+            ],
+        },
+    },
+    ffi_modules: {},
+    python_api_index: None,
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 107,
+    },
+}

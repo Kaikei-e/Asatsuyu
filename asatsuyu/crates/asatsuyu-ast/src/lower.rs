@@ -41,27 +41,28 @@ impl LowerCtx {
 
 // ── Span helpers ────────────────────────────────────────────────────
 
+/// Span of a CST node, excluding the trivia it carries.
+///
+/// A node's `text_range()` covers the whitespace and comments attached to it,
+/// so using it directly would make every diagnostic label reach back to the
+/// end of the previous line.
 fn span_of(node: &SyntaxNode, file_id: FileId) -> Span {
-    let range = node.text_range();
-    Span::new(file_id, u32::from(range.start()), u32::from(range.end()))
-}
-
-fn span_of_token(token: &SyntaxToken, file_id: FileId) -> Span {
-    let range = token.text_range();
-    Span::new(file_id, u32::from(range.start()), u32::from(range.end()))
-}
-
-fn span_of_nontrivia(node: &SyntaxNode, file_id: FileId) -> Span {
     let mut tokens = node
         .descendants_with_tokens()
         .filter_map(|el| el.into_token())
         .filter(|tok| !tok.kind().is_trivia());
 
     let Some(first) = tokens.next() else {
-        return span_of(node, file_id);
+        let range = node.text_range();
+        return Span::new(file_id, u32::from(range.start()), u32::from(range.end()));
     };
     let last = tokens.last().unwrap_or_else(|| first.clone());
     Span::new(file_id, u32::from(first.text_range().start()), u32::from(last.text_range().end()))
+}
+
+fn span_of_token(token: &SyntaxToken, file_id: FileId) -> Span {
+    let range = token.text_range();
+    Span::new(file_id, u32::from(range.start()), u32::from(range.end()))
 }
 
 // ── Child helpers ───────────────────────────────────────────────────
@@ -218,6 +219,8 @@ impl LowerCtx {
         };
 
         let is_async = first_token_of_kind(node, SyntaxKind::AsyncKw).is_some();
+        let pure_span = first_token_of_kind(node, SyntaxKind::PureKw)
+            .map(|token| span_of_token(&token, self.file_id));
 
         // Function name: first Ident token that is a direct child of FnDef.
         let name_token = first_token_of_kind(node, SyntaxKind::Ident)?;
@@ -245,6 +248,7 @@ impl LowerCtx {
             name,
             visibility,
             is_async,
+            pure_span,
             params,
             return_type,
             body,
@@ -383,7 +387,7 @@ impl LowerCtx {
             .filter_map(|te| self.lower_type_expr(te))
             .collect();
 
-        Some(TypeExpr::Named { name, args, span: span_of_nontrivia(node, self.file_id) })
+        Some(TypeExpr::Named { name, args, span: span_of(node, self.file_id) })
     }
 
     // ── ParamList ───────────────────────────────────────────────────
@@ -498,7 +502,7 @@ impl LowerCtx {
             name,
             value: Box::new(value),
             is_mutable,
-            span: span_of_nontrivia(node, self.file_id),
+            span: span_of(node, self.file_id),
         })
     }
 
@@ -515,11 +519,7 @@ impl LowerCtx {
 
         let value = node.children().find_map(|c| self.lower_expr(&c))?;
 
-        Some(Expr::Assign {
-            target,
-            value: Box::new(value),
-            span: span_of_nontrivia(node, self.file_id),
-        })
+        Some(Expr::Assign { target, value: Box::new(value), span: span_of(node, self.file_id) })
     }
 
     // ── LambdaExpr ──────────────────────────────────────────────────

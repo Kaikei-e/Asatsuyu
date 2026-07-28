@@ -1,0 +1,7 @@
+pub pure fn double(x: Int) -> Int {
+  x * 2
+}
+
+pub pure fn quadruple(x: Int) -> Int {
+  double(double(x))
+}

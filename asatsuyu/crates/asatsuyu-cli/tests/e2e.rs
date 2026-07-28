@@ -13,7 +13,7 @@ fn workspace_root() -> PathBuf {
 /// Build and return a `Command` pointing at the asatsuyu-cli binary,
 /// with working directory set to the workspace root.
 fn asatsuyu() -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
     cmd.current_dir(workspace_root());
     cmd
 }
@@ -58,6 +58,127 @@ fn run_async_main_asty() {
     assert!(stdout.contains("async ok"), "stdout: {stdout}");
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A nullary variant used as a value must be constructed, not referenced as a
+/// class: `match` arms emit `case Name()`, which only matches an instance.
+/// This has to run, because the wrong output compiles and silently yields
+/// `None`.
+#[test]
+fn run_nullary_variant_round_trips_through_match() {
+    let dir = workspace_root().join("target/test-run-nullary-variant");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let file = dir.join("nullary.asty");
+    std::fs::write(
+        &file,
+        "type Verdict {\n  Passing\n  Failing\n}\n\n\
+         pub fn classify(score: Int) -> Verdict {\n  if score >= 60 { Passing } else { Failing }\n}\n\n\
+         pub fn describe(v: Verdict) -> String {\n  match v {\n    Passing -> \"pass\"\n    Failing -> \"fail\"\n  }\n}\n\n\
+         pub fn main() {\n  println(describe(classify(72)))\n}\n",
+    )
+    .unwrap();
+
+    let file_str = file.display().to_string();
+    let output = asatsuyu().args(["run", &file_str]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "exit code: {:?}\nstderr: {}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("pass"), "match fell through; stdout: {stdout}");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The `pure` modifier survives the whole pipeline and leaves no trace in the
+/// generated Python.
+#[test]
+fn run_purity_asty() {
+    let output = asatsuyu().args(["run", &example("purity.asty")]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "exit code: {:?}\nstderr: {}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("alice: pass"), "stdout: {stdout}");
+    assert!(stdout.contains("bob: fail"), "stdout: {stdout}");
+}
+
+/// A broken `pure` assertion fails the build and names every hop to the effect.
+#[test]
+fn check_rejects_a_false_pure_declaration() {
+    let dir = workspace_root().join("target/test-check-false-pure");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let file = dir.join("bad_pure.asty");
+    std::fs::write(
+        &file,
+        "fn leaf() {\n  println(\"x\")\n}\n\n\
+         pub pure fn top() {\n  leaf()\n}\n",
+    )
+    .unwrap();
+
+    let file_str = file.display().to_string();
+    let output = asatsuyu().args(["check", &file_str]).output().unwrap();
+
+    assert!(!output.status.success(), "a false `pure` claim must fail the check");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E0154"), "stderr: {stderr}");
+    assert!(stderr.contains("declared pure here"), "stderr: {stderr}");
+    assert!(stderr.contains("calls `leaf`"), "effect path missing; stderr: {stderr}");
+    assert!(output.stdout.is_empty(), "diagnostics must not go to stdout");
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `check --purity` reports every function, and that report is stdout.
+#[test]
+fn check_purity_flag_reports_every_function() {
+    let output = asatsuyu().args(["check", &example("purity.asty"), "--purity"]).output().unwrap();
+    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("pure       classify"), "stdout: {stdout}");
+    assert!(stdout.contains("effectful  main"), "stdout: {stdout}");
+    assert!(stdout.contains("3 pure / 1 effectful"), "stdout: {stdout}");
+}
+
+/// Every committed example must type-check.
+///
+/// Two of them did not, and nothing noticed: no test ran `check` over the
+/// directory, and the purity corpus stops at HIR.
+#[test]
+fn every_example_type_checks() {
+    let dir = workspace_root().join("examples");
+    let mut failures = Vec::new();
+
+    let mut names: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(|entry| {
+            let path = entry.ok()?.path();
+            (path.extension()? == "asty").then(|| path.file_name()?.to_str().map(str::to_owned))?
+        })
+        .collect();
+    names.sort();
+    assert!(!names.is_empty(), "no examples found in {}", dir.display());
+
+    for name in &names {
+        let output = asatsuyu().args(["check", &example(name)]).output().unwrap();
+        if !output.status.success() {
+            failures.push(format!("{name}: {}", String::from_utf8_lossy(&output.stderr)));
+        }
+    }
+
+    assert!(failures.is_empty(), "examples failed to check:\n{}", failures.join("\n"));
 }
 
 // ── 2. build hello.asty ────────────────────────────────────────────
@@ -1189,7 +1310,7 @@ fn lock_without_project_fails() {
     std::fs::create_dir_all(&dir).unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["lock"]).output().unwrap()
     };
@@ -1218,7 +1339,7 @@ fn lock_empty_deps_succeeds() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["lock"]).output().unwrap()
     };
@@ -1254,7 +1375,7 @@ fn lock_json_error_output() {
     std::fs::create_dir_all(&dir).unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["lock", "--error-format", "json"]).output().unwrap()
     };
@@ -1281,7 +1402,7 @@ fn check_json_emits_lockfile_warning() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["check", "--error-format", "json"]).output().unwrap()
     };
@@ -1316,7 +1437,7 @@ fn lock_generates_pylock_toml() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["lock"]).output().unwrap()
     };
@@ -1353,7 +1474,7 @@ fn lock_install_from_pylock() {
 
     // Generate lockfile.
     let lock_out = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["lock"]).output().unwrap()
     };
@@ -1433,7 +1554,7 @@ fn add_without_project_fails() {
     std::fs::create_dir_all(&dir).unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["add", "requests"]).output().unwrap()
     };
@@ -1453,7 +1574,7 @@ fn add_rejects_invalid_specifier() {
         .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["add", "requests", "not-a-version"]).output().unwrap()
     };
@@ -1481,7 +1602,7 @@ fn add_dependency_to_project() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["add", "requests", ">=2.31"]).output().unwrap()
     };
@@ -1511,7 +1632,7 @@ fn remove_existing_dependency() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["remove", "requests"]).output().unwrap()
     };
@@ -1539,7 +1660,7 @@ fn remove_nonexistent_fails() {
         .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["remove", "nonexistent"]).output().unwrap()
     };
@@ -1562,7 +1683,7 @@ fn sync_requires_pylock() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["sync"]).output().unwrap()
     };
@@ -1632,7 +1753,7 @@ fn sync_uses_python_path_from_config() {
     .unwrap();
 
     let output = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.env_clear();
         cmd.args(["sync"]).output().unwrap()
@@ -1677,7 +1798,7 @@ fn add_remove_sync_full_workflow() {
 
     // Add dependency.
     let add_out = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["add", "six", ">=1.16"]).output().unwrap()
     };
@@ -1690,7 +1811,7 @@ fn add_remove_sync_full_workflow() {
     assert!(venv_out.status.success(), "venv creation failed");
 
     let sync_out = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["sync"]).output().unwrap()
     };
@@ -1702,7 +1823,7 @@ fn add_remove_sync_full_workflow() {
 
     // Remove dependency.
     let rm_out = {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
         cmd.current_dir(&dir);
         cmd.args(["remove", "six"]).output().unwrap()
     };

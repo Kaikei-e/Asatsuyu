@@ -20,6 +20,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: Some(
                     Named {
@@ -63,7 +64,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 21,
+                        start: 22,
                         end: 29,
                     },
                 },
@@ -90,6 +91,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: Some(
                     Named {
@@ -133,7 +135,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 53,
+                        start: 54,
                         end: 61,
                     },
                 },
@@ -141,7 +143,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 29,
+                    start: 31,
                     end: 61,
                 },
             },
@@ -152,6 +154,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 62,
+        end: 61,
     },
 }

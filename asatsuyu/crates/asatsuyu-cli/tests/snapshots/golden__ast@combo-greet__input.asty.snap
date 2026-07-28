@@ -20,6 +20,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [
                     Param {
                         name: Ident {
@@ -120,7 +121,7 @@ Module {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 38,
+                                    start: 41,
                                     end: 58,
                                 },
                             },
@@ -141,7 +142,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 38,
+                                start: 41,
                                 end: 65,
                             },
                         },
@@ -150,7 +151,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 36,
+                        start: 37,
                         end: 67,
                     },
                 },
@@ -177,6 +178,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [
                     Param {
                         name: Ident {
@@ -256,7 +258,7 @@ Module {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 87,
+                            start: 88,
                             end: 94,
                         },
                     },
@@ -315,7 +317,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 104,
+                                start: 107,
                                 end: 112,
                             },
                         },
@@ -324,7 +326,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 102,
+                        start: 103,
                         end: 114,
                     },
                 },
@@ -332,7 +334,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 67,
+                    start: 69,
                     end: 114,
                 },
             },
@@ -351,6 +353,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: Some(
                     Named {
@@ -421,7 +424,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 138,
+                                start: 141,
                                 end: 150,
                             },
                         },
@@ -430,7 +433,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 136,
+                        start: 137,
                         end: 152,
                     },
                 },
@@ -438,7 +441,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 114,
+                    start: 116,
                     end: 152,
                 },
             },
@@ -449,6 +452,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 153,
+        end: 152,
     },
 }

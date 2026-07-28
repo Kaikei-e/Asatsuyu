@@ -3,6 +3,6 @@ source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
 expression: text
 ---
 [E0219] Error: cannot `await` a value of type `Int`
-  span: 24..35
-  primary [24..35]: expected `Task(T)`, found `Int`
+  span: 27..35
+  primary [27..35]: expected `Task(T)`, found `Int`
   hint: only `Task(T)` values (from async functions) can be awaited

@@ -1,0 +1,10 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-purity-async/input.asty
+---
+[E0155] Error: `fetch` is both `pure` and `async`
+  span: 4..8
+  primary [4..8]: declared pure here
+  hint: drop `pure` from `fetch`
+  note: an `async fn` returns `Task(T)`, which is itself an effect

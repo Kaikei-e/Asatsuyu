@@ -31,7 +31,7 @@ pub(crate) fn run_watch(
     // 1. Initial check.
     clear_terminal(error_format);
     print_watch_header(error_format);
-    let status = crate::cmd_check(paths, ffi_config, error_format);
+    let status = crate::cmd_check(paths, ffi_config, error_format, false);
     print_watch_footer(status, error_format);
 
     // 2. Determine directories to watch.
@@ -67,7 +67,7 @@ pub(crate) fn run_watch(
 
                 clear_terminal(error_format);
                 print_watch_header(error_format);
-                let status = crate::cmd_check(paths, ffi_config, error_format);
+                let status = crate::cmd_check(paths, ffi_config, error_format, false);
                 print_watch_footer(status, error_format);
             }
             Ok(Err(errors)) => {

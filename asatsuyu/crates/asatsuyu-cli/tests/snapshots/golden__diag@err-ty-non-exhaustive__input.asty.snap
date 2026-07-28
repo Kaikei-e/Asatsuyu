@@ -4,6 +4,6 @@ expression: out.diag
 input_file: crates/asatsuyu-cli/tests/cases/err-ty-non-exhaustive/input.asty
 ---
 [E0300] Error: non-exhaustive match on `Color`: missing Green, Blue
-  span: 70..103
-  primary [70..103]: not all variants are covered
+  span: 73..103
+  primary [73..103]: not all variants are covered
   hint: add arms for: Green, Blue

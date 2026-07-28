@@ -3,10 +3,10 @@ source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
 expression: text
 ---
 [E0200] Error: type mismatch: expected `String`, found `Int`
-  span: 15..23
-  primary [15..23]: expected `String`, found `Int`
+  span: 16..23
+  primary [16..23]: expected `String`, found `Int`
 ---
 [E0205] Error: arithmetic operator requires numeric type, found `String`
-  span: 15..23
-  primary [15..23]: operands have type `String`
+  span: 16..23
+  primary [16..23]: operands have type `String`
   note: arithmetic operators work with Int and Float

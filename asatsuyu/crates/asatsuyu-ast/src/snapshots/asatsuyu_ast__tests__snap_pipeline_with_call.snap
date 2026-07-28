@@ -19,6 +19,7 @@ Module {
                 },
                 visibility: Private,
                 is_async: false,
+                pure_span: None,
                 params: [
                     Param {
                         name: Ident {
@@ -131,7 +132,7 @@ Module {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 28,
+                                    start: 29,
                                     end: 33,
                                 },
                             },
@@ -139,7 +140,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 21,
+                                start: 24,
                                 end: 33,
                             },
                         },
@@ -148,7 +149,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 19,
+                        start: 20,
                         end: 35,
                     },
                 },

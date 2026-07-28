@@ -549,6 +549,12 @@ impl<'a> Emitter<'a> {
                 let def = self.module.symbol_table.get(*def_id);
                 if def.kind == DefKind::Constructor {
                     self.output.push_str(&sanitize_python_name(&def.name));
+                    // A nullary variant is a value, not a class object: the
+                    // `match` arms emitted for it are `case Name()`, which only
+                    // matches an instance.
+                    if self.constructor_arity(*def_id) == Some(0) {
+                        self.output.push_str("()");
+                    }
                 } else {
                     self.output.push_str(def.name.as_str());
                 }
@@ -684,6 +690,17 @@ impl<'a> Emitter<'a> {
     }
 
     /// If `func` is `list.<method>`, return the method name.
+    /// Number of fields declared by a constructor, or `None` if `def_id` is
+    /// not a constructor of a type in this module.
+    fn constructor_arity(&self, def_id: DefId) -> Option<usize> {
+        self.module
+            .custom_types
+            .iter()
+            .flat_map(|ty| &ty.variants)
+            .find(|variant| variant.def_id == def_id)
+            .map(|variant| variant.fields.len())
+    }
+
     fn list_module_method(&self, func: &ThirExpr) -> Option<SmolStr> {
         let ThirExpr::FieldAccess { receiver, field, .. } = func else {
             return None;

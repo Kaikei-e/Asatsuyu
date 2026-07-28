@@ -1,0 +1,12 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: out.diag
+input_file: crates/asatsuyu-cli/tests/cases/err-purity-broken/input.asty
+---
+[E0154] Error: `top` is declared `pure` but reaches an effect
+  span: 60..64
+  primary [60..64]: declared pure here
+  secondary [78..86]: `top` calls `middle` here
+  secondary [46..52]: `middle` calls `leaf` here
+  secondary [14..26]: this crosses the Python boundary
+  hint: drop `pure` from `top`, or move the effect into its caller

@@ -22,6 +22,7 @@ use std::str::FromStr;
 use asatsuyu_backend_python::{FfiRuntimeMode, GeneratedPackage, PackageConfig};
 // PackageConfig is constructed via build_package_config() helper below.
 use asatsuyu_hir::ffi::FfiResolverConfig;
+use asatsuyu_hir::purity::{EffectSource, Purity, PurityReport};
 use asatsuyu_syntax::{Diagnostic, FileId, LineIndex, Severity};
 use asatsuyu_ty::ThirModule;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -110,6 +111,9 @@ enum Commands {
         /// Watch for file changes and re-check automatically
         #[arg(long)]
         watch: bool,
+        /// Print each function's purity and why it is effectful
+        #[arg(long)]
+        purity: bool,
         #[command(flatten)]
         output: OutputArgs,
         #[command(flatten)]
@@ -226,7 +230,7 @@ pub fn run() -> ExitCode {
 
     let cli = Cli::parse();
     match cli.command {
-        Commands::Check { paths, watch, output, ffi, python } => {
+        Commands::Check { paths, watch, purity, output, ffi, python } => {
             let ffi_config = match build_ffi_config(&ffi, &python) {
                 Ok(config) => config,
                 Err(err) => {
@@ -254,7 +258,7 @@ pub fn run() -> ExitCode {
             if watch {
                 watch::run_watch(&context.paths, &ffi_config, output.error_format)
             } else {
-                cmd_check(&context.paths, &ffi_config, output.error_format)
+                cmd_check(&context.paths, &ffi_config, output.error_format, purity)
             }
         }
         Commands::Build {
@@ -430,6 +434,7 @@ pub(crate) fn cmd_check(
     paths: &[PathBuf],
     ffi_config: &FfiResolverConfig,
     error_format: ErrorFormat,
+    show_purity: bool,
 ) -> ExitCode {
     let mut compile_failed = false;
     let mut config_failed = false;
@@ -439,6 +444,9 @@ pub(crate) fn cmd_check(
         let filename = path.display().to_string();
         match compile_with_source(path, ffi_config) {
             Ok(result) => {
+                if show_purity {
+                    emit_purity_report(&result.purity, &filename, error_format);
+                }
                 if !result.warnings.is_empty() {
                     report_diagnostics(&result.warnings, &result.source, &filename, error_format);
                     all_diags.extend(result.warnings);
@@ -1347,6 +1355,7 @@ struct CompileOutput {
     module: ThirModule,
     source: String,
     warnings: Vec<Diagnostic>,
+    purity: PurityReport,
 }
 
 /// Compile a `.asty` file, returning the typed module, source, and warnings.
@@ -1389,7 +1398,7 @@ fn compile_with_source(
     // Collect non-error diagnostics (warnings) for display.
     let warnings = all_diagnostics.into_iter().filter(|d| d.severity != Severity::Error).collect();
 
-    Ok(CompileOutput { module: thir.module, source, warnings })
+    Ok(CompileOutput { module: thir.module, source, warnings, purity: hir.purity })
 }
 
 // ── Error type ─────────────────────────────────────────────────────
@@ -1598,6 +1607,58 @@ fn report_diagnostics(
                 json_diagnostic::emit_json_line(&json);
             }
         }
+    }
+}
+
+/// Print what the compiler proved about each function's purity.
+///
+/// This is the requested output of `check --purity`, so it goes to stdout,
+/// leaving stderr to the diagnostic stream. Functions the compiler could not
+/// prove pure are separated from functions it proved effectful, because only
+/// the second kind is a fact about the program.
+fn emit_purity_report(report: &PurityReport, filename: &str, error_format: ErrorFormat) {
+    match error_format {
+        ErrorFormat::Human => {
+            println!("{filename}");
+            for func in &report.functions {
+                let verdict = match func.purity {
+                    Purity::Pure => "pure",
+                    Purity::Effectful => "effectful",
+                };
+                match func.source() {
+                    Some(source) => {
+                        println!("  {verdict:<10} {:<24} {}", func.name, describe(source));
+                    }
+                    None => println!("  {verdict:<10} {}", func.name),
+                }
+            }
+            println!("  -- {} pure / {} effectful", report.pure_count(), report.effectful_count());
+        }
+        ErrorFormat::Json => {
+            for func in &report.functions {
+                let line = serde_json::json!({
+                    "type": "purity",
+                    "file": filename,
+                    "function": func.name.as_str(),
+                    "purity": match func.purity {
+                        Purity::Pure => "pure",
+                        Purity::Effectful => "effectful",
+                    },
+                    "reason": func.source().map(describe),
+                });
+                println!("{line}");
+            }
+        }
+    }
+}
+
+/// One-word explanation of why a function is effectful.
+fn describe(source: EffectSource) -> &'static str {
+    match source {
+        EffectSource::Boundary => "crosses the Python boundary",
+        EffectSource::Async => "async",
+        EffectSource::Propagated => "calls an effectful function",
+        EffectSource::Unresolved => "contains a call the compiler cannot resolve",
     }
 }
 

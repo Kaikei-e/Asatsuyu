@@ -3,6 +3,6 @@ source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
 expression: text
 ---
 [E0220] Error: `await` is only allowed inside `async fn`
-  span: 49..65
-  primary [49..65]: `await` used outside async context
+  span: 52..65
+  primary [52..65]: `await` used outside async context
   hint: move this into an `async fn`, or call the async function without `await` to get a `Task(T)` value

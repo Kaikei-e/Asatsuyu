@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 332
 expression: "snapshot(\"type Option(a) {\\n  Some(a)\\n  None\\n}\")"
 ---
 Module {
@@ -80,7 +79,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 16,
+                                start: 19,
                                 end: 26,
                             },
                         },
@@ -100,7 +99,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 26,
+                                start: 29,
                                 end: 33,
                             },
                         },

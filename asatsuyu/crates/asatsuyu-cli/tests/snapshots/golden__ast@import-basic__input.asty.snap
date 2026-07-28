@@ -43,6 +43,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: None,
                 body: Block {
@@ -65,7 +66,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 24,
+                        start: 25,
                         end: 33,
                     },
                 },
@@ -73,7 +74,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 9,
+                    start: 11,
                     end: 33,
                 },
             },
@@ -84,6 +85,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 34,
+        end: 33,
     },
 }

@@ -1,6 +1,5 @@
 ---
 source: crates/asatsuyu-ast/src/lib.rs
-assertion_line: 342
 expression: "snapshot(\"type Result(a, e) {\\n  Ok(a)\\n  Err(e)\\n}\")"
 ---
 Module {
@@ -90,7 +89,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 19,
+                                start: 22,
                                 end: 27,
                             },
                         },
@@ -141,7 +140,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 27,
+                                start: 30,
                                 end: 36,
                             },
                         },

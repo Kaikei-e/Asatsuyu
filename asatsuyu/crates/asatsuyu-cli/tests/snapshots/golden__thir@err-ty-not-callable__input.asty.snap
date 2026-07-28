@@ -9,6 +9,8 @@ ThirModule {
             def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
+            purity: Effectful,
+            declared_pure: false,
             params: [],
             return_ty: Primitive(
                 Int,
@@ -82,7 +84,7 @@ ThirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 35,
+                            start: 38,
                             end: 42,
                         },
                     },
@@ -92,7 +94,7 @@ ThirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 20,
+                    start: 21,
                     end: 44,
                 },
             },
@@ -199,6 +201,6 @@ ThirModule {
             0,
         ),
         start: 0,
-        end: 45,
+        end: 44,
     },
 }

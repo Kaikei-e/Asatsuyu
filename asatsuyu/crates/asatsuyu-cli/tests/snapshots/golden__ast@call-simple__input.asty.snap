@@ -20,6 +20,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [
                     Param {
                         name: Ident {
@@ -118,7 +119,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 30,
+                                start: 33,
                                 end: 38,
                             },
                         },
@@ -127,7 +128,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 28,
+                        start: 29,
                         end: 40,
                     },
                 },
@@ -154,6 +155,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: Some(
                     Named {
@@ -211,7 +213,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 64,
+                                start: 67,
                                 end: 76,
                             },
                         },
@@ -220,7 +222,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 62,
+                        start: 63,
                         end: 78,
                     },
                 },
@@ -228,7 +230,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 40,
+                    start: 42,
                     end: 78,
                 },
             },
@@ -239,6 +241,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 79,
+        end: 78,
     },
 }

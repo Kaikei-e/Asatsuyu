@@ -1,0 +1,78 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-purity-broken/input.asty
+---
+SourceFile@0..89
+  FnDef@0..28
+    FnKw@0..2 "fn"
+    Whitespace@2..3 " "
+    Ident@3..7 "leaf"
+    ParamList@7..9
+      LParen@7..8 "("
+      RParen@8..9 ")"
+    BlockExpr@9..28
+      Whitespace@9..10 " "
+      LBrace@10..11 "{"
+      CallExpr@11..26
+        IdentExpr@11..21
+          Newline@11..12 "\n"
+          Whitespace@12..14 "  "
+          Ident@14..21 "println"
+        ArgList@21..26
+          LParen@21..22 "("
+          LiteralExpr@22..25
+            StringLit@22..25 "\"x\""
+          RParen@25..26 ")"
+      Newline@26..27 "\n"
+      RBrace@27..28 "}"
+  FnDef@28..54
+    Newline@28..29 "\n"
+    Newline@29..30 "\n"
+    FnKw@30..32 "fn"
+    Whitespace@32..33 " "
+    Ident@33..39 "middle"
+    ParamList@39..41
+      LParen@39..40 "("
+      RParen@40..41 ")"
+    BlockExpr@41..54
+      Whitespace@41..42 " "
+      LBrace@42..43 "{"
+      CallExpr@43..52
+        IdentExpr@43..50
+          Newline@43..44 "\n"
+          Whitespace@44..46 "  "
+          Ident@46..50 "leaf"
+        ArgList@50..52
+          LParen@50..51 "("
+          RParen@51..52 ")"
+      Newline@52..53 "\n"
+      RBrace@53..54 "}"
+  FnDef@54..88
+    Visibility@54..59
+      Newline@54..55 "\n"
+      Newline@55..56 "\n"
+      PubKw@56..59 "pub"
+    Whitespace@59..60 " "
+    PureKw@60..64 "pure"
+    Whitespace@64..65 " "
+    FnKw@65..67 "fn"
+    Whitespace@67..68 " "
+    Ident@68..71 "top"
+    ParamList@71..73
+      LParen@71..72 "("
+      RParen@72..73 ")"
+    BlockExpr@73..88
+      Whitespace@73..74 " "
+      LBrace@74..75 "{"
+      CallExpr@75..86
+        IdentExpr@75..84
+          Newline@75..76 "\n"
+          Whitespace@76..78 "  "
+          Ident@78..84 "middle"
+        ArgList@84..86
+          LParen@84..85 "("
+          RParen@85..86 ")"
+      Newline@86..87 "\n"
+      RBrace@87..88 "}"
+  Newline@88..89 "\n"

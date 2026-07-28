@@ -9,6 +9,8 @@ ThirModule {
             def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
+            purity: Pure,
+            declared_pure: false,
             params: [
                 ThirParam {
                     def_id: Idx::<DefData>(7),
@@ -49,7 +51,7 @@ ThirModule {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 38,
+                                start: 41,
                                 end: 65,
                             },
                         },
@@ -74,7 +76,7 @@ ThirModule {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 38,
+                                        start: 41,
                                         end: 58,
                                     },
                                 },
@@ -116,7 +118,7 @@ ThirModule {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 38,
+                                    start: 41,
                                     end: 58,
                                 },
                             },
@@ -144,7 +146,7 @@ ThirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 38,
+                            start: 41,
                             end: 65,
                         },
                     },
@@ -156,7 +158,7 @@ ThirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 36,
+                    start: 37,
                     end: 67,
                 },
             },
@@ -182,6 +184,8 @@ ThirModule {
             def_id: Idx::<DefData>(5),
             visibility: Public,
             is_async: false,
+            purity: Pure,
+            declared_pure: false,
             params: [
                 ThirParam {
                     def_id: Idx::<DefData>(8),
@@ -205,7 +209,7 @@ ThirModule {
                         file_id: FileId(
                             0,
                         ),
-                        start: 87,
+                        start: 88,
                         end: 94,
                     },
                 },
@@ -250,7 +254,7 @@ ThirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 104,
+                            start: 107,
                             end: 112,
                         },
                     },
@@ -262,7 +266,7 @@ ThirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 102,
+                    start: 103,
                     end: 114,
                 },
             },
@@ -283,7 +287,7 @@ ThirModule {
                 file_id: FileId(
                     0,
                 ),
-                start: 67,
+                start: 69,
                 end: 114,
             },
         },
@@ -291,6 +295,8 @@ ThirModule {
             def_id: Idx::<DefData>(6),
             visibility: Public,
             is_async: false,
+            purity: Pure,
+            declared_pure: false,
             params: [],
             return_ty: Primitive(
                 Int,
@@ -362,7 +368,7 @@ ThirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 138,
+                            start: 141,
                             end: 150,
                         },
                     },
@@ -374,7 +380,7 @@ ThirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 136,
+                    start: 137,
                     end: 152,
                 },
             },
@@ -388,7 +394,7 @@ ThirModule {
                 file_id: FileId(
                     0,
                 ),
-                start: 114,
+                start: 116,
                 end: 152,
             },
         },
@@ -529,6 +535,6 @@ ThirModule {
             0,
         ),
         start: 0,
-        end: 153,
+        end: 152,
     },
 }

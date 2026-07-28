@@ -27,4 +27,4 @@ type Color = Red | Green | Blue
 
 
 def main() -> Color:
-    return Red
+    return Red()

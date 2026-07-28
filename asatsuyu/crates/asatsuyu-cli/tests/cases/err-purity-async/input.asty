@@ -1,0 +1,3 @@
+pub pure async fn fetch() -> Int {
+  1
+}

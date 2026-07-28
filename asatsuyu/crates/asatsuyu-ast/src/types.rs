@@ -124,6 +124,10 @@ pub struct FnDef {
     pub visibility: Visibility,
     /// Whether this function was declared with `async`.
     pub is_async: bool,
+    /// Span of the `pure` modifier, or `None` when the function is not
+    /// declared pure. The span is kept so a broken purity assertion can point
+    /// at the word the author wrote.
+    pub pure_span: Option<Span>,
     pub params: Vec<Param>,
     /// Return type annotation. `None` when omitted.
     pub return_type: Option<TypeExpr>,

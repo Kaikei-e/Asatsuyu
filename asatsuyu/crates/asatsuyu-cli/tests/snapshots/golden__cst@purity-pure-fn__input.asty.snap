@@ -1,0 +1,93 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/purity-pure-fn/input.asty
+---
+SourceFile@0..108
+  FnDef@0..45
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    PureKw@4..8 "pure"
+    Whitespace@8..9 " "
+    FnKw@9..11 "fn"
+    Whitespace@11..12 " "
+    Ident@12..18 "double"
+    ParamList@18..26
+      LParen@18..19 "("
+      Param@19..25
+        Ident@19..20 "x"
+        Colon@20..21 ":"
+        TypeExpr@21..25
+          Whitespace@21..22 " "
+          Ident@22..25 "Int"
+      RParen@25..26 ")"
+    ReturnType@26..33
+      Whitespace@26..27 " "
+      Arrow@27..29 "->"
+      TypeExpr@29..33
+        Whitespace@29..30 " "
+        Ident@30..33 "Int"
+    BlockExpr@33..45
+      Whitespace@33..34 " "
+      LBrace@34..35 "{"
+      BinaryExpr@35..43
+        IdentExpr@35..39
+          Newline@35..36 "\n"
+          Whitespace@36..38 "  "
+          Ident@38..39 "x"
+        Whitespace@39..40 " "
+        Star@40..41 "*"
+        LiteralExpr@41..43
+          Whitespace@41..42 " "
+          IntLit@42..43 "2"
+      Newline@43..44 "\n"
+      RBrace@44..45 "}"
+  FnDef@45..107
+    Visibility@45..50
+      Newline@45..46 "\n"
+      Newline@46..47 "\n"
+      PubKw@47..50 "pub"
+    Whitespace@50..51 " "
+    PureKw@51..55 "pure"
+    Whitespace@55..56 " "
+    FnKw@56..58 "fn"
+    Whitespace@58..59 " "
+    Ident@59..68 "quadruple"
+    ParamList@68..76
+      LParen@68..69 "("
+      Param@69..75
+        Ident@69..70 "x"
+        Colon@70..71 ":"
+        TypeExpr@71..75
+          Whitespace@71..72 " "
+          Ident@72..75 "Int"
+      RParen@75..76 ")"
+    ReturnType@76..83
+      Whitespace@76..77 " "
+      Arrow@77..79 "->"
+      TypeExpr@79..83
+        Whitespace@79..80 " "
+        Ident@80..83 "Int"
+    BlockExpr@83..107
+      Whitespace@83..84 " "
+      LBrace@84..85 "{"
+      CallExpr@85..105
+        IdentExpr@85..94
+          Newline@85..86 "\n"
+          Whitespace@86..88 "  "
+          Ident@88..94 "double"
+        ArgList@94..105
+          LParen@94..95 "("
+          CallExpr@95..104
+            IdentExpr@95..101
+              Ident@95..101 "double"
+            ArgList@101..104
+              LParen@101..102 "("
+              IdentExpr@102..103
+                Ident@102..103 "x"
+              RParen@103..104 ")"
+          RParen@104..105 ")"
+      Newline@105..106 "\n"
+      RBrace@106..107 "}"
+  Newline@107..108 "\n"

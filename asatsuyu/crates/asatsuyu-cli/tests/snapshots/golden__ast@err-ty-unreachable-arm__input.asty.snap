@@ -20,6 +20,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [
                     Param {
                         name: Ident {
@@ -107,7 +108,7 @@ Module {
                                             file_id: FileId(
                                                 0,
                                             ),
-                                            start: 47,
+                                            start: 52,
                                             end: 53,
                                         },
                                     ),
@@ -129,7 +130,7 @@ Module {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 47,
+                                        start: 52,
                                         end: 62,
                                     },
                                 },
@@ -165,7 +166,7 @@ Module {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 62,
+                                        start: 67,
                                         end: 78,
                                     },
                                 },
@@ -174,7 +175,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 35,
+                                start: 38,
                                 end: 82,
                             },
                         },
@@ -183,7 +184,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 33,
+                        start: 34,
                         end: 84,
                     },
                 },
@@ -202,6 +203,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 85,
+        end: 84,
     },
 }

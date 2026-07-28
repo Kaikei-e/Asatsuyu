@@ -9,6 +9,8 @@ ThirModule {
             def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
+            purity: Pure,
+            declared_pure: false,
             params: [
                 ThirParam {
                     def_id: Idx::<DefData>(6),
@@ -67,7 +69,7 @@ ThirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 30,
+                            start: 33,
                             end: 38,
                         },
                     },
@@ -79,7 +81,7 @@ ThirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 28,
+                    start: 29,
                     end: 40,
                 },
             },
@@ -105,6 +107,8 @@ ThirModule {
             def_id: Idx::<DefData>(5),
             visibility: Public,
             is_async: false,
+            purity: Pure,
+            declared_pure: false,
             params: [],
             return_ty: Primitive(
                 Int,
@@ -173,7 +177,7 @@ ThirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 64,
+                            start: 67,
                             end: 79,
                         },
                     },
@@ -185,7 +189,7 @@ ThirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 62,
+                    start: 63,
                     end: 81,
                 },
             },
@@ -199,7 +203,7 @@ ThirModule {
                 file_id: FileId(
                     0,
                 ),
-                start: 40,
+                start: 42,
                 end: 81,
             },
         },
@@ -304,6 +308,6 @@ ThirModule {
             0,
         ),
         start: 0,
-        end: 82,
+        end: 81,
     },
 }

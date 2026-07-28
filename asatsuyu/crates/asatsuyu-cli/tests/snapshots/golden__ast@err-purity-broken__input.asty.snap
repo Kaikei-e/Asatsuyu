@@ -1,0 +1,216 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: ast
+input_file: crates/asatsuyu-cli/tests/cases/err-purity-broken/input.asty
+---
+Module {
+    imports: [],
+    definitions: [
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "leaf",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 3,
+                        end: 7,
+                    },
+                },
+                visibility: Private,
+                is_async: false,
+                pure_span: None,
+                params: [],
+                return_type: None,
+                body: Block {
+                    exprs: [
+                        Call {
+                            func: Variable(
+                                Ident {
+                                    name: "println",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 14,
+                                        end: 21,
+                                    },
+                                },
+                            ),
+                            args: [
+                                Literal(
+                                    Literal {
+                                        kind: String,
+                                        value: "\"x\"",
+                                        span: Span {
+                                            file_id: FileId(
+                                                0,
+                                            ),
+                                            start: 22,
+                                            end: 25,
+                                        },
+                                    },
+                                ),
+                            ],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 14,
+                                end: 26,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 10,
+                        end: 28,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 0,
+                    end: 28,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "middle",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 33,
+                        end: 39,
+                    },
+                },
+                visibility: Private,
+                is_async: false,
+                pure_span: None,
+                params: [],
+                return_type: None,
+                body: Block {
+                    exprs: [
+                        Call {
+                            func: Variable(
+                                Ident {
+                                    name: "leaf",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 46,
+                                        end: 50,
+                                    },
+                                },
+                            ),
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 46,
+                                end: 52,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 42,
+                        end: 54,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 30,
+                    end: 54,
+                },
+            },
+        ),
+        Function(
+            FnDef {
+                name: Ident {
+                    name: "top",
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 68,
+                        end: 71,
+                    },
+                },
+                visibility: Public,
+                is_async: false,
+                pure_span: Some(
+                    Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 60,
+                        end: 64,
+                    },
+                ),
+                params: [],
+                return_type: None,
+                body: Block {
+                    exprs: [
+                        Call {
+                            func: Variable(
+                                Ident {
+                                    name: "middle",
+                                    span: Span {
+                                        file_id: FileId(
+                                            0,
+                                        ),
+                                        start: 78,
+                                        end: 84,
+                                    },
+                                },
+                            ),
+                            args: [],
+                            span: Span {
+                                file_id: FileId(
+                                    0,
+                                ),
+                                start: 78,
+                                end: 86,
+                            },
+                        },
+                    ],
+                    span: Span {
+                        file_id: FileId(
+                            0,
+                        ),
+                        start: 74,
+                        end: 88,
+                    },
+                },
+                span: Span {
+                    file_id: FileId(
+                        0,
+                    ),
+                    start: 56,
+                    end: 88,
+                },
+            },
+        ),
+    ],
+    span: Span {
+        file_id: FileId(
+            0,
+        ),
+        start: 0,
+        end: 88,
+    },
+}

@@ -3,6 +3,6 @@ source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
 expression: text
 ---
 [E0203] Error: function expects 1 argument(s), but 2 were given
-  span: 41..49
-  primary [41..49]: 2 argument(s) given here
+  span: 42..49
+  primary [42..49]: 2 argument(s) given here
   secondary [42..43]: function expects 1 parameter(s)

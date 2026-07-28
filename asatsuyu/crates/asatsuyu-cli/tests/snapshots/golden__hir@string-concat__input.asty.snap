@@ -10,6 +10,7 @@ HirModule {
             def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
+            pure_span: None,
             params: [
                 HirParam {
                     def_id: Idx::<DefData>(5),
@@ -57,7 +58,7 @@ HirModule {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 41,
+                                start: 44,
                                 end: 68,
                             },
                         ),
@@ -69,7 +70,7 @@ HirModule {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 41,
+                                        start: 44,
                                         end: 61,
                                     },
                                 ),
@@ -102,7 +103,7 @@ HirModule {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 41,
+                                    start: 44,
                                     end: 61,
                                 },
                             },
@@ -124,7 +125,7 @@ HirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 41,
+                            start: 44,
                             end: 68,
                         },
                     },
@@ -133,7 +134,7 @@ HirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 39,
+                    start: 40,
                     end: 70,
                 },
             },
@@ -231,6 +232,6 @@ HirModule {
             0,
         ),
         start: 0,
-        end: 71,
+        end: 70,
     },
 }

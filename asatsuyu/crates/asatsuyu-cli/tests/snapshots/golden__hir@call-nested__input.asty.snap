@@ -10,6 +10,7 @@ HirModule {
             def_id: Idx::<DefData>(4),
             visibility: Public,
             is_async: false,
+            pure_span: None,
             params: [
                 HirParam {
                     def_id: Idx::<DefData>(7),
@@ -79,7 +80,7 @@ HirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 30,
+                            start: 33,
                             end: 38,
                         },
                     },
@@ -88,7 +89,7 @@ HirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 28,
+                    start: 29,
                     end: 40,
                 },
             },
@@ -104,6 +105,7 @@ HirModule {
             def_id: Idx::<DefData>(5),
             visibility: Public,
             is_async: false,
+            pure_span: None,
             params: [
                 HirParam {
                     def_id: Idx::<DefData>(8),
@@ -173,7 +175,7 @@ HirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 69,
+                            start: 72,
                             end: 77,
                         },
                     },
@@ -182,7 +184,7 @@ HirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 67,
+                    start: 68,
                     end: 79,
                 },
             },
@@ -190,7 +192,7 @@ HirModule {
                 file_id: FileId(
                     0,
                 ),
-                start: 40,
+                start: 42,
                 end: 79,
             },
         },
@@ -198,6 +200,7 @@ HirModule {
             def_id: Idx::<DefData>(6),
             visibility: Public,
             is_async: false,
+            pure_span: None,
             params: [],
             return_type: Some(
                 HirTypeExpr {
@@ -265,7 +268,7 @@ HirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 103,
+                            start: 106,
                             end: 120,
                         },
                     },
@@ -274,7 +277,7 @@ HirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 101,
+                    start: 102,
                     end: 122,
                 },
             },
@@ -282,7 +285,7 @@ HirModule {
                 file_id: FileId(
                     0,
                 ),
-                start: 79,
+                start: 81,
                 end: 122,
             },
         },
@@ -408,6 +411,6 @@ HirModule {
             0,
         ),
         start: 0,
-        end: 123,
+        end: 122,
     },
 }

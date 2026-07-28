@@ -69,7 +69,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 14,
+                                start: 17,
                                 end: 36,
                             },
                         },
@@ -98,6 +98,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [
                     Param {
                         name: Ident {
@@ -253,7 +254,7 @@ Module {
                                                 file_id: FileId(
                                                     0,
                                                 ),
-                                                start: 112,
+                                                start: 117,
                                                 end: 127,
                                             },
                                         },
@@ -274,7 +275,7 @@ Module {
                                             file_id: FileId(
                                                 0,
                                             ),
-                                            start: 112,
+                                            start: 117,
                                             end: 132,
                                         },
                                     },
@@ -283,7 +284,7 @@ Module {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 102,
+                                    start: 103,
                                     end: 136,
                                 },
                             },
@@ -338,7 +339,7 @@ Module {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 142,
+                                    start: 143,
                                     end: 152,
                                 },
                             },
@@ -367,7 +368,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 70,
+                        start: 71,
                         end: 158,
                     },
                 },
@@ -375,7 +376,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 38,
+                    start: 40,
                     end: 158,
                 },
             },
@@ -386,6 +387,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 159,
+        end: 158,
     },
 }

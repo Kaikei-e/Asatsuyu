@@ -20,6 +20,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: Some(
                     Named {
@@ -63,7 +64,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 23,
+                        start: 24,
                         end: 37,
                     },
                 },
@@ -82,6 +83,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 38,
+        end: 37,
     },
 }

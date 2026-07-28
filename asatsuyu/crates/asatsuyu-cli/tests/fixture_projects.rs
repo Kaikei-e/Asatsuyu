@@ -14,7 +14,7 @@ fn workspace_root() -> PathBuf {
 /// Build and return a `Command` pointing at the asatsuyu-cli binary,
 /// with working directory set to the workspace root.
 fn asatsuyu() -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu-cli"));
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_asatsuyu"));
     cmd.current_dir(workspace_root());
     cmd
 }

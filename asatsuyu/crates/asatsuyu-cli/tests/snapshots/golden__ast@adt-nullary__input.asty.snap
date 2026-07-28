@@ -38,7 +38,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 12,
+                                start: 15,
                                 end: 18,
                             },
                         },
@@ -58,7 +58,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 18,
+                                start: 21,
                                 end: 26,
                             },
                         },
@@ -78,7 +78,7 @@ Module {
                                 file_id: FileId(
                                     0,
                                 ),
-                                start: 26,
+                                start: 29,
                                 end: 33,
                             },
                         },
@@ -107,6 +107,7 @@ Module {
                 },
                 visibility: Public,
                 is_async: false,
+                pure_span: None,
                 params: [],
                 return_type: Some(
                     Named {
@@ -149,7 +150,7 @@ Module {
                         file_id: FileId(
                             0,
                         ),
-                        start: 59,
+                        start: 60,
                         end: 69,
                     },
                 },
@@ -157,7 +158,7 @@ Module {
                     file_id: FileId(
                         0,
                     ),
-                    start: 35,
+                    start: 37,
                     end: 69,
                 },
             },
@@ -168,6 +169,6 @@ Module {
             0,
         ),
         start: 0,
-        end: 70,
+        end: 69,
     },
 }

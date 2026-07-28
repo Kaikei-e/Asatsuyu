@@ -3,6 +3,6 @@ source: crates/asatsuyu-cli/tests/diagnostic_snapshots.rs
 expression: text
 ---
 [E0200] Error: type mismatch: expected `Int`, found `String`
-  span: 13..25
-  primary [13..25]: expected `Int`, found `String`
+  span: 14..25
+  primary [14..25]: expected `Int`, found `String`
   secondary [0..25]: expected `Int` because of return type annotation

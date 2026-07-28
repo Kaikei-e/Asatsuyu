@@ -1,0 +1,36 @@
+---
+source: crates/asatsuyu-cli/tests/golden.rs
+expression: cst
+input_file: crates/asatsuyu-cli/tests/cases/err-purity-async/input.asty
+---
+SourceFile@0..41
+  FnDef@0..40
+    Visibility@0..3
+      PubKw@0..3 "pub"
+    Whitespace@3..4 " "
+    PureKw@4..8 "pure"
+    Whitespace@8..9 " "
+    AsyncKw@9..14 "async"
+    Whitespace@14..15 " "
+    FnKw@15..17 "fn"
+    Whitespace@17..18 " "
+    Ident@18..23 "fetch"
+    ParamList@23..25
+      LParen@23..24 "("
+      RParen@24..25 ")"
+    ReturnType@25..32
+      Whitespace@25..26 " "
+      Arrow@26..28 "->"
+      TypeExpr@28..32
+        Whitespace@28..29 " "
+        Ident@29..32 "Int"
+    BlockExpr@32..40
+      Whitespace@32..33 " "
+      LBrace@33..34 "{"
+      LiteralExpr@34..38
+        Newline@34..35 "\n"
+        Whitespace@35..37 "  "
+        IntLit@37..38 "1"
+      Newline@38..39 "\n"
+      RBrace@39..40 "}"
+  Newline@40..41 "\n"

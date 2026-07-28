@@ -10,6 +10,7 @@ HirModule {
             def_id: Idx::<DefData>(8),
             visibility: Public,
             is_async: false,
+            pure_span: None,
             params: [
                 HirParam {
                     def_id: Idx::<DefData>(9),
@@ -70,7 +71,7 @@ HirModule {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 82,
+                                        start: 87,
                                         end: 90,
                                     },
                                 },
@@ -92,7 +93,7 @@ HirModule {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 82,
+                                    start: 87,
                                     end: 99,
                                 },
                             },
@@ -104,7 +105,7 @@ HirModule {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 99,
+                                        start: 104,
                                         end: 109,
                                     },
                                 },
@@ -126,7 +127,7 @@ HirModule {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 99,
+                                    start: 104,
                                     end: 120,
                                 },
                             },
@@ -138,7 +139,7 @@ HirModule {
                                         file_id: FileId(
                                             0,
                                         ),
-                                        start: 120,
+                                        start: 125,
                                         end: 129,
                                     },
                                 },
@@ -160,7 +161,7 @@ HirModule {
                                     file_id: FileId(
                                         0,
                                     ),
-                                    start: 120,
+                                    start: 125,
                                     end: 139,
                                 },
                             },
@@ -169,7 +170,7 @@ HirModule {
                             file_id: FileId(
                                 0,
                             ),
-                            start: 70,
+                            start: 73,
                             end: 143,
                         },
                     },
@@ -178,7 +179,7 @@ HirModule {
                     file_id: FileId(
                         0,
                     ),
-                    start: 68,
+                    start: 69,
                     end: 145,
                 },
             },
@@ -186,7 +187,7 @@ HirModule {
                 file_id: FileId(
                     0,
                 ),
-                start: 35,
+                start: 37,
                 end: 145,
             },
         },
@@ -204,7 +205,7 @@ HirModule {
                         file_id: FileId(
                             0,
                         ),
-                        start: 12,
+                        start: 15,
                         end: 18,
                     },
                 },
@@ -215,7 +216,7 @@ HirModule {
                         file_id: FileId(
                             0,
                         ),
-                        start: 18,
+                        start: 21,
                         end: 26,
                     },
                 },
@@ -226,7 +227,7 @@ HirModule {
                         file_id: FileId(
                             0,
                         ),
-                        start: 26,
+                        start: 29,
                         end: 33,
                     },
                 },
@@ -372,6 +373,6 @@ HirModule {
             0,
         ),
         start: 0,
-        end: 146,
+        end: 145,
     },
 }

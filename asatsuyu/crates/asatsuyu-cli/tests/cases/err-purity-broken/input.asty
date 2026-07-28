@@ -1,0 +1,11 @@
+fn leaf() {
+  println("x")
+}
+
+fn middle() {
+  leaf()
+}
+
+pub pure fn top() {
+  middle()
+}
