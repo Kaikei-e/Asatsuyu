@@ -126,32 +126,8 @@
     },
 
     "function-definition": {
+      "comment": "Only `fn <name>`. Leading pub/pure/async are left to #storage-modifiers, so every combination of them works without enumerating each one.",
       "patterns": [
-        {
-          "match": "\\b(pub)\\s+(async)\\s+(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-          "captures": {
-            "1": { "name": "storage.modifier.asatsuyu" },
-            "2": { "name": "storage.modifier.async.asatsuyu" },
-            "3": { "name": "keyword.declaration.function.asatsuyu" },
-            "4": { "name": "entity.name.function.asatsuyu" }
-          }
-        },
-        {
-          "match": "\\b(async)\\s+(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-          "captures": {
-            "1": { "name": "storage.modifier.async.asatsuyu" },
-            "2": { "name": "keyword.declaration.function.asatsuyu" },
-            "3": { "name": "entity.name.function.asatsuyu" }
-          }
-        },
-        {
-          "match": "\\b(pub)\\s+(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-          "captures": {
-            "1": { "name": "storage.modifier.asatsuyu" },
-            "2": { "name": "keyword.declaration.function.asatsuyu" },
-            "3": { "name": "entity.name.function.asatsuyu" }
-          }
-        },
         {
           "match": "\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
           "captures": {
@@ -197,7 +173,7 @@
     },
 
     "storage-modifiers": {
-      "comment": "Catch-all for pub/mut/async when not captured by structured patterns",
+      "comment": "Catch-all for pub/mut/async/pure when not captured by structured patterns",
       "patterns": [
         {
           "name": "storage.modifier.asatsuyu",
@@ -210,6 +186,10 @@
         {
           "name": "storage.modifier.async.asatsuyu",
           "match": "\\basync\\b"
+        },
+        {
+          "name": "storage.modifier.pure.asatsuyu",
+          "match": "\\bpure\\b"
         }
       ]
     },
