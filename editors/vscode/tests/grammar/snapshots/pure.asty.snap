@@ -1,0 +1,87 @@
+>pure fn double(x: Int) -> Int {
+#^^^^ source.asatsuyu storage.modifier.pure.asatsuyu
+#    ^ source.asatsuyu
+#     ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#       ^ source.asatsuyu
+#        ^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#              ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#               ^ source.asatsuyu
+#                ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                 ^ source.asatsuyu
+#                  ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                     ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                         ^ source.asatsuyu
+#                          ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  x * 2
+#^^^^ source.asatsuyu
+#    ^ source.asatsuyu keyword.operator.arithmetic.asatsuyu
+#     ^ source.asatsuyu
+#      ^ source.asatsuyu constant.numeric.integer.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub pure fn quadruple(x: Int) -> Int {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^^^ source.asatsuyu storage.modifier.pure.asatsuyu
+#        ^ source.asatsuyu
+#         ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#           ^ source.asatsuyu
+#            ^^^^^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#                     ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                      ^ source.asatsuyu
+#                       ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                        ^ source.asatsuyu
+#                         ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                            ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                             ^ source.asatsuyu
+#                              ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                                ^ source.asatsuyu
+#                                 ^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                    ^ source.asatsuyu
+#                                     ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  double(double(x))
+#^^^^^^^^ source.asatsuyu
+#        ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#         ^^^^^^ source.asatsuyu
+#               ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                ^ source.asatsuyu
+#                 ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                  ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>
+>pub async fn fetch(url: String) -> String {
+#^^^ source.asatsuyu storage.modifier.asatsuyu
+#   ^ source.asatsuyu
+#    ^^^^^ source.asatsuyu storage.modifier.async.asatsuyu
+#         ^ source.asatsuyu
+#          ^^ source.asatsuyu keyword.declaration.function.asatsuyu
+#            ^ source.asatsuyu
+#             ^^^^^ source.asatsuyu entity.name.function.asatsuyu
+#                  ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#                   ^^^ source.asatsuyu
+#                      ^ source.asatsuyu punctuation.separator.colon.asatsuyu
+#                       ^ source.asatsuyu
+#                        ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                              ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+#                               ^ source.asatsuyu
+#                                ^^ source.asatsuyu keyword.operator.arrow.asatsuyu
+#                                  ^ source.asatsuyu
+#                                   ^^^^^^ source.asatsuyu entity.name.type.asatsuyu
+#                                         ^ source.asatsuyu
+#                                          ^ source.asatsuyu punctuation.section.block.begin.asatsuyu
+>  await get(url)
+#^^ source.asatsuyu
+#  ^^^^^ source.asatsuyu keyword.control.await.asatsuyu
+#       ^^^^ source.asatsuyu
+#           ^ source.asatsuyu punctuation.section.parens.begin.asatsuyu
+#            ^^^ source.asatsuyu
+#               ^ source.asatsuyu punctuation.section.parens.end.asatsuyu
+>}
+#^ source.asatsuyu punctuation.section.block.end.asatsuyu
+>

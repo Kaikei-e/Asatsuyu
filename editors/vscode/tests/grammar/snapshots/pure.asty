@@ -1,0 +1,11 @@
+pure fn double(x: Int) -> Int {
+  x * 2
+}
+
+pub pure fn quadruple(x: Int) -> Int {
+  double(double(x))
+}
+
+pub async fn fetch(url: String) -> String {
+  await get(url)
+}
