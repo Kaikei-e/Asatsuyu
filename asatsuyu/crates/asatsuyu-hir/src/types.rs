@@ -186,6 +186,9 @@ pub struct HirFnDef {
     pub visibility: Visibility,
     /// Whether this function was declared with `async`.
     pub is_async: bool,
+    /// Span of the `pure` modifier, or `None` when the function is not
+    /// declared pure.
+    pub pure_span: Option<Span>,
     pub params: Vec<HirParam>,
     /// Return type annotation. `None` when omitted.
     pub return_type: Option<HirTypeExpr>,

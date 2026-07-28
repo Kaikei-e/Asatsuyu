@@ -40,6 +40,8 @@ pub struct HirLowerResult {
     pub module: HirModule,
     /// Diagnostics collected during lowering (e.g., unresolved names).
     pub diagnostics: Vec<Diagnostic>,
+    /// Purity classification for every function in the module.
+    pub purity: purity::PurityReport,
 }
 
 impl HirLowerResult {
@@ -60,8 +62,12 @@ impl HirLowerResult {
 pub fn lower_to_hir(ast: &Module) -> HirLowerResult {
     let mut ctx = lower::HirLowerCtx::new();
     let module = ctx.lower_module(ast);
-    let diagnostics = ctx.into_diagnostics();
-    HirLowerResult { module, diagnostics }
+    let mut diagnostics = ctx.into_diagnostics();
+
+    let report = purity::analyze(&module);
+    diagnostics.extend(purity::check(&module, &report));
+
+    HirLowerResult { module, diagnostics, purity: report }
 }
 
 #[cfg(test)]

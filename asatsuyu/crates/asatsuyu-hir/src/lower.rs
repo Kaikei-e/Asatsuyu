@@ -374,6 +374,7 @@ impl HirLowerCtx {
             def_id,
             visibility: fn_def.visibility,
             is_async: fn_def.is_async,
+            pure_span: fn_def.pure_span,
             params,
             return_type,
             body,

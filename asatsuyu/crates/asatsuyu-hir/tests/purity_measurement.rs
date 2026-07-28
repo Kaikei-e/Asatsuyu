@@ -1,13 +1,13 @@
 //! Measurement of the purity analysis against the example corpus.
 //!
-//! The open question is how much a conservative treatment of higher-order
-//! calls actually costs. These tests pin the answer for the programs that
-//! exist today, so a future change to the analysis shows up as a diff.
+//! The analysis treats an unresolvable call as an effect. These tests pin what
+//! that costs for the programs that exist today, so a future change to the
+//! analysis — or a new example that trips it — shows up as a diff.
 
 use std::fmt::Write as _;
 
 use asatsuyu_hir::lower_to_hir;
-use asatsuyu_hir::purity::{PurityReport, UnresolvedCallKind, analyze};
+use asatsuyu_hir::purity::{EffectSource, PurityReport, UnresolvedCallKind, analyze};
 use asatsuyu_parser::parse;
 use asatsuyu_syntax::FileId;
 
@@ -20,6 +20,7 @@ const EXAMPLES: &[(&str, &str)] = &[
     ("ffi_try", include_str!("../../../examples/ffi_try.asty")),
     ("http", include_str!("../../../examples/http.asty")),
     ("tutorial_file_inventory", include_str!("../../../examples/tutorial_file_inventory.asty")),
+    ("purity", include_str!("../../../examples/purity.asty")),
 ];
 
 fn report_for(source: &str) -> PurityReport {
@@ -35,7 +36,7 @@ fn render(name: &str, report: &PurityReport) -> String {
     let _ = writeln!(out, "== {name} ==");
     for func in &report.functions {
         let _ = write!(out, "  {:<24} {:?}", func.name.as_str(), func.purity);
-        if let Some(source) = func.source {
+        if let Some(source) = func.source() {
             let _ = write!(out, " ({source:?})");
         }
         if !func.unresolved.is_empty() {
@@ -65,23 +66,42 @@ fn corpus_purity_snapshot() {
     insta::assert_snapshot!("corpus_purity", out);
 }
 
-/// The measurement that decides whether a conservative approximation is
-/// affordable: how many functions would flip from pure to effectful if every
-/// higher-order call site were assumed effectful.
+/// What conservatism costs: a function reported effectful only because a call
+/// could not be resolved is one the analysis may be wrong about. Zero of them
+/// means treating unresolvable calls as effects loses no precision here.
 #[test]
-fn no_function_in_the_corpus_is_undecided() {
-    let mut undecided = Vec::new();
+fn every_effectful_function_reaches_a_proven_effect() {
+    let mut assumed = Vec::new();
     for (name, source) in EXAMPLES {
         let report = report_for(source);
-        for func in report.undecided() {
-            undecided.push(format!("{name}::{}", func.name));
+        for func in &report.functions {
+            let path = report.effect_path(func.def_id);
+            if path.last().is_some_and(|step| !step.origin.source.is_proven()) {
+                assumed.push(format!("{name}::{}", func.name));
+            }
         }
     }
 
-    assert!(
-        undecided.is_empty(),
-        "conservative approximation would flip these functions to effectful: {undecided:?}"
-    );
+    assert!(assumed.is_empty(), "these functions are effectful only by assumption: {assumed:?}");
+}
+
+/// The effect chain a diagnostic prints must terminate. Every effectful
+/// function in the corpus resolves to a boundary crossing or to `async`.
+#[test]
+fn every_effect_path_terminates_at_a_boundary_or_async() {
+    for (name, source) in EXAMPLES {
+        let report = report_for(source);
+        for func in &report.functions {
+            let path = report.effect_path(func.def_id);
+            let Some(last) = path.last() else { continue };
+            assert!(
+                matches!(last.origin.source, EffectSource::Boundary | EffectSource::Async),
+                "{name}::{} ends its effect path at {:?}",
+                func.name,
+                last.origin.source
+            );
+        }
+    }
 }
 
 /// Higher-order use in the corpus goes through built-in list combinators with

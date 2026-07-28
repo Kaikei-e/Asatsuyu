@@ -18,8 +18,9 @@ expression: out
   main                     Effectful (Boundary)  unresolved: [ReceiverUntyped]
   -- pure 0 / effectful 1 / higher-order call sites 0
 == ffi_json ==
+  roundtrip                Effectful (Boundary)
   main                     Effectful (Boundary)
-  -- pure 0 / effectful 1 / higher-order call sites 0
+  -- pure 0 / effectful 2 / higher-order call sites 0
 == ffi_try ==
   safe_exists              Effectful (Boundary)  unresolved: [ReceiverUntyped]
   main                     Effectful (Propagated)
@@ -52,3 +53,9 @@ expression: out
   result_message           Pure
   main                     Effectful (Boundary)
   -- pure 16 / effectful 4 / higher-order call sites 0
+== purity ==
+  classify                 Pure
+  describe                 Pure
+  report                   Pure
+  main                     Effectful (Boundary)
+  -- pure 3 / effectful 1 / higher-order call sites 0
