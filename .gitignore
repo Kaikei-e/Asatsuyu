@@ -7,5 +7,5 @@ docs/research/
 .serena/
 __pycache__/
 editors/vscode/node_modules/
-editors/vscode/out
+*.vsix
 .codex
