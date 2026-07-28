@@ -47,6 +47,9 @@ pub(crate) const TOP_LEVEL_RECOVERY: TokenSet = TokenSet::new(&[
     SyntaxKind::LetKw,
     SyntaxKind::ImportKw,
     SyntaxKind::FromKw,
+    // Function modifiers begin an item too, so recovery must stop on them.
+    SyntaxKind::AsyncKw,
+    SyntaxKind::PureKw,
 ]);
 
 /// Closing delimiters — **never** consumed during error recovery.
@@ -66,6 +69,7 @@ pub(crate) const EXPR_START: TokenSet = TokenSet::new(&[
     SyntaxKind::MatchKw,
     SyntaxKind::FnKw,
     SyntaxKind::TryKw,
+    SyntaxKind::AwaitKw,
     SyntaxKind::LBracket,
     SyntaxKind::IntLit,
     SyntaxKind::FloatLit,

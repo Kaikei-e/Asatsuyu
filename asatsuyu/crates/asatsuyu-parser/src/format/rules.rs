@@ -204,6 +204,10 @@ fn format_fn_def(f: &mut Formatter, node: &SyntaxNode) {
                 f.write_str("pub");
                 f.write_space();
             }
+            NodeOrToken::Token(t) if t.kind() == SyntaxKind::PureKw => {
+                f.write_str("pure");
+                f.write_space();
+            }
             NodeOrToken::Token(t) if t.kind() == SyntaxKind::AsyncKw => {
                 f.write_str("async");
                 f.write_space();

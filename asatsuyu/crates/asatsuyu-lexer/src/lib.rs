@@ -564,6 +564,22 @@ mod tests {
     }
 
     #[test]
+    fn snap_keyword_pure() {
+        insta::assert_snapshot!(snapshot_tokens("pure"), @r#"
+        PureKw "pure" 0..4
+        Eof "" 4..4
+        "#);
+    }
+
+    #[test]
+    fn snap_keyword_prefix_pure_not_keyword() {
+        insta::assert_snapshot!(snapshot_tokens("purely"), @r#"
+        Ident "purely" 0..6
+        Eof "" 6..6
+        "#);
+    }
+
+    #[test]
     fn snap_keyword_prefix_mut_not_keyword() {
         insta::assert_snapshot!(snapshot_tokens("mutable"), @r#"
         Ident "mutable" 0..7

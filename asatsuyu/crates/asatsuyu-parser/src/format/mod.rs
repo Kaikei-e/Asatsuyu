@@ -68,6 +68,12 @@ mod tests {
     }
 
     #[test]
+    fn format_pure_fn() {
+        let input = "pub pure fn add(x: Int, y: Int) -> Int {\n  x + y\n}\n";
+        assert_idempotent(input);
+    }
+
+    #[test]
     fn format_type_def() {
         let input = "type Color {\n  Red\n  Green\n  Blue\n}\n";
         assert_idempotent(input);

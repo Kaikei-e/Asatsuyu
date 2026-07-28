@@ -30,7 +30,7 @@ pub(crate) fn parse_source_file(p: &mut Parser<'_>) {
 /// Dispatch a top-level item.
 fn parse_top_level(p: &mut Parser<'_>) {
     match p.current() {
-        SyntaxKind::FnKw | SyntaxKind::AsyncKw => parse_fn_def(p),
+        SyntaxKind::FnKw | SyntaxKind::AsyncKw | SyntaxKind::PureKw => parse_fn_def(p),
         SyntaxKind::TypeKw => parse_type_def(p),
         SyntaxKind::PubKw => match p.nth(1) {
             SyntaxKind::TypeKw => parse_type_def(p),
@@ -46,7 +46,8 @@ fn parse_top_level(p: &mut Parser<'_>) {
 }
 
 /// ```text
-/// FnDef = Visibility? 'async'? 'fn' IDENT ParamList ReturnType? BlockExpr
+/// FnDef = Visibility? FnModifier* 'fn' IDENT ParamList ReturnType? BlockExpr
+/// FnModifier = 'pure' | 'async'
 /// ```
 fn parse_fn_def(p: &mut Parser<'_>) {
     p.start_node(SyntaxKind::FnDef);
@@ -56,8 +57,10 @@ fn parse_fn_def(p: &mut Parser<'_>) {
         parse_visibility(p);
     }
 
-    // Optional `async` modifier
-    if p.at(SyntaxKind::AsyncKw) {
+    // Modifiers are accepted in any order so that `async pure fn` reaches the
+    // purity check, which explains the contradiction, instead of dying here as
+    // a parse error.
+    while matches!(p.current(), SyntaxKind::PureKw | SyntaxKind::AsyncKw) {
         p.bump();
     }
 

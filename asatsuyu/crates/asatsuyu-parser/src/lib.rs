@@ -1464,6 +1464,35 @@ _ -> 0 } }"#;
     }
 
     #[test]
+    fn recovery_resumes_at_a_modifier_led_item() {
+        let source = "fn broken( \n\npure fn good() { 1 }\n\nasync fn later() { 2 }";
+        let result = parse(FID, source);
+        assert!(result.has_errors(), "the broken item should be reported");
+        let tree = debug_tree(source);
+        assert!(tree.contains("PureKw"), "recovery swallowed the `pure` item:\n{tree}");
+        assert!(tree.contains("AsyncKw"), "recovery swallowed the `async` item:\n{tree}");
+    }
+
+    #[test]
+    fn parse_pure_fn_simple() {
+        let source = "pub pure fn double(x: Int) -> Int { x * 2 }";
+        let result = parse(FID, source);
+        assert!(!result.has_errors(), "diagnostics: {:?}", result.diagnostics());
+        let tree = debug_tree(source);
+        assert!(tree.contains("PureKw"), "tree should contain PureKw:\n{tree}");
+    }
+
+    #[test]
+    fn parse_pure_and_async_in_either_order() {
+        for source in ["pure async fn f() { 1 }", "async pure fn f() { 1 }"] {
+            let result = parse(FID, source);
+            assert!(!result.has_errors(), "{source} → diagnostics: {:?}", result.diagnostics());
+            let tree = debug_tree(source);
+            assert!(tree.contains("PureKw") && tree.contains("AsyncKw"), "{source}:\n{tree}");
+        }
+    }
+
+    #[test]
     fn parse_await_simple_call() {
         let source = "fn f() { await fetch() }";
         let result = parse(FID, source);
