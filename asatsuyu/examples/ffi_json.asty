@@ -1,5 +1,14 @@
+// Checked FFI: `json.loads` returns `Any`, so its result stays opaque.
+//
+// An opaque value may only be handed to another foreign call that accepts the
+// same opaque type — it never enters the typed world implicitly.
+
 from python import json
 
-pub fn main() -> String {
-  json.dumps("hello")
+pub fn roundtrip(text: String) -> String {
+  json.dumps(json.loads(text))
+}
+
+pub fn main() {
+  println(roundtrip("[1, 2, 3]"))
 }

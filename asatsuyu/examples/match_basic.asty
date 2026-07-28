@@ -19,7 +19,7 @@ pub fn unwrap_or(opt: Option, default: Int) -> Int {
 
 pub fn first(items: List) -> Option {
   match items {
-    [head, ..] -> head
-    [] -> 0
+    [head, ..] -> Some(head)
+    [] -> None
   }
 }

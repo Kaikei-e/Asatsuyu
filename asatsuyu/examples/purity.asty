@@ -1,0 +1,37 @@
+// A pure core with a thin effectful shell.
+//
+// The `pure` modifier is an assertion the compiler checks: if any effect were
+// reachable from one of these functions, compilation would fail with E0154.
+// `main` carries the effects, and is deliberately not declared pure.
+
+from python import sys
+
+pub type Verdict {
+  Passing
+  Failing
+}
+
+pub pure fn classify(score: Int) -> Verdict {
+  if score >= 60 {
+    Passing
+  } else {
+    Failing
+  }
+}
+
+pub pure fn describe(verdict: Verdict) -> String {
+  match verdict {
+    Passing -> "pass"
+    Failing -> "fail"
+  }
+}
+
+pub pure fn report(label: String, score: Int) -> String {
+  label <> ": " <> describe(classify(score))
+}
+
+pub fn main() {
+  println("platform: " <> sys.platform)
+  println(report("alice", 72))
+  println(report("bob", 41))
+}
