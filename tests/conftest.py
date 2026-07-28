@@ -14,7 +14,7 @@ ASATSUYU_DIR = PROJECT_ROOT / "asatsuyu"
 
 @pytest.fixture(scope="session")
 def cli_binary() -> pathlib.Path:
-    """Build asatsuyu-cli and return the binary path."""
+    """Build the asatsuyu-cli crate and return the path to its `asatsuyu` binary."""
     result = subprocess.run(
         ["cargo", "build", "-p", "asatsuyu-cli", "--release"],
         cwd=ASATSUYU_DIR,
@@ -22,7 +22,7 @@ def cli_binary() -> pathlib.Path:
         text=True,
     )
     assert result.returncode == 0, f"cargo build failed: {result.stderr}"
-    binary = ASATSUYU_DIR / "target" / "release" / "asatsuyu-cli"
+    binary = ASATSUYU_DIR / "target" / "release" / "asatsuyu"
     assert binary.exists(), f"binary not found: {binary}"
     return binary
 
@@ -74,8 +74,16 @@ def delete(url: str) -> Response:
 
 
 @pytest.fixture()
-def requests_stub_module(tmp_path: pathlib.Path) -> pathlib.Path:
-    """Write a stub requests.py into tmp_path and return the file path."""
+def requests_stub_module(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> pathlib.Path:
+    """Write a stub requests.py into tmp_path and return the file path.
+
+    Prepending to `sys.path` is not enough on its own: an already-imported
+    `requests` is served from `sys.modules`, so on a machine that has the real
+    library these tests would reach the network instead of the stub.
+    """
     stub = tmp_path / "requests.py"
     stub.write_text(REQUESTS_STUB_SOURCE)
+    monkeypatch.delitem(sys.modules, "requests", raising=False)
     return stub
