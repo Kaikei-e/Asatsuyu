@@ -6,11 +6,11 @@ Frozen as of Issue 88 (Phase 3-0). Changes to this grammar require a new issue.
 
 ---
 
-## Keywords (17 keywords)
+## Keywords (18 keywords)
 
 All keywords are lexed unconditionally as keyword tokens. They are classified into four categories (see `KeywordClass` in `asatsuyu-syntax/src/keyword.rs`).
 
-### Hard keywords (10)
+### Hard keywords (14)
 
 Always reserved. Cannot be used as identifiers in any context.
 
@@ -19,6 +19,7 @@ Always reserved. Cannot be used as identifiers in any context.
 | `fn`     | `FnKw`      | Function / lambda definition     |
 | `pub`    | `PubKw`     | Visibility modifier              |
 | `let`    | `LetKw`     | Variable binding                 |
+| `mut`    | `MutKw`     | Mutable local binding            |
 | `type`   | `TypeKw`    | Type definition                  |
 | `match`  | `MatchKw`   | Pattern matching                 |
 | `if`     | `IfKw`      | Conditional expression           |
@@ -26,6 +27,9 @@ Always reserved. Cannot be used as identifiers in any context.
 | `import` | `ImportKw`  | Module import                    |
 | `from`   | `FromKw`    | Python FFI import prefix         |
 | `try`    | `TryKw`     | Exception-to-Result boundary     |
+| `async`  | `AsyncKw`   | Async function modifier          |
+| `await`  | `AwaitKw`   | Await expression prefix          |
+| `pure`   | `PureKw`    | Purity assertion on a function   |
 
 ### Literal keywords (2)
 
@@ -45,15 +49,10 @@ Only meaningful in specific syntactic positions (`from python import ... as ...`
 | `python` | `PythonKw`  | Python FFI marker                |
 | `as`     | `AsKw`      | Import alias                     |
 
-### Reserved keywords (3)
+### Reserved keywords (0)
 
-Reserved for future language features. Using them is an error today.
-
-| Keyword  | Token       | Planned use                      |
-|----------|-------------|----------------------------------|
-| `mut`    | `MutKw`     | Scoped mutability (Phase 3-1)    |
-| `async`  | `AsyncKw`   | Async functions (Phase 3-2)      |
-| `await`  | `AwaitKw`   | Await expressions (Phase 3-2)    |
+`KeywordClass::Reserved` exists for keywords held back from use. No keyword is
+currently in this class.
 
 ---
 
@@ -64,7 +63,8 @@ SourceFile         = TopLevel*
 
 TopLevel           = FnDef | TypeDef | ImportStmt | FromPythonImportStmt
 
-FnDef              = Visibility? 'fn' IDENT ParamList ReturnType? BlockExpr
+FnDef              = Visibility? FnModifier* 'fn' IDENT ParamList ReturnType? BlockExpr
+FnModifier         = 'pure' | 'async'
 Visibility         = 'pub'
 ParamList          = '(' (Param (',' Param)* ','?)? ')'
 Param              = IDENT ':' TypeExpr
@@ -83,15 +83,16 @@ ImportStmt         = 'import' Path ('as' IDENT)?
 FromPythonImportStmt = 'from' 'python' 'import' IDENT ('as' IDENT)?
 Path               = IDENT ('.' IDENT)*
 
-BlockExpr          = '{' (LetStmt | Expr)* '}'
-LetStmt            = 'let' IDENT '=' Expr
+BlockExpr          = '{' (LetStmt | AssignStmt | Expr)* '}'
+LetStmt            = 'let' 'mut'? IDENT '=' Expr
+AssignStmt         = IDENT '=' Expr
 
 Expr               = PrefixExpr | InfixExpr | PostfixExpr | Atom
 PrefixExpr         = ('-' | '!') Expr
 InfixExpr          = Expr BinOp Expr
 PostfixExpr        = Expr '(' ArgList ')' | Expr '.' IDENT
 Atom               = LiteralExpr | IdentExpr | ParenExpr | IfExpr
-                   | MatchExpr | LambdaExpr | TryExpr | ListExpr
+                   | MatchExpr | LambdaExpr | TryExpr | AwaitExpr | ListExpr
 
 LiteralExpr        = INT_LIT | FLOAT_LIT | STRING_LIT | 'True' | 'False'
 IdentExpr          = IDENT
@@ -104,6 +105,7 @@ LambdaExpr         = 'fn' LambdaParamList ReturnType? BlockExpr
 LambdaParamList    = '(' (LambdaParam (',' LambdaParam)* ','?)? ')'
 LambdaParam        = IDENT (':' TypeExpr)?
 TryExpr            = 'try' Expr
+AwaitExpr          = 'await' Expr
 ListExpr           = '[' (Expr (',' Expr)* ','?)? ']'
 ArgList            = '(' (Expr (',' Expr)* ','?)? ')'
 
@@ -139,8 +141,8 @@ These are defined as `TokenSet` constants in `asatsuyu-parser/src/parser.rs`.
 
 | Set                  | Tokens                                                                  |
 |----------------------|-------------------------------------------------------------------------|
-| `TOP_LEVEL_RECOVERY` | `fn` `pub` `type` `let` `import` `from`                                |
-| `EXPR_START`         | `-` `!` `(` `if` `match` `fn` `try` `[` INT FLOAT STRING `True` `False` IDENT |
+| `TOP_LEVEL_RECOVERY` | `fn` `pub` `type` `let` `import` `from` `async` `pure`                  |
+| `EXPR_START`         | `-` `!` `(` `if` `match` `fn` `try` `await` `[` INT FLOAT STRING `True` `False` IDENT |
 | `PATTERN_START`      | `_` INT FLOAT STRING `True` `False` IDENT `[`                          |
 | `CLOSING_DELIMITERS` | `)` `}` `]`                                                            |
 

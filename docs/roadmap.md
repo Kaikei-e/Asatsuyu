@@ -39,7 +39,7 @@ Checked FFI. It is independent of the compiler crates and does not introduce
 
 **Current metrics**:
 
-- 798+ tests passing
+- 1120 tests passing
 - Working `check`/`build`/`run`/`fmt`/`lsp` commands
 - FFI support for `pathlib`/`os`/`sys` (Verified) and `requests`/`json` (Checked)
 - Formatter: CST-based, deterministic, zero-config
@@ -252,7 +252,7 @@ multi-backend, independent environment management.
 
 **Issues 52-55.**
 
-Diagnostic contract: 44 codes in a unified `E0xxx` scheme (E0001-E0049 Lexer,
+Diagnostic contract: 54 codes in a unified `E0xxx` scheme (E0001-E0049 Lexer,
 E0050-E0099 Parser, E0100-E0149 AST, E0150-E0199 HIR, E0200-E0299 Type,
 E0300-E0399 Match, E0400-E0499 Backend). Primary labels use "expected X, found Y"
 format. Hints are imperative, notes declarative. 32 snapshot tests fix output.
@@ -307,14 +307,14 @@ Dependency workflows:
 
 **Issues 61-65.**
 
-Golden test suite: 53 cases across all pipeline stages (AST, HIR, THIR, Python,
-diagnostics) with `insta::glob!` auto-discovery. 240+ snapshots, updated only
+Golden test suite: 64 cases across all pipeline stages (AST, HIR, THIR, Python,
+diagnostics) with `insta::glob!` auto-discovery. 439 snapshots, updated only
 via `cargo insta review`.
 
-Executable fixtures: 5 projects under `fixtures/projects/` (`hello_cli`,
-`pathlib_walk`, `stdlib_ffi`, `requests_client`, `build_install`) with 17 test
-functions covering check/build/run. Includes `new -> populate -> build -> run`
-end-to-end test.
+Executable fixtures: 7 projects under `fixtures/projects/` (`async_fetch`,
+`build_install`, `hello_cli`, `mutable_counter`, `pathlib_walk`,
+`requests_client`, `stdlib_ffi`) with 23 test functions covering
+check/build/run. Includes `new -> populate -> build -> run` end-to-end test.
 
 FFI conformance CI: 3-layer gate with Rust unit tests (12 tests, insta snapshots),
 Python runtime introspection (42 tests), and E2E trust summary assertions.
@@ -376,11 +376,14 @@ They may be revisited after the MVP is validated and the core is stable.
 - Macro system
 - Class / inheritance / trait abstractions
 - Dependent types / refinement types
-- Distinguishing pure from effectful functions (not a non-goal; mechanism undecided)
 - Structured-concurrency primitives layered on the existing `async`/`await` and `Task(T)`
 
 `async`/`await`, the built-in `Task(T)` type, and `let mut` local bindings are implemented,
 not deferred. They were listed here in error.
+
+Purity is no longer undecided: the mechanism is a fixpoint over the HIR call
+graph plus an opt-in `pure` declaration — see
+[ADR 0002](adr/0002-purity-mechanism.md).
 
 **Compiler infrastructure**:
 
