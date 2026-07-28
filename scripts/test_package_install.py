@@ -32,14 +32,14 @@ INSTALLABLE_FIXTURES: list[tuple[str, list[str]]] = [
 
 
 def build_cli() -> Path:
-    """Build asatsuyu-cli and return the binary path."""
+    """Build the asatsuyu-cli crate and return the path to its `asatsuyu` binary."""
     print("Building asatsuyu-cli...")
     subprocess.run(
         ["cargo", "build", "-p", "asatsuyu-cli", "--release"],
         cwd=WORKSPACE,
         check=True,
     )
-    binary = WORKSPACE / "target" / "release" / "asatsuyu-cli"
+    binary = WORKSPACE / "target" / "release" / "asatsuyu"
     assert binary.exists(), f"binary not found: {binary}"
     return binary
 
