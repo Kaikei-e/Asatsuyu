@@ -1,8 +1,12 @@
 /target/
 dist/
 asatsuyu/target/
-.claude/
 docs/research/
+
+# AI agents / Claude Code — skills are shared, everything else is machine-local
+.claude/*
+!.claude/skills/
+.mcp.json
 
 .serena/
 __pycache__/
