@@ -45,8 +45,8 @@ pub fn register_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     Ok(())
 }
 
-#[pymodule]
-fn _asatsuyu_runtime(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pymodule(name = "_asatsuyu_runtime")]
+fn init(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_module(py, m)
 }
 

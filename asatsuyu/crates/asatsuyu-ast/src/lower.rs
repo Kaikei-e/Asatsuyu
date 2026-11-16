@@ -230,8 +230,7 @@ impl LowerCtx {
         };
 
         let params = first_child_of_kind(node, SyntaxKind::ParamList)
-            .map(|pl| self.lower_param_list(&pl))
-            .unwrap_or_default();
+            .map_or_default(|pl| self.lower_param_list(&pl));
 
         let return_type = first_child_of_kind(node, SyntaxKind::ReturnType)
             .and_then(|rt| self.lower_return_type(&rt));
@@ -644,8 +643,7 @@ impl LowerCtx {
             .and_then(|c| self.lower_expr(&c))?;
 
         let args = first_child_of_kind(node, SyntaxKind::ArgList)
-            .map(|al| self.lower_arg_list(&al))
-            .unwrap_or_default();
+            .map_or_default(|al| self.lower_arg_list(&al));
 
         Some(Expr::Call { func: Box::new(func), args, span: span_of(node, self.file_id) })
     }

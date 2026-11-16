@@ -30,6 +30,7 @@ pedantic = { level = "warn", priority = -1 }
 module_name_repetitions = "allow"
 missing_panics_doc = "allow"
 missing_errors_doc = "allow"
+assert_is_empty = "allow"
 ```
 
 ```rust
