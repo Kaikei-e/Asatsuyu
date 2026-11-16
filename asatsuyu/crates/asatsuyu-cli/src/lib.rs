@@ -213,7 +213,6 @@ enum Commands {
 // ── Entry point ────────────────────────────────────────────────────
 
 /// Run the CLI, returning an appropriate exit code.
-#[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn run() -> ExitCode {
     // Configure miette for graphical diagnostic output.

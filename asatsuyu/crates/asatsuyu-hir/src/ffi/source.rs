@@ -275,8 +275,7 @@ impl TypeSourceResolver {
                 let marker = stubs_dir.join("py.typed");
                 let is_partial = marker.is_file()
                     && std::fs::read_to_string(&marker)
-                        .ok()
-                        .is_some_and(|content| content.trim() == "partial");
+                        .is_ok_and(|content| content.trim() == "partial");
 
                 let mut paths = vec![path];
                 if is_partial
@@ -302,8 +301,7 @@ impl TypeSourceResolver {
             let marker = pkg_dir.join("py.typed");
             if marker.is_file() {
                 let is_partial = std::fs::read_to_string(&marker)
-                    .ok()
-                    .is_some_and(|content| content.trim() == "partial");
+                    .is_ok_and(|content| content.trim() == "partial");
 
                 let Some(path) = find_module_source_file(site_dir, module_name) else {
                     continue;
@@ -371,8 +369,7 @@ fn parse_bundled_versions() -> Vec<TypeshedVersionEntry> {
     BUNDLED_TYPESHED
         .get_file("VERSIONS")
         .and_then(|f| f.contents_utf8())
-        .map(parse_versions_content)
-        .unwrap_or_default()
+        .map_or_default(parse_versions_content)
 }
 
 /// Parse an external VERSIONS file.
@@ -380,8 +377,7 @@ fn parse_external_versions(typeshed_path: &Path) -> Vec<TypeshedVersionEntry> {
     let versions_path = typeshed_path.join("stdlib").join("VERSIONS");
     std::fs::read_to_string(versions_path)
         .ok()
-        .map(|content| parse_versions_content(&content))
-        .unwrap_or_default()
+        .map_or_default(|content| parse_versions_content(&content))
 }
 
 /// Parse VERSIONS file content.
