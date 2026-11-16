@@ -13,4 +13,3 @@ __pycache__/
 editors/vscode/node_modules/
 *.vsix
 .codex
-.mcp.json

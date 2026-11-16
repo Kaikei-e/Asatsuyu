@@ -155,7 +155,9 @@ cd asatsuyu && cargo insta accept               # 中身を確認したあとで
 
 ### clippy pedantic が有効
 `clippy::all` + `clippy::pedantic` が warn。allow は `module_name_repetitions` / `missing_panics_doc` /
-`missing_errors_doc` のみ。CI の clippy ジョブは `-D warnings` を付けていないが、ローカルの基準は付ける。
+`missing_errors_doc` / `assert_is_empty` のみ。CI の clippy ジョブはコマンドに `-D warnings` を付けていないが、
+`setup-rust-toolchain` が `RUSTFLAGS=-D warnings` を設定するので警告で落ちる。toolchain は固定していないため、
+stable の更新で新しい lint が増えると CI が先に赤くなる。
 
 ### 単一 SyntaxKind enum
 トークンとノードの両方を単一の `#[repr(u16)] SyntaxKind` enum で表現する（rust-analyzer パターン）。
